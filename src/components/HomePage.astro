@@ -2,6 +2,7 @@
 import "../styles/global.css";
 import Navbar from "./Navbar.astro";
 import quotes from "../../public/quotes.json";
+import DefaultsButtons from "./DefaultsButtons.astro";
 
 interface Quote {
   text: string;
@@ -24,23 +25,10 @@ const randomQuote = typedQuotes[Math.floor(Math.random() * typedQuotes.length)];
                 </p>
             </div>
             <div class="flex-grow"/>
-            <a class="text-blue-500 font-semibold hover:underline cursor-pointer" href="https://github.com/shakirth-anisha">
+            <a class="text-blue-500 font-semibold hover:underline cursor-pointer text-[1.65vh]" href="https://github.com/shakirth-anisha">
                 Designed by Anisha
             </a>
         </div>
-        <div class="w-1/2 bg-black flex space-x-[1.5vh] mt-[1vh]">
-            <div class="w-1/3 bg-[#161717] h-[15vh] rounded-[1.5vh] overflow-hidden">
-                <div class="w-full h-[0.5vh] bg-blue-500"></div>
-                <h1>hello</h1>
-            </div>
-            <div class="w-1/3 bg-[#161717] h-[15vh] rounded-[1.5vh] overflow-hidden">
-                <div class="w-full h-[0.5vh] bg-purple-700 "></div>
-                <h1>hello</h1>
-            </div>
-            <div class="w-1/3 bg-[#161717] h-[15vh] rounded-[1.5vh] overflow-hidden">
-                <div class="w-full h-[0.5vh] bg-green-600"></div>
-                <h1>hello</h1>
-            </div>
-        </div>
+        <DefaultsButtons />
     </div>
 <div> 
