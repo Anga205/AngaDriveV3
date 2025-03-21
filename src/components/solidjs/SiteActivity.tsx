@@ -21,7 +21,7 @@ const SiteActivity: Component = () => {
                 data: [124, 83, 46, 36, 64, 54, 70],
                 borderColor: 'rgba(75, 75, 192, 1)',
                 backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                borderWidth: 1.5,
+                borderWidth: 1.5
             },
         ],
     }
@@ -44,12 +44,13 @@ const SiteActivity: Component = () => {
                 ticks: {
                     color: 'rgba(255, 255, 255, 0.3)',
                 },
+                beginAtZero: true
             }
         }
     }
 
     return (
-        <div class="w-full h-full pb-[2vh]">
+        <div class="w-full h-full">
             <Line data={chartData} options={chartOptions} />
         </div>
     )
