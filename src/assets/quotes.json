@@ -1,0 +1,46 @@
+[
+    {
+        "text": "The only way to do great work is to love what you do.", 
+        "author": "Steve Jobs" 
+    },
+    {
+        "text": "Free software is a matter of liberty, not price.",
+        "author": "Richard Stallman"
+    },
+    {
+        "text": "Done is better than perfect.",
+        "author": "Sheryl Sandberg"
+    },
+    {
+        "text": "Do what you can, with what you have, where you are.",
+        "author": "Theodore Roosevelt"
+    },
+    {
+        "text": "Simplicity is the soul of efficiency.",
+        "author": "Austin Freeman"
+    },
+    {
+        "text": "Before software can be reusable it first has to be usable.",
+        "author": "Ralph Johnson"
+    },
+    {
+        "text": "Work hard until you don't have to introduce yourself.",
+        "author": "Ankith Khaitan"
+    },
+    {
+        "text": "The best way to predict the future is to invent it.",
+        "author": "Alan Kay"
+    },
+    {
+        "text": "In web development, speed isn't just technical - it's ethical.",
+        "author": "Alex Russell"
+    },
+    {
+        "text": "Speed is a feature. Rigorously prioritize performance.",
+        "author": "Addy Osmani"
+    },
+    {
+        "text": "The most efficient code is the code that never runs.",
+        "author": "Kyle Simpson"
+    }
+]
