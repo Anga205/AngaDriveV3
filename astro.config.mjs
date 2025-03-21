@@ -6,7 +6,10 @@ import solidJs from '@astrojs/solid-js';
 // https://astro.build/config
 export default defineConfig({
     vite: {
-        plugins: [tailwindcss()],  
+        plugins: [tailwindcss()],
+        server: {
+            allowedHosts: ['astro.angadbhalla.com'], // Add the allowed host here
+        },
     },
     integrations: [solidJs()],
 });
