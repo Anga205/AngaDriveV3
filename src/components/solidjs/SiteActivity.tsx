@@ -2,7 +2,6 @@ import type { Component } from 'solid-js';
 import { onMount } from 'solid-js';
 import { Chart, Title, Tooltip, Colors } from 'chart.js'
 import { Line } from 'solid-chartjs'
-import { color } from 'chart.js/helpers';
 
 const SiteActivity: Component = () => {
     /**

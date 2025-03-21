@@ -16,19 +16,19 @@ import {RAMUsage, CPUUsage} from "./solidjs/CircularProgress.tsx"
                 <div class="h-[71.5vh] space-y-[1.5vh] pb-[1.5vh]">
                     <div class="w-full h-5/12 max-h-5/12 bg-[#242424] flex flex-col rounded-[1.5vh] pt-[2.5vh] p-[1.65vh] overflow-hidden justify-center items-center" style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
                         <p class="text-white font-semibold text-[2vh]">Site Activity Over Past Week</p>
-                        <SiteActivity client:idle/>
+                        <SiteActivity client:load/>
                     </div>
                     <div class="w-full h-7/12 flex space-x-[1.5vh]">
                         <div class="w-1/2 bg-[#242424] rounded-[1.5vh] p-[1.65vh]" style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
                             <p class="text-white font-semibold text-[2vh]">Ram Usage</p>
                             <div class="w-full h-full flex justify-center items-center overflow-hidden">
-                                <RAMUsage client:idle/>
+                                <RAMUsage client:load/>
                             </div>
                         </div>
                         <div class="w-1/2 bg-[#242424] rounded-[1.5vh] p-[1.65vh]" style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
                             <p class="text-white font-semibold text-[2vh]">CPU Usage</p>
                             <div class="w-full h-full flex justify-center items-center overflow-hidden">
-                                <CPUUsage client:idle/>
+                                <CPUUsage client:load/>
                             </div>
                         </div>
                     </div> 
@@ -57,7 +57,7 @@ import {RAMUsage, CPUUsage} from "./solidjs/CircularProgress.tsx"
                     </div>
                     <div class="justify-center items-center flex flex-col w-full h-[30%] rounded-[1.5vh] bg-[#242424] pt-[2.5vh] p-[2vh]" style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
                         <p class="text-white font-semibold text-[2vh]">Space Used</p>
-                        <SiteActivity client:idle/>
+                        <SiteActivity client:load/>
                     </div>
                 </div>
             </div>
