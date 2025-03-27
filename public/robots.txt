@@ -1,4 +1,0 @@
-User-agent: *
-Disallow: /i/*
-Disallow: /my_collections
-Disallow: /my_drive
