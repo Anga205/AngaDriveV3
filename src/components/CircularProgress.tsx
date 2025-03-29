@@ -37,9 +37,9 @@ const RAMUsage: Component = () => {
             <Doughnut data={chartData} options={chartOptions} />
             <div class="top-0 left-0 z-10 flex flex-col items-center justify-center w-full h-full absolute">
                 <div class="flex flex-col items-center justify-center">
-                    <p class="text-white text-[3vh]">901.82 MB</p>
+                    <p class="text-white text-[3.5vw] md:text-[1.5vw]">901.82 MB</p>
                     <div class="bg-white w-full h-[1px]"/>
-                    <p class="text-white text-[3vh]">7.89 GB</p>
+                    <p class="text-white text-[3.5vw] md:text-[1.5vw]">7.89 GB</p>
                 </div>
             </div>
         </div>
@@ -79,7 +79,7 @@ const CPUUsage: Component = () => {
             <Doughnut data={chartData} options={chartOptions} />
             <div class="top-0 left-0 z-10 flex flex-col items-center justify-center w-full h-full absolute">
                 <div class="flex flex-col items-center justify-center">
-                    <p class="text-white text-[5vh]">61%</p>
+                    <p class="text-white text-[6vw] md:text-[2.5vw]">61%</p>
                 </div>
             </div>
         </div>

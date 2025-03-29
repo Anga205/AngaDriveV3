@@ -3,7 +3,7 @@ import { CollectionSVG, FileSVG, GitHubSVG, HomeSVG, UserSVG } from '../assets/S
 
 const Navbar: Component = () => {
     return (
-        <div class="bg-[#161717] h-screen w-[5.2%] border-white md:flex hidden flex-col items-center">
+        <div class="bg-[#161717] h-screen w-[4.5vw] border-white flex flex-col items-center">
             <div class="p-[20%] h-[10vh]">
                 <img src="/anga.svg" alt="Anga Logo" class="w-full h-auto" />
             </div>
