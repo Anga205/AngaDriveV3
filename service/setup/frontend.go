@@ -99,6 +99,8 @@ func getContentType(path string) string {
 		return "application/javascript"
 	case strings.HasSuffix(path, ".png"): // i dont even have any png files but whatever
 		return "image/png"
+	case strings.HasSuffix(path, ".svg"):
+		return "image/svg+xml"
 	default:
 		return "text/html"
 	}
