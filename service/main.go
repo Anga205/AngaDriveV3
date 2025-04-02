@@ -1,17 +1,15 @@
 package main
 
 import (
-	"service/setup"
-
-	"github.com/gin-gonic/gin"
+	"service/sysinfo"
 )
 
 func main() {
+	// r := gin.Default()
+	// setup.SetupFrontend(r)
+	// setup.SetupDB(global.UploadedFilesDir)
 
-	uploadedFilesDir := "uploaded_files"
+	sysinfo.GetSysInfo()
 
-	r := gin.Default()
-	setup.SetupFrontend(r)
-	setup.SetupDB(uploadedFilesDir)
-	r.Run()
+	// r.Run()
 }

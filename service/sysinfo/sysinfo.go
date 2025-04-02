@@ -2,6 +2,9 @@ package sysinfo
 
 import (
 	"log"
+	"os"
+	"path/filepath"
+	"service/global"
 	"time"
 
 	"github.com/shirou/gopsutil/cpu"
@@ -39,9 +42,20 @@ func getRAMinfo() (RAMInfo, error) {
 }
 
 func getSpaceUsed() (int, error) {
-	// Placeholder for space used retrieval logic
-	spaceUsed := 1024 // in MB
-	return spaceUsed, nil
+	var totalSize int
+	err := filepath.Walk(global.UploadedFilesDir, func(_ string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			totalSize += int(info.Size())
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	return totalSize, nil
 }
 
 func GetSysInfo() (SystemInfo, error) {
@@ -57,7 +71,7 @@ func GetSysInfo() (SystemInfo, error) {
 
 	spaceUsed, err := getSpaceUsed()
 	if err != nil {
-		return SystemInfo{}, err
+		spaceUsed = 0
 	}
 
 	sysInfo := SystemInfo{
