@@ -6,9 +6,8 @@ import (
 	"path/filepath"
 )
 
-func DBexists(name string) bool {
-	uploadedFilesDir := "uploaded_files"
-	filePath := filepath.Join(uploadedFilesDir, name)
+func DBexists(uploadedFilesDir string) bool {
+	filePath := filepath.Join(uploadedFilesDir, "rx.db")
 
 	if _, err := os.Stat(filePath); err == nil {
 		return true
@@ -20,12 +19,12 @@ func DBexists(name string) bool {
 	}
 }
 
-func SetupDB(name string) error {
-	if DBexists(name) {
-		fmt.Printf("database %s already exists\n", name)
+func SetupDB(uploadedFilesDir string) error {
+	if DBexists(uploadedFilesDir) {
+		fmt.Printf("database %s already exists\n", uploadedFilesDir)
 		return nil
 	} else {
-		fmt.Printf("Database %s does not exist, creating...\n", name)
+		fmt.Printf("Database %s does not exist, creating...\n", uploadedFilesDir)
 		return nil
 	}
 }

@@ -7,8 +7,11 @@ import (
 )
 
 func main() {
+
+	uploadedFilesDir := "uploaded_files"
+
 	r := gin.Default()
 	setup.SetupFrontend(r)
-	setup.SetupDB("test.db")
+	setup.SetupDB(uploadedFilesDir)
 	r.Run()
 }
