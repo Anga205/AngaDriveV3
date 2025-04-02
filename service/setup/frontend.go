@@ -43,7 +43,7 @@ func compileFrontend() {
 	fmt.Println("Build completed and dist directory moved to service.")
 }
 
-var fileCache = make(map[string][]byte) // Map where the file paths are keys and the file contents are values
+var fileCache = make(map[string][]byte) // this map is basically what im using to load everything into ram
 
 // im doing hella vibe-coding rn, dont mind the comments, its just to help me understand later
 func setupRoutes(r *gin.Engine, distPath string) {
