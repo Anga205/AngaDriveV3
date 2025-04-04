@@ -3,16 +3,17 @@ import {DefaultsButtons, MobileButtons} from "../components/DefaultsButtons";
 import {Header, MobileHeader} from "../components/Header";
 import { RAMUsage, CPUUsage } from "../components/CircularProgress";
 import SiteActivity from "../components/SiteActivity";
-import { Component } from "solid-js";
+import { Component, onMount, onCleanup, createSignal } from "solid-js";
 import { Butterfly, HamburgerSVG } from "../assets/SvgFiles";
+import type { CPUData, RAMData, SysInfo } from "../types/types";
 
 
-const DesktopHome: Component = () => {
+const DesktopHome: Component<{ ramdata: RAMData; cpudata: CPUData }> = (props) => {
     return (
         <div class="max-h-screen w-screen flex items-start bg-black overflow-hidden">
             <Navbar />
             <div class="flex flex-col w-[95.5vw] h-screen pl-[2vh] pr-[1vh] py-[1vh] space-y-[1.5vh]">
-                <Header/>
+                <Header />
                 <div class="flex w-full h-full space-x-[1.5vh]">
                     <div class="flex flex-col w-1/2 h-full space-y-[1.5vh]">
                         <DefaultsButtons />
@@ -25,13 +26,13 @@ const DesktopHome: Component = () => {
                                 <div class="w-1/2 bg-[#242424] rounded-[1.5vh] p-[1.65vh]" style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
                                     <p class="text-white font-semibold text-[2vh]">Ram Usage</p>
                                     <div class="w-full h-full flex justify-center items-center overflow-hidden">
-                                        <RAMUsage />
+                                        <RAMUsage data={props.ramdata} />
                                     </div>
                                 </div>
                                 <div class="w-1/2 bg-[#242424] rounded-[1.5vh] p-[1.65vh]" style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
                                     <p class="text-white font-semibold text-[2vh]">CPU Usage</p>
                                     <div class="w-full h-full flex justify-center items-center overflow-hidden">
-                                        <CPUUsage />
+                                        <CPUUsage data={props.cpudata}/>
                                     </div>
                                 </div>
                             </div> 
@@ -70,7 +71,7 @@ const DesktopHome: Component = () => {
     )
 }
 
-const MobileHome: Component = () => {
+const MobileHome: Component<{ ramdata: RAMData; cpudata: CPUData }> = (props) => {
     return (
         <div class="relative w-full min-h-screen">
             <div class="h-screen w-full bg-black flex items-center justify-center p-[5%] fixed">
@@ -98,13 +99,13 @@ const MobileHome: Component = () => {
                         <p class="text-center w-full font-black text-white">
                             RAM Usage
                         </p>
-                        <RAMUsage />
+                        <RAMUsage data={props.ramdata} />
                     </div>
                     <div class="flex flex-col justify-center items-center w-1/2 aspect-square bg-[#242424] rounded-xl">
                         <p class="text-center w-full font-black text-white">
                             CPU Usage
                         </p>
-                        <CPUUsage />
+                        <CPUUsage data={props.cpudata}/>
                     </div>
                 </div>
                 <div class="w-full px-[1.5vh] opacity-95">
@@ -140,8 +141,60 @@ const MobileHome: Component = () => {
 
 const HomePage: Component = () => {
     const isMobile = window.innerWidth <= 768;
+    let socket: WebSocket | undefined;
+    const [systemInformation, setSystemInformation] = createSignal<SysInfo | null>(null);
+    const [connectionStatus, setConnectionStatus] = createSignal<'connecting' | 'connected' | 'error'>('connecting');
 
-    return isMobile ? <MobileHome /> : <DesktopHome />;
+    onMount(() => {
+        socket = new WebSocket('ws://localhost:8080/ws');
+        
+        socket.addEventListener('open', () => {
+            console.log('WebSocket connection established');
+            setConnectionStatus('connected');
+        });
+        
+        socket.addEventListener('message', (event) => {
+            try {
+                const data = JSON.parse(event.data) as SysInfo;
+                setSystemInformation(data);
+            } catch (error) {
+                console.error('Failed to parse WebSocket message:', error);
+                setConnectionStatus('error');
+            }
+        });
+        
+        socket.addEventListener('error', () => {
+            console.error('WebSocket error');
+            setConnectionStatus('error');
+        });
+        
+        socket.addEventListener('close', () => {
+            console.log('WebSocket connection closed');
+        });
+    });
+      
+    onCleanup(() => {
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.close();
+        }
+    });
+
+    return (
+        <>
+            {connectionStatus() === 'connecting' && <div>Connecting to server...</div>}
+            {connectionStatus() === 'error' && <div>Connection error</div>}
+            
+            {systemInformation() ? (
+                isMobile ? (
+                    <MobileHome cpudata={systemInformation()!.cpu} ramdata={systemInformation()!.ram} />
+                ) : (
+                    <DesktopHome cpudata={systemInformation()!.cpu} ramdata={systemInformation()!.ram} />
+                )
+            ) : connectionStatus() === 'connected' ? (
+                <div>Waiting for data...</div>
+            ) : null}
+        </>
+    );
 }
 
 export default HomePage;
