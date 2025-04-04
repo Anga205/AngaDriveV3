@@ -12,6 +12,7 @@ import (
 
 // excuse the shitload of comments, i have no clue what im doing
 func SetupWebsocket(r *gin.Engine) {
+	sysinfo.InitializeSysInfo()
 	r.GET("/ws", func(c *gin.Context) {
 		// Upgrade the connection to a websocket
 		conn, err := upgradeToWebSocket(c)

@@ -12,7 +12,7 @@ import (
 )
 
 func getCPUinfo() (CPUInfo, error) {
-	percentage, err := cpu.Percent(100*time.Millisecond, false)
+	percentage, err := cpu.Percent(500*time.Millisecond, false)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -58,27 +58,34 @@ func getSpaceUsed() (int, error) {
 	return totalSize, nil
 }
 
+var currentSysInfo SystemInfo
+
+func InitializeSysInfo() {
+	go func() {
+		for {
+			cpuInfo, _ := getCPUinfo()
+			currentSysInfo.CPU = cpuInfo
+			time.Sleep(time.Millisecond)
+		}
+	}()
+
+	go func() {
+		for {
+			ramInfo, _ := getRAMinfo()
+			currentSysInfo.RAM = ramInfo
+			time.Sleep(100 * time.Millisecond)
+		}
+	}()
+
+	go func() {
+		for {
+			spaceUsed, _ := getSpaceUsed()
+			currentSysInfo.SpaceUsed = spaceUsed
+			time.Sleep(1 * time.Minute)
+		}
+	}()
+}
+
 func GetSysInfo() (SystemInfo, error) {
-	cpuInfo, err := getCPUinfo()
-	if err != nil {
-		return SystemInfo{}, err
-	}
-
-	ramInfo, err := getRAMinfo()
-	if err != nil {
-		return SystemInfo{}, err
-	}
-
-	spaceUsed, err := getSpaceUsed()
-	if err != nil {
-		spaceUsed = 0
-	}
-
-	sysInfo := SystemInfo{
-		CPU:       cpuInfo,
-		RAM:       ramInfo,
-		SpaceUsed: spaceUsed,
-	}
-
-	return sysInfo, nil
+	return currentSysInfo, nil
 }
