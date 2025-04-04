@@ -8,66 +8,66 @@ import { Butterfly, HamburgerSVG } from "../assets/SvgFiles";
 
 
 const DesktopHome: Component = () => {
-  return (
-      <div class="max-h-screen w-screen flex items-start bg-black overflow-hidden">
-          <Navbar />
-          <div class="flex flex-col w-[95.5vw] h-screen pl-[2vh] pr-[1vh] py-[1vh] space-y-[1.5vh]">
-              <Header/>
-              <div class="flex w-full h-full space-x-[1.5vh]">
-                  <div class="flex flex-col w-1/2 h-full space-y-[1.5vh]">
-                      <DefaultsButtons />
-                      <div class="h-[71.5vh] space-y-[1.5vh] pb-[1.5vh]">
-                          <div class="w-full h-5/12 max-h-5/12 bg-[#242424] flex flex-col rounded-[1.5vh] pt-[2.5vh] p-[1.65vh] overflow-hidden justify-center items-center" style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
-                              <p class="text-white font-semibold text-[2vh]">Site Activity Over Past Week</p>
-                              <SiteActivity />
-                          </div>
-                          <div class="w-full h-7/12 flex space-x-[1.5vh]">
-                              <div class="w-1/2 bg-[#242424] rounded-[1.5vh] p-[1.65vh]" style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
-                                  <p class="text-white font-semibold text-[2vh]">Ram Usage</p>
-                                  <div class="w-full h-full flex justify-center items-center overflow-hidden">
-                                      <RAMUsage />
-                                  </div>
-                              </div>
-                              <div class="w-1/2 bg-[#242424] rounded-[1.5vh] p-[1.65vh]" style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
-                                  <p class="text-white font-semibold text-[2vh]">CPU Usage</p>
-                                  <div class="w-full h-full flex justify-center items-center overflow-hidden">
-                                      <CPUUsage />
-                                  </div>
-                              </div>
-                          </div> 
-                      </div>
-                  </div>
-                  <div class="w-1/2 h-full relative">
-                      <div class="w-[80%] h-1/2 flex justify-end items-end pl-[0.5vw]">
-                          <Butterfly />
-                      </div>
-                      <div class="absolute top-0 left-0 w-full h-full flex flex-col space-y-[1.5vh]">
-                          <div class="space-x-[1.5vh] items-end flex w-full h-[70%]">
-                              <div class="bg-[#242424] h-[20vh] w-[28%] flex flex-col items-center justify-center p-[1vh] rounded-[1.5vh]" style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
-                                  <p class="text-white font-semibold text-[0.9vw]">Users</p>
-                                  <p class="text-white font-semibold text-[5vw]">33</p>
-                              </div>
-                              <div class="bg-[#242424] h-[20vh] w-[28%] flex flex-col justify-center items-center p-[1vh] rounded-[1.5vh] overflow-hidden" style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
-                                  <p class="text-white font-semibold text-[0.9vw]">Files Hosted</p>
-                                  <p class="text-white font-semibold text-[4vw]">1619</p>
-                              </div>
-                              <div class="bg-[#242424] h-[38vh] w-[44%] rounded-[1.5vh] flex flex-col justify-center items-center p-[2vh] space-y-[2vh]" style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
-                                  <p class="text-white font-semibold text-[2vh]">Send me an Email</p>
-                                  <input placeholder="Your Email" class="text-[1.65vh] w-full bg-[#323232] placeholder-[#959595] p-[0.8vh] rounded-[0.3vh]" />
-                                  <textarea placeholder="Your Message" class="text-[1.65vh] w-full bg-[#323232] placeholder-[#959595] p-[0.8vh] rounded-[0.3vh] h-full" />
-                                  <button class="bg-blue-500 text-white font-semibold text-[1.65vh] p-[0.8vh] rounded-[0.3vh] w-full">Send</button>
-                              </div>
-                          </div>
-                          <div class="justify-center items-center flex flex-col w-full h-[30%] rounded-[1.5vh] bg-[#242424] pt-[2.5vh] p-[2vh]" style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
-                              <p class="text-white font-semibold text-[2vh]">Space Used</p>
-                              <SiteActivity />
-                          </div>
-                      </div>
-                  </div>
-              </div>
-          </div>
-      </div> 
-  )
+    return (
+        <div class="max-h-screen w-screen flex items-start bg-black overflow-hidden">
+            <Navbar />
+            <div class="flex flex-col w-[95.5vw] h-screen pl-[2vh] pr-[1vh] py-[1vh] space-y-[1.5vh]">
+                <Header/>
+                <div class="flex w-full h-full space-x-[1.5vh]">
+                    <div class="flex flex-col w-1/2 h-full space-y-[1.5vh]">
+                        <DefaultsButtons />
+                        <div class="h-[71.5vh] space-y-[1.5vh] pb-[1.5vh]">
+                            <div class="w-full h-5/12 max-h-5/12 bg-[#242424] flex flex-col rounded-[1.5vh] pt-[2.5vh] p-[1.65vh] overflow-hidden justify-center items-center" style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
+                                <p class="text-white font-semibold text-[2vh]">Site Activity Over Past Week</p>
+                                <SiteActivity />
+                            </div>
+                            <div class="w-full h-7/12 flex space-x-[1.5vh]">
+                                <div class="w-1/2 bg-[#242424] rounded-[1.5vh] p-[1.65vh]" style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
+                                    <p class="text-white font-semibold text-[2vh]">Ram Usage</p>
+                                    <div class="w-full h-full flex justify-center items-center overflow-hidden">
+                                        <RAMUsage />
+                                    </div>
+                                </div>
+                                <div class="w-1/2 bg-[#242424] rounded-[1.5vh] p-[1.65vh]" style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
+                                    <p class="text-white font-semibold text-[2vh]">CPU Usage</p>
+                                    <div class="w-full h-full flex justify-center items-center overflow-hidden">
+                                        <CPUUsage />
+                                    </div>
+                                </div>
+                            </div> 
+                        </div>
+                    </div>
+                    <div class="w-1/2 h-full relative">
+                        <div class="w-[80%] h-1/2 flex justify-end items-end pl-[0.5vw]">
+                            <Butterfly />
+                        </div>
+                        <div class="absolute top-0 left-0 w-full h-full flex flex-col space-y-[1.5vh]">
+                            <div class="space-x-[1.5vh] items-end flex w-full h-[70%]">
+                                <div class="bg-[#242424] h-[20vh] w-[28%] flex flex-col items-center justify-center p-[1vh] rounded-[1.5vh]" style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
+                                    <p class="text-white font-semibold text-[0.9vw]">Users</p>
+                                    <p class="text-white font-semibold text-[5vw]">33</p>
+                                </div>
+                                <div class="bg-[#242424] h-[20vh] w-[28%] flex flex-col justify-center items-center p-[1vh] rounded-[1.5vh] overflow-hidden" style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
+                                    <p class="text-white font-semibold text-[0.9vw]">Files Hosted</p>
+                                    <p class="text-white font-semibold text-[4vw]">1619</p>
+                                </div>
+                                <div class="bg-[#242424] h-[38vh] w-[44%] rounded-[1.5vh] flex flex-col justify-center items-center p-[2vh] space-y-[2vh]" style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
+                                    <p class="text-white font-semibold text-[2vh]">Send me an Email</p>
+                                    <input placeholder="Your Email" class="text-[1.65vh] w-full bg-[#323232] placeholder-[#959595] p-[0.8vh] rounded-[0.3vh]" />
+                                    <textarea placeholder="Your Message" class="text-[1.65vh] w-full bg-[#323232] placeholder-[#959595] p-[0.8vh] rounded-[0.3vh] h-full" />
+                                    <button class="bg-blue-500 text-white font-semibold text-[1.65vh] p-[0.8vh] rounded-[0.3vh] w-full">Send</button>
+                                </div>
+                            </div>
+                            <div class="justify-center items-center flex flex-col w-full h-[30%] rounded-[1.5vh] bg-[#242424] pt-[2.5vh] p-[2vh]" style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
+                                <p class="text-white font-semibold text-[2vh]">Space Used</p>
+                                <SiteActivity />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div> 
+    )
 }
 
 const MobileHome: Component = () => {
