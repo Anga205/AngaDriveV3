@@ -1,15 +1,18 @@
 package main
 
 import (
-	"service/sysinfo"
+	"service/global"
+	"service/setup"
+
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
-	// r := gin.Default()
-	// setup.SetupFrontend(r)
-	// setup.SetupDB(global.UploadedFilesDir)
+	r := gin.Default()
+	setup.SetupFrontend(r)
+	setup.SetupDB(global.UploadedFilesDir)
 
-	sysinfo.GetSysInfo()
+	setup.SetupWebsocket(r)
 
-	// r.Run()
+	r.Run()
 }
