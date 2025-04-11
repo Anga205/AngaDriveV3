@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"service/database"
 )
 
 func DBexists(uploadedFilesDir string) bool {
@@ -21,10 +22,14 @@ func DBexists(uploadedFilesDir string) bool {
 
 func SetupDB(uploadedFilesDir string) error {
 	if DBexists(uploadedFilesDir) {
-		fmt.Printf("database %s already exists\n", uploadedFilesDir)
+		fmt.Printf("[GIN-debug] Database %s already exists\n", uploadedFilesDir)
 		return nil
 	} else {
-		fmt.Printf("Database %s does not exist, creating...\n", uploadedFilesDir)
+		fmt.Printf("[GIN-debug] Database %s does not exist, creating...\n", uploadedFilesDir)
+		err := database.CreateDatabase(uploadedFilesDir)
+		if err != nil {
+			return fmt.Errorf("SetupDB: %w", err)
+		}
 		return nil
 	}
 }

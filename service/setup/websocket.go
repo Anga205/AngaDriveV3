@@ -80,7 +80,6 @@ func sendPeriodicUpdates(conn *websocket.Conn, stopUpdates chan bool) {
 		case <-ticker.C:
 			sysinfo, _ := sysinfo.GetSysInfo()
 			if err := conn.WriteJSON(sysinfo); err != nil {
-				fmt.Println("Error sending update:", err)
 				return
 			}
 		case <-stopUpdates:

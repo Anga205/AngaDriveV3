@@ -9,7 +9,12 @@ import (
 
 func main() {
 	r := gin.Default()
-	setup.SetupFrontend(r)
+
+	err := setup.SetupFrontend(r)
+	if err != nil {
+		panic(err)
+	}
+
 	setup.SetupDB(global.UploadedFilesDir)
 
 	setup.SetupWebsocket(r)

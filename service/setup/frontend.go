@@ -11,36 +11,34 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func compileFrontend() {
-	fmt.Println("Building the dist directory...")
+func compileFrontend() error {
+	fmt.Println("[GIN-debug] Building the dist directory...")
 	if err := os.Chdir(".."); err != nil {
-		fmt.Println("Error changing directory:", err)
-		return
+		return fmt.Errorf("[compileFrontend] error changing to parent directory: %w", err)
 	}
 	if err := os.Chdir("web"); err != nil {
-		fmt.Println("Error changing to 'web' directory:", err)
-		return
+		return fmt.Errorf("[compileFrontend] error changing to 'web' directory: %w", err)
 	}
 	if _, err := os.Stat("node_modules"); os.IsNotExist(err) {
 		fmt.Println("node_modules not found, running 'bun install'...")
 		if err := exec.Command("bun", "install").Run(); err != nil {
-			fmt.Println("Error running 'bun install':", err)
-			return
+			return fmt.Errorf("[compileFrontend] error running 'bun install': %w", err)
 		}
 	}
 	if err := exec.Command("bun", "run", "build").Run(); err != nil {
-		fmt.Println("Error running 'bun run build':", err)
-		return
+		return fmt.Errorf("[compileFrontend] error running 'bun run build': %w", err)
 	}
 	if err := os.Chdir(".."); err != nil {
-		fmt.Println("Error changing back to parent directory:", err)
-		return
+		return fmt.Errorf("[compileFrontend] error changing to parent directory: %w", err)
 	}
 	if err := os.Rename("web/dist", "service/dist"); err != nil {
-		fmt.Println("Error moving 'web/dist' to 'service/dist':", err)
-		return
+		return fmt.Errorf("[compileFrontend] error moving dist directory: %w", err)
 	}
-	fmt.Println("Build completed and dist directory moved to service.")
+	if err := os.Chdir("service"); err != nil {
+		return fmt.Errorf("[compileFrontend] error changing to 'service' directory: %w", err)
+	}
+	fmt.Println("[GIN-debug] Build completed and dist directory moved to service.")
+	return nil
 }
 
 var fileCache = make(map[string][]byte) // this map is basically what im using to load everything into ram
@@ -106,19 +104,22 @@ func getContentType(path string) string {
 	}
 }
 
-func SetupFrontend(r *gin.Engine) {
+func SetupFrontend(r *gin.Engine) error {
 	cwd, err := os.Getwd()
 	if err != nil {
-		fmt.Println("Error getting current working directory:", err)
-		return
+		return fmt.Errorf("[SetupFrontend] error getting current working directory: %w", err)
 	}
 	if _, err := os.Stat(cwd + "/dist"); os.IsNotExist(err) {
-		fmt.Println("Building frontend...")
-		compileFrontend()
+		fmt.Println("[GIN-debug] Building frontend...")
+		err := compileFrontend()
+		if err != nil {
+			return fmt.Errorf("[SetupFrontend] error compiling frontend: %w", err)
+		}
 	} else {
-		fmt.Println("Found existing dist directory, skipping build process.")
+		fmt.Println("[GIN-debug] Found existing dist directory, skipping build process.")
 	}
 	distPath := cwd + "/dist"
 	setupRoutes(r, distPath)
-	fmt.Println("Frontend setup completed.")
+	fmt.Println("[GIN-debug] Frontend setup completed.")
+	return nil
 }
