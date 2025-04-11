@@ -6,6 +6,7 @@ import SiteActivity from "../components/SiteActivity";
 import { Component, onMount, onCleanup, createSignal } from "solid-js";
 import { Butterfly, HamburgerSVG } from "../assets/SvgFiles";
 import type { CPUData, RAMData, SysInfo } from "../types/types";
+import ContactMe from "../components/ContactMe";
 
 
 const DesktopHome: Component<{ ramdata: RAMData; cpudata: CPUData }> = (props) => {
@@ -52,12 +53,7 @@ const DesktopHome: Component<{ ramdata: RAMData; cpudata: CPUData }> = (props) =
                                     <p class="text-white font-semibold text-[0.9vw]">Files Hosted</p>
                                     <p class="text-white font-semibold text-[4vw]">1619</p>
                                 </div>
-                                <div class="bg-[#242424] h-[38vh] w-[44%] rounded-[1.5vh] flex flex-col justify-center items-center p-[2vh] space-y-[2vh]" style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
-                                    <p class="text-white font-semibold text-[2vh]">Send me an Email</p>
-                                    <input placeholder="Your Email" class="text-[1.65vh] w-full bg-[#323232] placeholder-[#959595] p-[0.8vh] rounded-[0.3vh]" />
-                                    <textarea placeholder="Your Message" class="text-[1.65vh] w-full bg-[#323232] placeholder-[#959595] p-[0.8vh] rounded-[0.3vh] h-full" />
-                                    <button class="bg-blue-500 text-white font-semibold text-[1.65vh] p-[0.8vh] rounded-[0.3vh] w-full">Send</button>
-                                </div>
+                                <ContactMe />
                             </div>
                             <div class="justify-center items-center flex flex-col w-full h-[30%] rounded-[1.5vh] bg-[#242424] pt-[2.5vh] p-[2vh]" style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
                                 <p class="text-white font-semibold text-[2vh]">Space Used</p>
@@ -116,7 +112,7 @@ const MobileHome: Component<{ ramdata: RAMData; cpudata: CPUData }> = (props) =>
                         <SiteActivity />
                     </div>
                 </div>
-                <div class="w-full px-[1.5vh] opacity-95 flex space-x-[1.5vh]">
+                <div class="w-full px-[1.5vh] opacity-95 flex space-x-[1.5vh] pb-[1.5vh]">
                     <div class="w-1/3 flex flex-col space-y-[1.5vh]">
                         <div class="flex justify-center items-center flex-col flex-grow bg-[#242424] rounded-xl p-[1vw]">
                             <p class="text-center font-black text-white text-[5vw]">Users</p>
@@ -127,12 +123,7 @@ const MobileHome: Component<{ ramdata: RAMData; cpudata: CPUData }> = (props) =>
                             <p class="text-center font-black text-white text-[6vw]">1619</p>
                         </div>
                     </div>
-                    <div class="w-2/3 aspect-[2/1] bg-[#242424] rounded-xl flex flex-col justify-center items-center p-[2vh] space-y-[2vh]">
-                        <p class="text-white font-semibold text-[4vw]">Send me an Email</p>
-                        <input placeholder="Your Email" class="text-[3vw] w-full bg-[#323232] placeholder-[#959595] p-[1vh] rounded-[0.5vh]" />
-                        <textarea placeholder="Your Message" class="text-[3vw] w-full bg-[#323232] placeholder-[#959595] p-[1vh] rounded-[0.5vh] h-full" />
-                        <button class="bg-blue-500 text-white font-semibold text-[3vw] p-[1vh] rounded-[0.5vh] w-full">Send</button>
-                    </div>
+                    <ContactMe />
                 </div>
             </div>
         </div>
@@ -158,7 +149,8 @@ const HomePage: Component = () => {
     onMount(() => {
         const host = window.location.host;
         const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-        socket = new WebSocket(`${protocol}://${host}/ws`);
+        const isViteDev = import.meta.env.DEV;
+        socket = new WebSocket(isViteDev ? "ws://localhost:8080" : `${protocol}://${host}/ws`);
         
         
         socket.addEventListener('open', () => {
