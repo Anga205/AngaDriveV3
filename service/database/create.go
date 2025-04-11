@@ -9,28 +9,52 @@ import (
 )
 
 func createUploadedFilesDir(dirName string) error {
+	UploadedFilesDir = dirName
+	if _, err := os.Stat(dirName); !os.IsNotExist(err) {
+		return nil
+	}
+
 	err := os.Mkdir(dirName, 0755)
-	if err != nil && !os.IsExist(err) {
+	if err != nil {
+		return fmt.Errorf("createUploadedFilesDir: %w", err)
+	}
+
+	subDir := dirName + string(os.PathSeparator) + "i"
+	err = os.Mkdir(subDir, 0755)
+	if err != nil {
 		return fmt.Errorf("createUploadedFilesDir: %w", err)
 	}
 	return nil
 }
 
-func CreateDatabase(uploadedFilesDir string) error {
+var (
+	dbInstance       *gorm.DB
+	UploadedFilesDir string
+)
+
+func InitializeDatabase(uploadedFilesDir string) error {
 	err := createUploadedFilesDir(uploadedFilesDir)
 	if err != nil {
-		return fmt.Errorf("CreateDatabase: %w", err)
+		return fmt.Errorf("InitializeDatabase: %w", err)
 	}
 	dbPath := uploadedFilesDir + string(os.PathSeparator) + "rx.db"
-	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
+	dbInstance, err = gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
 	if err != nil {
-		return fmt.Errorf("CreateDatabase: %w", err)
+		return fmt.Errorf("InitializeDatabase: %w", err)
 	}
 
-	err = db.AutoMigrate(&Account{}, &Activity{}, &Collection{}, &FileData{})
+	err = dbInstance.AutoMigrate(&Account{}, &Activity{}, &Collection{}, &FileData{})
 	if err != nil {
-		return fmt.Errorf("CreateDatabase: %w", err)
+		return fmt.Errorf("InitializeDatabase: %w", err)
 	}
-	fmt.Println("[GIN-debug] Database created successfully at", dbPath)
+	LoadCache()
+	fmt.Println("[GIN-debug] Database initialized successfully")
 	return nil
+}
+
+func GetDB() *gorm.DB {
+	if dbInstance == nil {
+		panic("Database not initialized")
+	}
+	return dbInstance
 }

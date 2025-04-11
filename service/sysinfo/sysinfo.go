@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"service/global"
+	"service/database"
 	"time"
 
 	"github.com/shirou/gopsutil/cpu"
@@ -43,7 +43,7 @@ func getRAMinfo() (RAMInfo, error) {
 
 func getSpaceUsed() (int, error) {
 	var totalSize int
-	err := filepath.Walk(global.UploadedFilesDir, func(_ string, info os.FileInfo, err error) error {
+	err := filepath.Walk(database.UploadedFilesDir, func(_ string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
