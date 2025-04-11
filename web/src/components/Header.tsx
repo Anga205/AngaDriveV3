@@ -1,4 +1,4 @@
-import { Component } from "solid-js";
+import type { Component } from "solid-js";
 import quotes from "../assets/quotes.json";
 
 const Header: Component = () => {
