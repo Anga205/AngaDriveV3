@@ -1,0 +1,27 @@
+name: Compile Frontend
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+        - uses: actions/checkout@v4
+
+        - name: Set up Bun
+          uses: antongolub/action-setup-bun@v1
+          with:
+            bun-version: '1.2.4'
+        
+        - name: Install dependencies
+          working-directory: ./web
+          run: bun install
+        
+        - name: Build Frontend
+          working-directory: ./web
+          run: bun run build

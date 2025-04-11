@@ -22,10 +22,10 @@ type Collection struct {
 }
 
 type FileData struct {
-	OriginalFileName string
-	FileDirectory    string `gorm:"primaryKey"`
-	AccountToken     string
-	FileSize         int
-	Timestamp        int64
-	Cached           bool `gorm:"default:false"`
+	OriginalFileName string `json:"original_file_name"`
+	FileDirectory    string `gorm:"primaryKey" json:"file_directory"`
+	AccountToken     string `json:"account_token"`
+	FileSize         int    `json:"file_size"`
+	Timestamp        int64  `json:"timestamp"`
+	Cached           bool   `gorm:"default:false" json:"cached"`
 }

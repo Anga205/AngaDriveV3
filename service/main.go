@@ -1,7 +1,7 @@
 package main
 
 import (
-	"service/global"
+	"service/database"
 	"service/setup"
 
 	"github.com/gin-gonic/gin"
@@ -14,8 +14,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
-	setup.SetupDB(global.UploadedFilesDir)
+	database.InitializeDatabase("uploaded_files")
 
 	setup.SetupWebsocket(r)
 
