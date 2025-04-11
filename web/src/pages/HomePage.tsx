@@ -142,15 +142,27 @@ const MobileHome: Component<{ ramdata: RAMData; cpudata: CPUData }> = (props) =>
 const HomePage: Component = () => {
     const isMobile = window.innerWidth <= 768;
     let socket: WebSocket | undefined;
-    const [systemInformation, setSystemInformation] = createSignal<SysInfo | null>(null);
-    const [connectionStatus, setConnectionStatus] = createSignal<'connecting' | 'connected' | 'error'>('connecting');
+    const [systemInformation, setSystemInformation] = createSignal<SysInfo>({
+        ram: {
+            total_ram: 0,
+            used_ram: 0,
+            available_ram: 1,
+            ram_percent_used: 0,
+        },
+        cpu: {
+            cpu_model_name: '',
+            cpu_usage: 0,
+        },
+    });
 
     onMount(() => {
-        socket = new WebSocket('ws://localhost:8080/ws');
+        const host = window.location.host;
+        const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+        socket = new WebSocket(`${protocol}://${host}/ws`);
+        
         
         socket.addEventListener('open', () => {
             console.log('WebSocket connection established');
-            setConnectionStatus('connected');
         });
         
         socket.addEventListener('message', (event) => {
@@ -159,13 +171,11 @@ const HomePage: Component = () => {
                 setSystemInformation(data);
             } catch (error) {
                 console.error('Failed to parse WebSocket message:', error);
-                setConnectionStatus('error');
             }
         });
         
         socket.addEventListener('error', () => {
             console.error('WebSocket error');
-            setConnectionStatus('error');
         });
         
         socket.addEventListener('close', () => {
@@ -181,18 +191,13 @@ const HomePage: Component = () => {
 
     return (
         <>
-            {connectionStatus() === 'connecting' && <div>Connecting to server...</div>}
-            {connectionStatus() === 'error' && <div>Connection error</div>}
-            
-            {systemInformation() ? (
+            {
                 isMobile ? (
                     <MobileHome cpudata={systemInformation()!.cpu} ramdata={systemInformation()!.ram} />
                 ) : (
                     <DesktopHome cpudata={systemInformation()!.cpu} ramdata={systemInformation()!.ram} />
                 )
-            ) : connectionStatus() === 'connected' ? (
-                <div>Waiting for data...</div>
-            ) : null}
+            }
         </>
     );
 }
