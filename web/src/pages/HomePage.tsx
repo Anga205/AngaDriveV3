@@ -183,6 +183,7 @@ const HomePage: Component = () => {
 
     return (
         <>
+    		<title>HomePage | DriveV3</title>
             {
                 isMobile ? (
                     <MobileHome cpudata={systemInformation()!.cpu} ramdata={systemInformation()!.ram} />

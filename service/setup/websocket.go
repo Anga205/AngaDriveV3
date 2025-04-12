@@ -4,15 +4,43 @@ import (
 	"fmt"
 	"net/http"
 	"service/sysinfo"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
 
+var (
+	activeWebsockets      = make(map[*websocket.Conn]bool)
+	activeWebsocketsMutex sync.RWMutex
+)
+
+func updateAllWebsockets() {
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		<-ticker.C
+		sysInfo, _ := sysinfo.GetSysInfo()
+
+		for conn := range activeWebsockets {
+			err := conn.WriteJSON(sysInfo)
+			if err != nil {
+				fmt.Printf("Error writing to websocket: %v\n", err)
+				activeWebsocketsMutex.Lock()
+				delete(activeWebsockets, conn)
+				activeWebsocketsMutex.Unlock()
+				conn.Close()
+			}
+		}
+	}
+}
+
 // excuse the shitload of comments, i have no clue what im doing
 func SetupWebsocket(r *gin.Engine) {
 	sysinfo.InitializeSysInfo()
+	go updateAllWebsockets()
 	r.GET("/ws", func(c *gin.Context) {
 		// Upgrade the connection to a websocket
 		conn, err := upgradeToWebSocket(c)
@@ -27,15 +55,23 @@ func SetupWebsocket(r *gin.Engine) {
 		// defer just means "when this function exits, close the connection"
 		defer conn.Close()
 
-		stopUpdates := make(chan bool)
+		// add the connection to the list of active websockets
+		activeWebsocketsMutex.Lock()
+		activeWebsockets[conn] = true
+		activeWebsocketsMutex.Unlock()
+
+		defer func() {
+			// remove the connection from the list of active websockets
+			activeWebsocketsMutex.Lock()
+			delete(activeWebsockets, conn)
+			activeWebsocketsMutex.Unlock()
+		}()
+
 		done := make(chan bool)
 
 		// this is where we handle the messages from the client
 		// basically its a goroutiune that will asynchronously check if the client has requested to stop
-		go handleClientMessages(conn, stopUpdates, done)
-		// this is where we send the updates to the client
-		// it will asynchronously send updates to the client
-		go sendPeriodicUpdates(conn, stopUpdates)
+		go handleClose(conn, done)
 
 		// this is where we wait for the client to stop
 		// its an empty channel that only gets pushed to when the client has requested to stop
@@ -55,36 +91,14 @@ func upgradeToWebSocket(c *gin.Context) (*websocket.Conn, error) {
 	return upgrader.Upgrade(c.Writer, c.Request, nil)
 }
 
-func handleClientMessages(conn *websocket.Conn, stopUpdates chan bool, done chan bool) {
+func handleClose(conn *websocket.Conn, done chan bool) {
 	defer func() { done <- true }()
 	for {
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
-			fmt.Println("Error reading message:", err)
+			fmt.Printf("Error reading message: %v\n", err)
 			break
 		}
 		fmt.Printf("Received message: %s\n", msg)
-
-		if string(msg) == "stop" {
-			stopUpdates <- true
-			break
-		}
-	}
-}
-
-func sendPeriodicUpdates(conn *websocket.Conn, stopUpdates chan bool) {
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			sysinfo, _ := sysinfo.GetSysInfo()
-			if err := conn.WriteJSON(sysinfo); err != nil {
-				return
-			}
-		case <-stopUpdates:
-			fmt.Println("Stopping updates.")
-			return
-		}
 	}
 }
