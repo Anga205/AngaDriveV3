@@ -1,5 +1,5 @@
 import type { Component } from 'solid-js';
-import { onMount } from 'solid-js';
+import { onMount, onCleanup, createSignal } from 'solid-js';
 import { Chart, Title, Tooltip, Colors, ArcElement } from 'chart.js';
 import { Doughnut } from 'solid-chartjs';
 import { CPUData, RAMData } from '../types/types';
@@ -14,9 +14,9 @@ const RAMUsage: Component<{data: RAMData}> = (props) => {
         labels: ['Completed', 'Remaining'],
         datasets: [
             {
-                data: [props.data.used_ram, props.data.available_ram], // Example: 70% completed, 30% remaining
-                backgroundColor: ['#04a9e7', '#404040'], // Colors for the segments
-                borderWidth: 0, // Remove border
+                data: [props.data.used_ram, props.data.available_ram], 
+                backgroundColor: ['#04a9e7', '#404040'], 
+                borderWidth: 0, 
             },
         ],
     });
@@ -24,14 +24,14 @@ const RAMUsage: Component<{data: RAMData}> = (props) => {
     const chartOptions = {
         responsive: true,
         maintainAspectRatio: false,
-        cutout: '85%', // Makes it look like a circular progress bar
+        cutout: '85%',
         plugins: {
             tooltip: {
-                enabled: false, // Disable tooltip for simplicity
+                enabled: false,
             },
         },
         animation: {
-            duration: 0, // Set animation duration to zero
+            duration: 0,
         },
     };
 
@@ -49,7 +49,7 @@ const RAMUsage: Component<{data: RAMData}> = (props) => {
     );
 };
 
-const CPUUsage: Component<{data: CPUData}> = (props) => {
+const CPUUsageRough: Component<{data: CPUData, smoothPercentage: number}> = (props) => {
 
     onMount(() => {
         Chart.register(Title, Tooltip, Colors, ArcElement);
@@ -59,9 +59,9 @@ const CPUUsage: Component<{data: CPUData}> = (props) => {
         labels: ['Completed', 'Remaining'],
         datasets: [
             {
-                data: [props.data.cpu_usage, 100 - props.data.cpu_usage], // Example: 70% completed, 30% remaining
-                backgroundColor: ['#04a9e7', '#404040'], // Colors for the segments
-                borderWidth: 0, // Remove border
+                data: [props.smoothPercentage, 100 - props.smoothPercentage], 
+                backgroundColor: ['#04a9e7', '#404040'],
+                borderWidth: 0,
             },
         ],
     });
@@ -69,14 +69,14 @@ const CPUUsage: Component<{data: CPUData}> = (props) => {
     const chartOptions = {
         responsive: true,
         maintainAspectRatio: false,
-        cutout: '85%', // Makes it look like a circular progress bar
+        cutout: '85%',
         plugins: {
             tooltip: {
-                enabled: false, // Disable tooltip for simplicity
+                enabled: false,
             },
         },
         animation: {
-            duration: 0, // Set animation duration to zero
+            duration: 0,
         },
     };
 
@@ -91,5 +91,31 @@ const CPUUsage: Component<{data: CPUData}> = (props) => {
         </div>
     );
 };
+
+const CPUUsage: Component<{data: CPUData}> = (props) => {
+
+    const [smoothPercentage, setSmoothPercentage] = createSignal(0);
+    const smoothFactor = 0.01;
+    const smooth = (newValue: number) => {
+        setSmoothPercentage((prev: number) => {
+            const diff = newValue - prev;
+            if (Math.abs(diff) < 0.01) {
+                return newValue;
+            }
+            return prev + diff * smoothFactor;
+        });
+    };
+    const interval = setInterval(() => {
+        smooth(props.data.cpu_usage);
+    }, 1);
+    onCleanup(() => clearInterval(interval));
+
+    return (
+        <CPUUsageRough 
+            data = {props.data}
+            smoothPercentage = {smoothPercentage()}
+        />
+    )
+}
 
 export {RAMUsage, CPUUsage};
