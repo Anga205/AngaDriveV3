@@ -65,7 +65,7 @@ func InitializeSysInfo() {
 		for {
 			cpuInfo, _ := getCPUinfo()
 			currentSysInfo.CPU = cpuInfo
-			time.Sleep(time.Millisecond)
+			time.Sleep(50 * time.Millisecond)
 		}
 	}()
 
