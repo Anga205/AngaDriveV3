@@ -27,6 +27,9 @@ const SiteActivity: Component = () => {
     const chartOptions = {
         responsive: true,
         maintainAspectRatio: false,
+        animation: {
+            duration: 0,
+        },
         scales: {
             x: {
                 grid: {
