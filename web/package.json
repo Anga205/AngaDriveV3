@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@emailjs/browser": "^4.4.1",
     "@solidjs/router": "^0.15.3",
     "@tailwindcss/vite": "^4.0.17",
     "chart.js": "^4.4.8",
