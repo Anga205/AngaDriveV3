@@ -1,4 +1,4 @@
-package sysinfo
+package info
 
 import (
 	"log"

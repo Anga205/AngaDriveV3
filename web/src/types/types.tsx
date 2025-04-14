@@ -19,7 +19,7 @@ interface GraphData {
     x_axis: Array<string>;
     y_axis: Array<number>;
     label: string;
-    beginAtZero: boolean;
+    begin_at_zero: boolean;
 }
 
 interface IncomingData {

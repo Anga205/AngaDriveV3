@@ -3,7 +3,8 @@ package setup
 import (
 	"fmt"
 	"net/http"
-	"service/sysinfo"
+	"service/database"
+	"service/info"
 	"sync"
 	"time"
 
@@ -12,9 +13,40 @@ import (
 )
 
 var (
-	activeWebsockets      = make(map[*websocket.Conn]bool)
-	activeWebsocketsMutex sync.RWMutex
+	ActiveWebsockets      = make(map[*websocket.Conn]bool)
+	ActiveWebsocketsMutex sync.RWMutex
 )
+
+type GraphData struct {
+	XAxis       []string `json:"x_axis"`
+	YAxis       []int64  `json:"y_axis"`
+	Label       string   `json:"label"`
+	BeginAtZero bool     `json:"begin_at_zero"`
+}
+
+func Pulse() {
+	database.PushTimeStamp(time.Now().Unix())
+	x_axis, y_axis := info.GetLast7DaysCounts()
+	graphData := GraphData{
+		XAxis:       x_axis,
+		YAxis:       y_axis,
+		Label:       "Site Activity",
+		BeginAtZero: true,
+	}
+	for conn := range ActiveWebsockets {
+		err := conn.WriteJSON(map[string]interface{}{
+			"type": "graph_data",
+			"data": graphData,
+		})
+		if err != nil {
+			fmt.Printf("Error writing to websocket: %v\n", err)
+			ActiveWebsocketsMutex.Lock()
+			delete(ActiveWebsockets, conn)
+			ActiveWebsocketsMutex.Unlock()
+			conn.Close()
+		}
+	}
+}
 
 func updateAllWebsockets() {
 	ticker := time.NewTicker(100 * time.Millisecond)
@@ -22,18 +54,18 @@ func updateAllWebsockets() {
 
 	for {
 		<-ticker.C
-		sysInfo, _ := sysinfo.GetSysInfo()
+		sysInfo, _ := info.GetSysInfo()
 
-		for conn := range activeWebsockets {
+		for conn := range ActiveWebsockets {
 			err := conn.WriteJSON(map[string]interface{}{
 				"type": "system_information",
 				"data": sysInfo,
 			})
 			if err != nil {
 				fmt.Printf("Error writing to websocket: %v\n", err)
-				activeWebsocketsMutex.Lock()
-				delete(activeWebsockets, conn)
-				activeWebsocketsMutex.Unlock()
+				ActiveWebsocketsMutex.Lock()
+				delete(ActiveWebsockets, conn)
+				ActiveWebsocketsMutex.Unlock()
 				conn.Close()
 			}
 		}
@@ -42,7 +74,7 @@ func updateAllWebsockets() {
 
 // excuse the shitload of comments, i have no clue what im doing
 func SetupWebsocket(r *gin.Engine) {
-	sysinfo.InitializeSysInfo()
+	info.InitializeSysInfo()
 	go updateAllWebsockets()
 	r.GET("/ws", func(c *gin.Context) {
 		// Upgrade the connection to a websocket
@@ -55,19 +87,26 @@ func SetupWebsocket(r *gin.Engine) {
 			return
 		}
 
+		// give the client some initial data before the ticker takes over
+		sysInfo, _ := info.GetSysInfo()
+		conn.WriteJSON(map[string]interface{}{
+			"type": "system_information",
+			"data": sysInfo,
+		})
+		go Pulse()
 		// defer just means "when this function exits, close the connection"
 		defer conn.Close()
 
 		// add the connection to the list of active websockets
-		activeWebsocketsMutex.Lock()
-		activeWebsockets[conn] = true
-		activeWebsocketsMutex.Unlock()
+		ActiveWebsocketsMutex.Lock()
+		ActiveWebsockets[conn] = true
+		ActiveWebsocketsMutex.Unlock()
 
 		defer func() {
 			// remove the connection from the list of active websockets
-			activeWebsocketsMutex.Lock()
-			delete(activeWebsockets, conn)
-			activeWebsocketsMutex.Unlock()
+			ActiveWebsocketsMutex.Lock()
+			delete(ActiveWebsockets, conn)
+			ActiveWebsocketsMutex.Unlock()
 		}()
 
 		done := make(chan bool)
@@ -76,8 +115,8 @@ func SetupWebsocket(r *gin.Engine) {
 		// basically its a goroutiune that will asynchronously check if the client has requested to stop
 		go handleClose(conn, done)
 
-		// this is where we wait for the client to stop
-		// its an empty channel that only gets pushed to when the client has requested to stop
+		// this is an empty channel that only gets pushed to when the client has requested to stop
+		// this is needed because it delays the function from exiting therefore delaying the closing of the connection
 		<-done
 	})
 }

@@ -42,7 +42,11 @@ const Navbar: Component<{ CurrentPage?: string }> = (props) => {
                 </div>
             </div>
             <div class="flex w-full mt-[5%] justify-end">
-                <div class={`flex w-5/6 ${currentPage === "GitHub" ? "bg-black" : "bg-[#161717] hover:bg-black"} rounded-l-2xl`}>
+                <div 
+                    class={`flex w-5/6 ${currentPage === "GitHub" ? "bg-black" : "bg-[#161717] hover:bg-black"} rounded-l-2xl`}
+                    onClick={() => {
+                        window.open("https://github.com/Anga205/AngaDriveV3", "_blank");
+                    }}>
                     <div class="p-[20%]">
                         <GitHubSVG />
                     </div>

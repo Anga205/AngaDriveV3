@@ -3,13 +3,13 @@ import {DefaultsButtons, MobileButtons} from "../components/DefaultsButtons";
 import {Header, MobileHeader} from "../components/Header";
 import { RAMUsage, CPUUsage } from "../components/CircularProgress";
 import GraphComponent from "../components/GraphComponent";
-import { Component, onMount, onCleanup, createSignal } from "solid-js";
+import { Component, onMount, onCleanup, createSignal, Accessor } from "solid-js";
 import { Butterfly, HamburgerSVG } from "../assets/SvgFiles";
 import type { CPUData, GraphData, IncomingData, RAMData, SysInfo } from "../types/types";
 import ContactMe from "../components/ContactMe";
 
 
-const DesktopHome: Component<{ ramdata: RAMData; cpudata: CPUData; siteActivity: GraphData; spaceUsed: GraphData }> = (props) => {
+const DesktopHome: Component<{ ramdata: RAMData; cpudata: CPUData; siteActivity: Accessor<GraphData>; spaceUsed: Accessor<GraphData> }> = (props) => {
     return (
         <div class="max-h-screen w-screen flex items-start bg-black overflow-hidden">
             <Navbar />
@@ -67,7 +67,7 @@ const DesktopHome: Component<{ ramdata: RAMData; cpudata: CPUData; siteActivity:
     )
 }
 
-const MobileHome: Component<{ ramdata: RAMData; cpudata: CPUData; siteActivity: GraphData; spaceUsed: GraphData }> = (props) => {
+const MobileHome: Component<{ ramdata: RAMData; cpudata: CPUData; siteActivity: Accessor<GraphData>; spaceUsed: Accessor<GraphData> }> = (props) => {
     return (
         <div class="relative w-full min-h-screen">
             <div class="h-screen w-full bg-black flex items-center justify-center p-[5%] fixed">
@@ -150,14 +150,14 @@ const HomePage: Component = () => {
         x_axis: ['Mar 13', 'Mar 14', 'Mar 15', 'Mar 16', 'Mar 17', 'Mar 18', 'Mar 19'],
         y_axis: [124, 83, 46, 36, 64, 54, 70],
         label: 'Space Used',
-        beginAtZero: false,
+        begin_at_zero: false,
     })
 
     const [siteActivity, setSiteActivity] = createSignal<GraphData>({
         x_axis: ['Mar 13', 'Mar 14', 'Mar 15', 'Mar 16', 'Mar 17', 'Mar 18', 'Mar 19'],
         y_axis: [124, 83, 46, 36, 64, 54, 100],
         label: 'Database Reads',
-        beginAtZero: true,
+        begin_at_zero: true,
     })
 
     onMount(() => {
@@ -209,9 +209,9 @@ const HomePage: Component = () => {
     		<title>HomePage | DriveV3</title>
             {
                 isMobile ? (
-                    <MobileHome cpudata={systemInformation()!.cpu} ramdata={systemInformation()!.ram} siteActivity={siteActivity()} spaceUsed={spaceUsed()}/>
+                    <MobileHome cpudata={systemInformation()!.cpu} ramdata={systemInformation()!.ram} siteActivity={siteActivity} spaceUsed={spaceUsed}/>
                 ) : (
-                    <DesktopHome cpudata={systemInformation()!.cpu} ramdata={systemInformation()!.ram} siteActivity={siteActivity()} spaceUsed={spaceUsed()}/>
+                    <DesktopHome cpudata={systemInformation()!.cpu} ramdata={systemInformation()!.ram} siteActivity={siteActivity} spaceUsed={spaceUsed}/>
                 )
             }
         </>
