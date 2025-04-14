@@ -25,7 +25,10 @@ func updateAllWebsockets() {
 		sysInfo, _ := sysinfo.GetSysInfo()
 
 		for conn := range activeWebsockets {
-			err := conn.WriteJSON(sysInfo)
+			err := conn.WriteJSON(map[string]interface{}{
+				"type": "system_information",
+				"data": sysInfo,
+			})
 			if err != nil {
 				fmt.Printf("Error writing to websocket: %v\n", err)
 				activeWebsocketsMutex.Lock()

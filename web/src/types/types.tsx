@@ -15,4 +15,16 @@ interface SysInfo {
     cpu: CPUData;
 }
 
-export type {RAMData, CPUData, SysInfo};
+interface GraphData {
+    x_axis: Array<string>;
+    y_axis: Array<number>;
+    label: string;
+    beginAtZero: boolean;
+}
+
+interface IncomingData {
+    type: string;
+    data: SysInfo | GraphData;
+}
+
+export type {RAMData, CPUData, SysInfo, GraphData, IncomingData};
