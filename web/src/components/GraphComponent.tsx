@@ -2,22 +2,19 @@ import type { Component } from 'solid-js';
 import { onMount } from 'solid-js';
 import { Chart, Title, Tooltip, Colors } from 'chart.js'
 import { Line } from 'solid-chartjs'
+import { GraphData } from '../types/types';
 
-const SiteActivity: Component = () => {
-    /**
-     * You must register optional elements before using the chart,
-     * otherwise you will have the most primitive UI
-     */
+const GraphComponent: Component<{ GraphData: GraphData }> = (props) => {
     onMount(() => {
         Chart.register(Title, Tooltip, Colors)
     })
 
     const chartData = {
-        labels: ['Mar 13', 'Mar 14', 'Mar 15', 'Mar 16', 'Mar 17', 'Mar 18', 'Mar 19'],
+        labels: props.GraphData.x_axis,
         datasets: [
             {
-                label: 'Database Reads',
-                data: [124, 83, 46, 36, 64, 54, 70],
+                label: props.GraphData.label,
+                data: props.GraphData.y_axis,
                 borderColor: 'rgba(75, 75, 192, 1)',
                 backgroundColor: 'rgba(75, 192, 192, 0.2)',
                 borderWidth: 1.5
@@ -46,7 +43,7 @@ const SiteActivity: Component = () => {
                 ticks: {
                     color: 'rgba(255, 255, 255, 0.3)',
                 },
-                beginAtZero: true
+                beginAtZero: props.GraphData.beginAtZero,
             }
         }
     }
@@ -58,4 +55,4 @@ const SiteActivity: Component = () => {
     )
 }
 
-export default SiteActivity
+export default GraphComponent

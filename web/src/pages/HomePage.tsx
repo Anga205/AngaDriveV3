@@ -2,14 +2,14 @@ import Navbar from "../components/Navbar";
 import {DefaultsButtons, MobileButtons} from "../components/DefaultsButtons";
 import {Header, MobileHeader} from "../components/Header";
 import { RAMUsage, CPUUsage } from "../components/CircularProgress";
-import SiteActivity from "../components/SiteActivity";
+import GraphComponent from "../components/GraphComponent";
 import { Component, onMount, onCleanup, createSignal } from "solid-js";
 import { Butterfly, HamburgerSVG } from "../assets/SvgFiles";
-import type { CPUData, RAMData, SysInfo } from "../types/types";
+import type { CPUData, GraphData, IncomingData, RAMData, SysInfo } from "../types/types";
 import ContactMe from "../components/ContactMe";
 
 
-const DesktopHome: Component<{ ramdata: RAMData; cpudata: CPUData }> = (props) => {
+const DesktopHome: Component<{ ramdata: RAMData; cpudata: CPUData; siteActivity: GraphData; spaceUsed: GraphData }> = (props) => {
     return (
         <div class="max-h-screen w-screen flex items-start bg-black overflow-hidden">
             <Navbar />
@@ -21,7 +21,7 @@ const DesktopHome: Component<{ ramdata: RAMData; cpudata: CPUData }> = (props) =
                         <div class="h-[71.5vh] space-y-[1.5vh] pb-[1.5vh]">
                             <div class="w-full h-5/12 max-h-5/12 bg-[#242424] flex flex-col rounded-[1.5vh] pt-[2.5vh] p-[1.65vh] overflow-hidden justify-center items-center" style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
                                 <p class="text-white font-semibold text-[2vh]">Site Activity Over Past Week</p>
-                                <SiteActivity />
+                                <GraphComponent GraphData={props.siteActivity}/>
                             </div>
                             <div class="w-full h-7/12 flex space-x-[1.5vh]">
                                 <div class="w-1/2 bg-[#242424] rounded-[1.5vh] p-[1.65vh]" style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
@@ -57,7 +57,7 @@ const DesktopHome: Component<{ ramdata: RAMData; cpudata: CPUData }> = (props) =
                             </div>
                             <div class="justify-center items-center flex flex-col w-full h-[30%] rounded-[1.5vh] bg-[#242424] pt-[2.5vh] p-[2vh]" style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
                                 <p class="text-white font-semibold text-[2vh]">Space Used</p>
-                                <SiteActivity />
+                                <GraphComponent GraphData={props.spaceUsed}/>
                             </div>
                         </div>
                     </div>
@@ -67,7 +67,7 @@ const DesktopHome: Component<{ ramdata: RAMData; cpudata: CPUData }> = (props) =
     )
 }
 
-const MobileHome: Component<{ ramdata: RAMData; cpudata: CPUData }> = (props) => {
+const MobileHome: Component<{ ramdata: RAMData; cpudata: CPUData; siteActivity: GraphData; spaceUsed: GraphData }> = (props) => {
     return (
         <div class="relative w-full min-h-screen">
             <div class="h-screen w-full bg-black flex items-center justify-center p-[5%] fixed">
@@ -87,7 +87,7 @@ const MobileHome: Component<{ ramdata: RAMData; cpudata: CPUData }> = (props) =>
                 <div class="w-full px-[1.5vh]">
                     <div class="w-full bg-[#242424] aspect-video rounded-xl p-[1vw] opacity-95">
                         <p class="text-center font-black text-white text-[4vw]">Site Activity Over Past Week</p>
-                        <SiteActivity/>
+                        <GraphComponent GraphData={props.siteActivity}/>
                     </div>
                 </div>
                 <div class="w-full px-[1.5vh] space-x-[1.5vh] opacity-95 flex">
@@ -109,7 +109,7 @@ const MobileHome: Component<{ ramdata: RAMData; cpudata: CPUData }> = (props) =>
                         <p class="w-full font-black text-white text-center">
                             Space Used
                         </p>
-                        <SiteActivity />
+                        <GraphComponent GraphData={props.spaceUsed}/>
                     </div>
                 </div>
                 <div class="w-full px-[1.5vh] opacity-95 flex space-x-[1.5vh] pb-[1.5vh]">
@@ -146,6 +146,20 @@ const HomePage: Component = () => {
         },
     });
 
+    const [spaceUsed, setSpaceUsed] = createSignal<GraphData>({
+        x_axis: ['Mar 13', 'Mar 14', 'Mar 15', 'Mar 16', 'Mar 17', 'Mar 18', 'Mar 19'],
+        y_axis: [124, 83, 46, 36, 64, 54, 70],
+        label: 'Space Used',
+        beginAtZero: false,
+    })
+
+    const [siteActivity, setSiteActivity] = createSignal<GraphData>({
+        x_axis: ['Mar 13', 'Mar 14', 'Mar 15', 'Mar 16', 'Mar 17', 'Mar 18', 'Mar 19'],
+        y_axis: [124, 83, 46, 36, 64, 54, 100],
+        label: 'Database Reads',
+        beginAtZero: true,
+    })
+
     onMount(() => {
         const host = window.location.host;
         const protocol = window.location.protocol === "https:" ? "wss" : "ws";
@@ -159,8 +173,17 @@ const HomePage: Component = () => {
         
         socket.addEventListener('message', (event) => {
             try {
-                const data = JSON.parse(event.data) as SysInfo;
-                setSystemInformation(data);
+                const data = JSON.parse(event.data) as IncomingData;
+                if (data.type === 'system_information') {
+                    setSystemInformation(data.data as SysInfo);
+                } else if (data.type === 'graph_data') {
+                    const graphData = data.data as GraphData;
+                    if (graphData.label === 'Space Used') {
+                        setSpaceUsed(graphData);
+                    } else if (graphData.label === 'Site Activity') {
+                        setSiteActivity(graphData);
+                    }
+                }
             } catch (error) {
                 console.error('Failed to parse WebSocket message:', error);
             }
@@ -186,9 +209,9 @@ const HomePage: Component = () => {
     		<title>HomePage | DriveV3</title>
             {
                 isMobile ? (
-                    <MobileHome cpudata={systemInformation()!.cpu} ramdata={systemInformation()!.ram} />
+                    <MobileHome cpudata={systemInformation()!.cpu} ramdata={systemInformation()!.ram} siteActivity={siteActivity()} spaceUsed={spaceUsed()}/>
                 ) : (
-                    <DesktopHome cpudata={systemInformation()!.cpu} ramdata={systemInformation()!.ram} />
+                    <DesktopHome cpudata={systemInformation()!.cpu} ramdata={systemInformation()!.ram} siteActivity={siteActivity()} spaceUsed={spaceUsed()}/>
                 )
             }
         </>
