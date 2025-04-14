@@ -119,14 +119,31 @@ func loadFiles() {
 	fmt.Println("Files loaded successfully.")
 }
 
+func loadTimeStamps() {
+	fmt.Println("Loading timestamps...")
+	TimeStampsMutex.Lock()
+	defer TimeStampsMutex.Unlock()
+	defer wg.Done()
+
+	var timestamps []int64
+	err := GetDB().Model(&Activity{}).Pluck("timestamps", &timestamps).Error
+	if err != nil {
+		panic("failed to load timestamps: " + err.Error())
+	}
+
+	TimeStamps = timestamps
+	fmt.Println("Timestamps loaded successfully.")
+}
+
 func LoadCache() {
-	wg.Add(5)
+	wg.Add(6)
 
 	go loadUserFiles()
 	go loadUserCollections()
 	go loadCollectionFiles()
 	go loadCollectionFolders()
 	go loadFiles()
+	go loadTimeStamps()
 
 	wg.Wait()
 }

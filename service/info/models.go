@@ -1,4 +1,4 @@
-package sysinfo
+package info
 
 type RAMInfo struct {
 	TotalRAM       uint64  `json:"total_ram"`
