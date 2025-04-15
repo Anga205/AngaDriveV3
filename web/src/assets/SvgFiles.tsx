@@ -1,5 +1,6 @@
 import { Component } from "solid-js";
 import "../index.css"
+import Anga from "./anga.svg"
 
 const Butterfly: Component = () => {
     return (
@@ -70,4 +71,4 @@ const UserSVG: Component = () => {
     )
 }
 
-export {Butterfly, CollectionSVG, DatabaseZapSVG, FileSVG, GitHubSVG, HamburgerSVG, HomeSVG, LockSVG, ScanEyeSVG, UnlockSVG, UserSVG}
+export {Butterfly, CollectionSVG, DatabaseZapSVG, FileSVG, GitHubSVG, HamburgerSVG, HomeSVG, LockSVG, ScanEyeSVG, UnlockSVG, UserSVG, Anga}
