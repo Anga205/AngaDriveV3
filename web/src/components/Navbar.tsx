@@ -1,6 +1,6 @@
 import type { Component } from 'solid-js'
 import { useNavigate } from "@solidjs/router";
-import { CollectionSVG, FileSVG, GitHubSVG, HomeSVG, UserSVG } from '../assets/SvgFiles'
+import { Anga, CollectionSVG, FileSVG, GitHubSVG, HomeSVG, UserSVG } from '../assets/SvgFiles'
 
 const Navbar: Component<{ CurrentPage?: string }> = (props) => {
     const currentPage = props.CurrentPage || "Home";
@@ -9,7 +9,7 @@ const Navbar: Component<{ CurrentPage?: string }> = (props) => {
     return (
         <div class="bg-[#161717] h-screen w-[4.5vw] border-white flex flex-col items-center">
             <div class="p-[20%] h-[10vh]">
-                <img src="/anga.svg" alt="Anga Logo" class="w-full h-auto" />
+                <Anga />
             </div>
 
             <div class="flex w-full mt-[10%] justify-end">

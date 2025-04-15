@@ -11,6 +11,10 @@ type Activity struct {
 	Timestamps int64
 }
 
+func (Activity) TableName() string {
+	return "activity"
+}
+
 type Collection struct {
 	ID          string `gorm:"primaryKey"`
 	Name        string
