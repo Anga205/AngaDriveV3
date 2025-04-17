@@ -42,7 +42,7 @@ const ContactMe: Component = () => {
             };
     
             const emailPromise = emailjs.send(
-                "service_3ys6akqa",
+                "service_3ys6akq",
                 "template_gervg6v",
                 formDataWithTimeStamp,
                 "1JMl4awfqw7WioBaX"
