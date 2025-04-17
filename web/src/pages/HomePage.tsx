@@ -1,4 +1,3 @@
-import Navbar from "../components/Navbar";
 import {DefaultsButtons, MobileButtons} from "../components/DefaultsButtons";
 import {Header, MobileHeader} from "../components/Header";
 import { RAMUsage, CPUUsage } from "../components/CircularProgress";
@@ -7,13 +6,13 @@ import { Component, onMount, onCleanup, createSignal, Accessor } from "solid-js"
 import { Butterfly, HamburgerSVG } from "../assets/SvgFiles";
 import type { CPUData, GraphData, IncomingData, RAMData, SysInfo } from "../types/types";
 import ContactMe from "../components/ContactMe";
+import { DesktopTemplate } from "../components/Template";
 
 
 const DesktopHome: Component<{ ramdata: RAMData; cpudata: CPUData; siteActivity: Accessor<GraphData>; spaceUsed: Accessor<GraphData> }> = (props) => {
     return (
-        <div class="max-h-screen w-screen flex items-start bg-black overflow-hidden">
-            <Navbar />
-            <div class="flex flex-col w-[95.5vw] h-screen pl-[2vh] pr-[1vh] py-[1vh] space-y-[1.5vh]">
+        <DesktopTemplate>
+            <div class="flex flex-col w-full h-full pl-[2vh] pr-[1vh] py-[1vh] space-y-[1.5vh]">
                 <Header />
                 <div class="flex w-full h-full space-x-[1.5vh]">
                     <div class="flex flex-col w-1/2 h-full space-y-[1.5vh]">
@@ -63,7 +62,7 @@ const DesktopHome: Component<{ ramdata: RAMData; cpudata: CPUData; siteActivity:
                     </div>
                 </div>
             </div>
-        </div> 
+        </DesktopTemplate> 
     )
 }
 
@@ -147,15 +146,23 @@ const HomePage: Component = () => {
     });
 
     const [spaceUsed, setSpaceUsed] = createSignal<GraphData>({
-        x_axis: ['Mar 13', 'Mar 14', 'Mar 15', 'Mar 16', 'Mar 17', 'Mar 18', 'Mar 19'],
-        y_axis: [124, 83, 46, 36, 64, 54, 70],
+        x_axis: Array.from({ length: 7 }, (_, i) => {
+            const date = new Date();
+            date.setDate(date.getDate() - (6 - i));
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }),
+        y_axis: [0, 0, 0, 0, 0, 0, 0],
         label: 'Space Used',
         begin_at_zero: false,
-    })
+    });
 
     const [siteActivity, setSiteActivity] = createSignal<GraphData>({
-        x_axis: ['Mar 13', 'Mar 14', 'Mar 15', 'Mar 16', 'Mar 17', 'Mar 18', 'Mar 19'],
-        y_axis: [124, 83, 46, 36, 64, 54, 100],
+        x_axis: Array.from({ length: 7 }, (_, i) => {
+            const date = new Date();
+            date.setDate(date.getDate() - (6 - i));
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }),
+        y_axis: [0, 0, 0, 0, 0, 0, 0],
         label: 'Database Reads',
         begin_at_zero: true,
     })
