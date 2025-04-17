@@ -1,6 +1,7 @@
 import { Component } from "solid-js";
 import { createSignal } from "solid-js";
-import emailjs, { EmailJSResponseStatus } from "@emailjs/browser";
+import emailjs from "@emailjs/browser";
+import toast from "solid-toast";
 
 const ContactMe: Component = () => {
     const [email, setEmail] = createSignal("");
@@ -12,37 +13,57 @@ const ContactMe: Component = () => {
     };
 
     const handleSendEmail = () => {
-        const formDataWithTimeStamp = {
-            contact: email(),
-            message: message(),
-            time: new Date().toLocaleString('en-IN', {
-                day: 'numeric',
-                month: 'short',
-                year: 'numeric',
-                hour: 'numeric',
-                minute: 'numeric',
-                hour12: true,
-                timeZone: 'Asia/Kolkata'
-            })
-        };
-
-        emailjs.send(
-            "service_3ys6akq",
-            "template_gervg6v",
-            formDataWithTimeStamp,
-            "1JMl4awfqw7WioBaX"
-        ).then(
-            (response: EmailJSResponseStatus) => {
-                console.log("SUCCESS!", response);
-                alert("Email sent successfully!");
+        if (!email().trim() || !message().trim() || !isEmailValid(email())) {
+            if (!email().trim()) {
+                toast.error("Email is required.");
+                return
+            }
+            if (!message().trim()) {
+                toast.error("Message is required.");
+                return
+            }
+            if (!isEmailValid(email())) {
+                toast.error("Invalid email format.");
+                return
+            }
+        } else {
+            const formDataWithTimeStamp = {
+                contact: email(),
+                message: message(),
+                time: new Date().toLocaleString('en-IN', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: 'numeric',
+                    minute: 'numeric',
+                    hour12: true,
+                    timeZone: 'Asia/Kolkata'
+                })
+            };
+    
+            const emailPromise = emailjs.send(
+                "service_3ys6akqa",
+                "template_gervg6v",
+                formDataWithTimeStamp,
+                "1JMl4awfqw7WioBaX"
+            );
+    
+            toast.promise(emailPromise, {
+                loading: "Sending email...",
+                success: "Email sent successfully!",
+                error: "Failed to send email.",
+            });
+    
+            emailPromise.then(() => {
                 setEmail(""); // Clear the email input
                 setMessage(""); // Clear the message input
-            },
-            (error: Error) => {
-                console.log("FAILED...", error);
-                alert("Failed to send email.");
-            }
-        );
+                }
+            );
+        }
+    }
+
+    const enableButton = () => {
+        return (!email().trim() || !message().trim() || !isEmailValid(email()))
     }
 
     return (
@@ -64,9 +85,11 @@ const ContactMe: Component = () => {
                 onInput={(e) => setMessage(e.currentTarget.value)} 
             />
             <button 
-                class="bg-blue-600 text-white hover:bg-blue-800 disabled:bg-indigo-950 font-semibold text-[3vw] p-[1vh] rounded-[0.5vh] w-full 
-                sm:text-[1.65vh] sm:p-[0.8vh] sm:rounded-[0.3vh] disabled:cursor-not-allowed"
-                disabled={!email().trim() || !message().trim() || !isEmailValid(email())}
+                class={`font-semibold text-[3vw] p-[1vh] rounded-[0.5vh] w-full sm:text-[1.65vh] sm:p-[0.8vh] sm:rounded-[0.3vh] text-white ${
+                    enableButton()
+                        ? "cursor-not-allowed bg-blue-800"
+                        : "hover:bg-blue-800 bg-blue-600"
+                }`}
                 onClick={handleSendEmail}>
                 Send
             </button>

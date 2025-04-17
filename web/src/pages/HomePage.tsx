@@ -7,6 +7,7 @@ import { Butterfly, HamburgerSVG } from "../assets/SvgFiles";
 import type { CPUData, GraphData, IncomingData, RAMData, SysInfo } from "../types/types";
 import ContactMe from "../components/ContactMe";
 import { DesktopTemplate } from "../components/Template";
+import { Toaster } from 'solid-toast';
 
 
 const DesktopHome: Component<{ ramdata: RAMData; cpudata: CPUData; siteActivity: Accessor<GraphData>; spaceUsed: Accessor<GraphData> }> = (props) => {
@@ -213,14 +214,28 @@ const HomePage: Component = () => {
 
     return (
         <>
-    		<title>HomePage | DriveV3</title>
+            <title>HomePage | DriveV3</title>
             {
-                isMobile ? (
-                    <MobileHome cpudata={systemInformation()!.cpu} ramdata={systemInformation()!.ram} siteActivity={siteActivity} spaceUsed={spaceUsed}/>
-                ) : (
-                    <DesktopHome cpudata={systemInformation()!.cpu} ramdata={systemInformation()!.ram} siteActivity={siteActivity} spaceUsed={spaceUsed}/>
-                )
+            isMobile ? (
+                <MobileHome cpudata={systemInformation()!.cpu} ramdata={systemInformation()!.ram} siteActivity={siteActivity} spaceUsed={spaceUsed}/>
+            ) : (
+                <DesktopHome cpudata={systemInformation()!.cpu} ramdata={systemInformation()!.ram} siteActivity={siteActivity} spaceUsed={spaceUsed}/>
+            )
             }
+            <Toaster
+            position="top-center"
+            gutter={8}
+            containerClassName=""
+            containerStyle={{}}
+            toastOptions={{
+                className: '',
+                duration: 2000,
+                style: {
+                background: '#363636',
+                color: '#fff',
+                },
+            }}
+            />
         </>
     );
 }
