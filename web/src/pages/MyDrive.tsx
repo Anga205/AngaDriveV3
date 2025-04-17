@@ -41,7 +41,7 @@ const FilesError: Component<FilesNotFoundProps> = (props) => {
 
 const DesktopDrive: Component = () => {
     return (
-        <DesktopTemplate>
+        <DesktopTemplate CurrentPage="Files">
             <div class="flex flex-col w-full h-full px-[2vh] p-[1vh]">
                 <div class="w-full flex justify-between items-center">
                     <p class="text-white font-black text-[4vh]">My Drive</p>

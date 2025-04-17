@@ -3,16 +3,17 @@ import {Header, MobileHeader} from "../components/Header";
 import { RAMUsage, CPUUsage } from "../components/CircularProgress";
 import GraphComponent from "../components/GraphComponent";
 import { Component, onMount, onCleanup, createSignal, Accessor } from "solid-js";
-import { Butterfly, HamburgerSVG } from "../assets/SvgFiles";
+import { Butterfly } from "../assets/SvgFiles";
 import type { CPUData, GraphData, IncomingData, RAMData, SysInfo } from "../types/types";
 import ContactMe from "../components/ContactMe";
 import { DesktopTemplate } from "../components/Template";
 import { Toaster } from 'solid-toast';
+import Navbar from "../components/Navbar";
 
 
 const DesktopHome: Component<{ ramdata: RAMData; cpudata: CPUData; siteActivity: Accessor<GraphData>; spaceUsed: Accessor<GraphData> }> = (props) => {
     return (
-        <DesktopTemplate>
+        <DesktopTemplate CurrentPage="Home">
             <div class="flex flex-col w-full h-full pl-[2vh] pr-[1vh] py-[1vh] space-y-[1.5vh]">
                 <Header />
                 <div class="flex w-full h-full space-x-[1.5vh]">
@@ -76,11 +77,7 @@ const MobileHome: Component<{ ramdata: RAMData; cpudata: CPUData; siteActivity: 
                 </div>
             </div>
             <div class="absolute top-0 left-0 w-full space-y-[1vh]">
-                <nav class="backdrop-blur-md w-full h-[5vh] border-b-2 border-[#242424] flex items-center fixed z-10">
-                    <div class="h-full aspect-square flex justify-center items-center p-[1vh]">
-                        <HamburgerSVG />
-                    </div>
-                </nav>
+                <Navbar CurrentPage="Home" Type="mobile"/>
                 <div class="h-[5vh]"/>
                 <MobileHeader />
                 <MobileButtons />
@@ -131,7 +128,12 @@ const MobileHome: Component<{ ramdata: RAMData; cpudata: CPUData; siteActivity: 
 }
 
 const HomePage: Component = () => {
-    const isMobile = window.innerWidth <= 768;
+    const [isMobile, setIsMobile] = createSignal(window.innerWidth <= 768);
+
+    const handleResize = () => {
+        setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
     let socket: WebSocket | undefined;
     const [systemInformation, setSystemInformation] = createSignal<SysInfo>({
         ram: {
@@ -210,13 +212,14 @@ const HomePage: Component = () => {
         if (socket && socket.readyState === WebSocket.OPEN) {
             socket.close();
         }
+        window.removeEventListener('resize', handleResize);
     });
 
     return (
         <>
             <title>HomePage | DriveV3</title>
             {
-            isMobile ? (
+            isMobile() ? (
                 <MobileHome cpudata={systemInformation()!.cpu} ramdata={systemInformation()!.ram} siteActivity={siteActivity} spaceUsed={spaceUsed}/>
             ) : (
                 <DesktopHome cpudata={systemInformation()!.cpu} ramdata={systemInformation()!.ram} siteActivity={siteActivity} spaceUsed={spaceUsed}/>
