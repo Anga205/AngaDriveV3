@@ -15,7 +15,7 @@ const ContactMe: Component = () => {
         const formDataWithTimeStamp = {
             contact: email(),
             message: message(),
-            timeStamp: new Date().toLocaleString('en-IN', {
+            time: new Date().toLocaleString('en-IN', {
                 day: 'numeric',
                 month: 'short',
                 year: 'numeric',
@@ -35,6 +35,8 @@ const ContactMe: Component = () => {
             (response: EmailJSResponseStatus) => {
                 console.log("SUCCESS!", response);
                 alert("Email sent successfully!");
+                setEmail(""); // Clear the email input
+                setMessage(""); // Clear the message input
             },
             (error: Error) => {
                 console.log("FAILED...", error);
@@ -62,8 +64,8 @@ const ContactMe: Component = () => {
                 onInput={(e) => setMessage(e.currentTarget.value)} 
             />
             <button 
-                class="bg-blue-600 text-white hover:bg-blue-800 disabled:bg-blue-950 font-semibold text-[3vw] p-[1vh] rounded-[0.5vh] w-full 
-                sm:text-[1.65vh] sm:p-[0.8vh] sm:rounded-[0.3vh]"
+                class="bg-blue-600 text-white hover:bg-blue-800 disabled:bg-indigo-950 font-semibold text-[3vw] p-[1vh] rounded-[0.5vh] w-full 
+                sm:text-[1.65vh] sm:p-[0.8vh] sm:rounded-[0.3vh] disabled:cursor-not-allowed"
                 disabled={!email().trim() || !message().trim() || !isEmailValid(email())}
                 onClick={handleSendEmail}>
                 Send
