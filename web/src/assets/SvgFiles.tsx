@@ -99,4 +99,28 @@ const ErrorSVG: Component = () => {
     )
 }
 
-export {Butterfly, CollectionSVG, DatabaseZapSVG, FileSVG, GitHubSVG, HamburgerSVG, HomeSVG, LockSVG, ScanEyeSVG, UnlockSVG, UserSVG, Anga, UploadSVG, InfoSVG, LoadingSVG, ErrorSVG}
+const EyeSVG: Component = () => {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-eye-icon lucide-eye"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>
+    )
+}
+
+const CopySVG: Component = () => {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-copy-icon lucide-copy"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+    )
+}
+
+const BinSVG: Component = () => {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash2-icon lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+    )
+}
+
+const DownloadSVG: Component = () => {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-down-to-line-icon lucide-arrow-down-to-line"><path d="M12 17V3"/><path d="m6 11 6 6 6-6"/><path d="M19 21H5"/></svg>
+    )
+}
+
+export {Butterfly, CollectionSVG, DatabaseZapSVG, FileSVG, GitHubSVG, HamburgerSVG, HomeSVG, LockSVG, ScanEyeSVG, UnlockSVG, UserSVG, Anga, UploadSVG, InfoSVG, LoadingSVG, ErrorSVG, EyeSVG, CopySVG, BinSVG, DownloadSVG}

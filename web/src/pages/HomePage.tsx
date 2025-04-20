@@ -172,14 +172,9 @@ const HomePage: Component = () => {
     })
 
     onMount(() => {
-        type WebSocketContextType = WebSocket | undefined;
-        const socket: WebSocketContextType = useWebSocket();
+        const {socket} = useWebSocket();
         
         if (socket) {
-            socket.addEventListener('open', () => {
-                console.log('WebSocket connection established');
-            });
-            
             socket.addEventListener('message', (event) => {
                 try {
                     const data = JSON.parse(event.data) as IncomingData;
@@ -194,16 +189,10 @@ const HomePage: Component = () => {
                         }
                     }
                 } catch (error) {
-                    console.error('Failed to parse WebSocket message:', error);
+                    if (import.meta.env.DEV) {
+                        console.error('Failed to parse WebSocket message:', error);
+                    }
                 }
-            });
-            
-            socket.addEventListener('error', () => {
-                console.error('WebSocket error');
-            });
-            
-            socket.addEventListener('close', () => {
-                console.log('WebSocket connection closed');
             });
         }
     });

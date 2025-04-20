@@ -2,8 +2,9 @@ import type { Component } from 'solid-js'
 import { useNavigate } from "@solidjs/router";
 import { Anga, CollectionSVG, FileSVG, GitHubSVG, HomeSVG, UserSVG, HamburgerSVG } from '../assets/SvgFiles'
 import Drawer from '@corvu/drawer'
+import { Pages } from '../types/types';
 
-const DesktopNavbar: Component<{ CurrentPage: string }> = (props) => {
+const DesktopNavbar: Component<{ CurrentPage: Pages }> = (props) => {
     const navigate = useNavigate();
 
     return (
@@ -47,7 +48,7 @@ const DesktopNavbar: Component<{ CurrentPage: string }> = (props) => {
 }
 
 
-const MobileNavbar: Component<{ CurrentPage: string }> = (props) => {
+const MobileNavbar: Component<{ CurrentPage: Pages }> = (props) => {
     const navigate = useNavigate();
     return (
         <nav class="backdrop-blur-md w-full h-[5vh] border-b-2 border-[#242424] flex items-center fixed z-10">
@@ -105,7 +106,7 @@ const MobileNavbar: Component<{ CurrentPage: string }> = (props) => {
                                             props.CurrentPage === "Collections" ? "bg-black text-white" : "hover:bg-[#242424] text-white"
                                         }`}
                                         onClick={() => {
-                                            navigate("/collections");
+                                            navigate("/my_collections");
                                         }}
                                     >
                                         <div class="h-full aspect-square">
@@ -114,9 +115,7 @@ const MobileNavbar: Component<{ CurrentPage: string }> = (props) => {
                                         <span class="font-bold">Collections</span>
                                     </button>
                                     <button
-                                        class={`w-full text-left px-4 py-2 flex items-center space-x-4 rounded-lg ${
-                                            props.CurrentPage === "GitHub" ? "bg-black text-white" : "hover:bg-[#242424] text-white"
-                                        }`}
+                                        class="w-full text-left px-4 py-2 flex items-center space-x-4 rounded-lg text-white hover:bg-[#242424]"
                                         onClick={() => {
                                             window.open("https://github.com/Anga205/AngaDriveV3", "_blank");
                                         }}
@@ -136,7 +135,7 @@ const MobileNavbar: Component<{ CurrentPage: string }> = (props) => {
     );
 };
 
-const Navbar: Component<{ CurrentPage: string, Type: string }> = (props) => {
+const Navbar: Component<{ CurrentPage: Pages, Type: string }> = (props) => {
     return (
         <>
             {
