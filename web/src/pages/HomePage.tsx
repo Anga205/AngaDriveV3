@@ -9,6 +9,7 @@ import ContactMe from "../components/ContactMe";
 import { DesktopTemplate } from "../components/Template";
 import { Toaster } from 'solid-toast';
 import Navbar from "../components/Navbar";
+import { useWebSocket } from "../Websockets";
 
 
 const DesktopHome: Component<{ ramdata: RAMData; cpudata: CPUData; siteActivity: Accessor<GraphData>; spaceUsed: Accessor<GraphData> }> = (props) => {
@@ -171,41 +172,40 @@ const HomePage: Component = () => {
     })
 
     onMount(() => {
-        const host = window.location.host;
-        const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-        const isViteDev = import.meta.env.DEV;
-        socket = new WebSocket(isViteDev ? "ws://localhost:8080" : `${protocol}://${host}/ws`);
+        type WebSocketContextType = WebSocket | undefined;
+        const socket: WebSocketContextType = useWebSocket();
         
-        
-        socket.addEventListener('open', () => {
-            console.log('WebSocket connection established');
-        });
-        
-        socket.addEventListener('message', (event) => {
-            try {
-                const data = JSON.parse(event.data) as IncomingData;
-                if (data.type === 'system_information') {
-                    setSystemInformation(data.data as SysInfo);
-                } else if (data.type === 'graph_data') {
-                    const graphData = data.data as GraphData;
-                    if (graphData.label === 'Space Used') {
-                        setSpaceUsed(graphData);
-                    } else if (graphData.label === 'Site Activity') {
-                        setSiteActivity(graphData);
+        if (socket) {
+            socket.addEventListener('open', () => {
+                console.log('WebSocket connection established');
+            });
+            
+            socket.addEventListener('message', (event) => {
+                try {
+                    const data = JSON.parse(event.data) as IncomingData;
+                    if (data.type === 'system_information') {
+                        setSystemInformation(data.data as SysInfo);
+                    } else if (data.type === 'graph_data') {
+                        const graphData = data.data as GraphData;
+                        if (graphData.label === 'Space Used') {
+                            setSpaceUsed(graphData);
+                        } else if (graphData.label === 'Site Activity') {
+                            setSiteActivity(graphData);
+                        }
                     }
+                } catch (error) {
+                    console.error('Failed to parse WebSocket message:', error);
                 }
-            } catch (error) {
-                console.error('Failed to parse WebSocket message:', error);
-            }
-        });
-        
-        socket.addEventListener('error', () => {
-            console.error('WebSocket error');
-        });
-        
-        socket.addEventListener('close', () => {
-            console.log('WebSocket connection closed');
-        });
+            });
+            
+            socket.addEventListener('error', () => {
+                console.error('WebSocket error');
+            });
+            
+            socket.addEventListener('close', () => {
+                console.log('WebSocket connection closed');
+            });
+        }
     });
       
     onCleanup(() => {
