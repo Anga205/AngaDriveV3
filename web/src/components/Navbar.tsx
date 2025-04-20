@@ -7,50 +7,36 @@ const DesktopNavbar: Component<{ CurrentPage: string }> = (props) => {
     const navigate = useNavigate();
 
     return (
-        <div class="bg-[#161717] h-screen w-[4.5vw] border-white flex flex-col items-center">
-            <div class="p-[20%] h-[10vh]">
+        <div class="bg-[#161717] h-screen w-[4.5vw] flex flex-col items-center">
+            <div class="p-[20%] h-[11vh]">
                 <Anga />
             </div>
 
-            <div class="flex w-full mt-[10%] justify-end">
-                <div 
-                    class={`flex w-5/6 ${props.CurrentPage === "Home" ? "bg-black" : "bg-[#161717] hover:bg-black"} rounded-l-2xl`}
-                    onClick={() => {
-                        navigate("/")
-                    }}>
-                    <div class="p-[20%] h-full aspect-square">
-                        <HomeSVG />
-                    </div>
-                </div>
-            </div>
-            <div class="flex w-full mt-[5%] justify-end">
-                <div 
-                    class={`flex w-5/6 ${props.CurrentPage === "Files" ? "bg-black" : "bg-[#161717] hover:bg-black"} rounded-l-2xl`}
-                    onClick={() => {
-                        navigate("/my_drive")
-                    }}>
-                    <div class="p-[20%]">
-                        <FileSVG />
-                    </div>
-                </div>
-            </div>
-            <div class="flex w-full mt-[5%] justify-end">
-                <div class={`flex w-5/6 ${props.CurrentPage === "Collections" ? "bg-black" : "bg-[#161717] hover:bg-black"} rounded-l-2xl`}>
-                    <div class="p-[20%]">
-                        <CollectionSVG />
-                    </div>
-                </div>
-            </div>
-            <div class="flex w-full mt-[5%] justify-end">
-                <div 
-                    class={`flex w-5/6 ${props.CurrentPage === "GitHub" ? "bg-black" : "bg-[#161717] hover:bg-black"} rounded-l-2xl`}
-                    onClick={() => {
-                        window.open("https://github.com/Anga205/AngaDriveV3", "_blank");
-                    }}>
-                    <div class="p-[20%]">
-                        <GitHubSVG />
-                    </div>
-                </div>
+            <div class="w-full flex flex-col items-end space-y-[0.5vh]">
+                <button 
+                    class={`w-5/6 ${props.CurrentPage === "Home" ? "bg-black" : "bg-[#161717] hover:bg-black"} pl-[0.7vw] pr-[1.7vw] py-[1.5vh] rounded-l-[1.6vh]`}
+                    onClick={() => {navigate("/")}}
+                >
+                    <HomeSVG />
+                </button>
+                <button 
+                    class={`w-5/6 ${props.CurrentPage === "Files" ? "bg-black" : "bg-[#161717] hover:bg-black"} pl-[0.7vw] pr-[1.7vw] py-[1.5vh] rounded-l-[1.6vh]`}
+                    onClick={() => {navigate("/my_drive")}}
+                >
+                    <FileSVG />
+                </button>
+                <button 
+                    class={`w-5/6 ${props.CurrentPage === "Collections" ? "bg-black" : "bg-[#161717] hover:bg-black"} pl-[0.7vw] pr-[1.7vw] py-[1.5vh] rounded-l-[1.6vh]`}
+                    onClick={() => {navigate("/my_collections")}}
+                >
+                    <CollectionSVG />
+                </button>
+                <button 
+                    class="w-5/6 bg-[#161717] hover:bg-black pl-[0.7vw] pr-[1.7vw] py-[1.5vh] rounded-l-[1.6vh]"
+                    onClick={() => {window.open("https://github.com/Anga205/AngaDriveV3", "_blank")}}
+                >
+                    <GitHubSVG />
+                </button>
             </div>
             <div class="flex-grow" />
             <div class="w-full p-[32%]">
