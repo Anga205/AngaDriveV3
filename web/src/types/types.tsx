@@ -27,4 +27,16 @@ interface IncomingData {
     data: SysInfo | GraphData;
 }
 
-export type {RAMData, CPUData, SysInfo, GraphData, IncomingData};
+type SocketStatus = "connected" | "disconnected" | "connecting" | "error";
+
+type Pages = "Home" | "Files" | "Collections";
+
+interface FileData {
+    original_file_name: string;
+    file_directory: string;
+    file_size: number;
+    timestamp: number;
+    cached: boolean;
+}
+
+export type {RAMData, CPUData, SysInfo, GraphData, IncomingData, SocketStatus, Pages, FileData};
