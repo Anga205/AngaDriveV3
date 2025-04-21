@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	ActiveWebsockets      = make(map[*websocket.Conn]bool)
+	ActiveWebsockets      = make(map[*websocket.Conn]WebsocketData)
 	ActiveWebsocketsMutex sync.RWMutex
 )
 
@@ -33,11 +33,13 @@ func Pulse() {
 		Label:       "Site Activity",
 		BeginAtZero: true,
 	}
-	for conn := range ActiveWebsockets {
+	for conn, connMutex := range ActiveWebsockets {
+		connMutex.Mutex.Lock()
 		err := conn.WriteJSON(map[string]interface{}{
 			"type": "graph_data",
 			"data": graphData,
 		})
+		connMutex.Mutex.Unlock()
 		if err != nil {
 			fmt.Printf("Error writing to websocket: %v\n", err)
 			ActiveWebsocketsMutex.Lock()
@@ -56,11 +58,13 @@ func updateAllWebsockets() {
 		<-ticker.C
 		sysInfo, _ := info.GetSysInfo()
 
-		for conn := range ActiveWebsockets {
+		for conn, connMutex := range ActiveWebsockets {
+			connMutex.Mutex.Lock()
 			err := conn.WriteJSON(map[string]interface{}{
 				"type": "system_information",
 				"data": sysInfo,
 			})
+			connMutex.Mutex.Unlock()
 			if err != nil {
 				fmt.Printf("Error writing to websocket: %v\n", err)
 				ActiveWebsocketsMutex.Lock()
@@ -72,68 +76,50 @@ func updateAllWebsockets() {
 	}
 }
 
-// excuse the shitload of comments, i have no clue what im doing
 func SetupWebsocket(r *gin.Engine) {
 	info.InitializeSysInfo()
 	go updateAllWebsockets()
 	r.GET("/ws", func(c *gin.Context) {
-		// Upgrade the connection to a websocket
 		conn, err := upgradeToWebSocket(c)
 		if err != nil {
-			// if we fail to upgrade, we just return a 500 error
-			// i've never actually encountered a situation where this block gets executed
-			// but i guess its good practice to have it
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upgrade to websocket"})
 			return
 		}
 
-		// give the client some initial data before the ticker takes over
 		sysInfo, _ := info.GetSysInfo()
 		conn.WriteJSON(map[string]interface{}{
 			"type": "system_information",
 			"data": sysInfo,
 		})
 		go Pulse()
-		// defer just means "when this function exits, close the connection"
 		defer conn.Close()
 
-		// add the connection to the list of active websockets
 		ActiveWebsocketsMutex.Lock()
-		ActiveWebsockets[conn] = true
+		ActiveWebsockets[conn] = WebsocketData{Mutex: &sync.Mutex{}}
 		ActiveWebsocketsMutex.Unlock()
 
 		defer func() {
-			// remove the connection from the list of active websockets
 			ActiveWebsocketsMutex.Lock()
 			delete(ActiveWebsockets, conn)
 			ActiveWebsocketsMutex.Unlock()
 		}()
 
 		done := make(chan bool)
-
-		// this is where we handle the messages from the client
-		// basically its a goroutiune that will asynchronously check if the client has requested to stop
-		go handleClose(conn, done)
-
-		// this is an empty channel that only gets pushed to when the client has requested to stop
-		// this is needed because it delays the function from exiting therefore delaying the closing of the connection
+		go reader(conn, done)
 		<-done
 	})
 }
 
 func upgradeToWebSocket(c *gin.Context) (*websocket.Conn, error) {
-	// this just defines the upgrade to websocket
 	upgrader := websocket.Upgrader{
-		// for now, we just allow all origins
-		// later we can add a check for the origin
 		CheckOrigin: func(r *http.Request) bool {
-			return true // TODO: add a check for the origin
+			return true
 		},
 	}
 	return upgrader.Upgrade(c.Writer, c.Request, nil)
 }
 
-func handleClose(conn *websocket.Conn, done chan bool) {
+func reader(conn *websocket.Conn, done chan bool) {
 	defer func() { done <- true }()
 	for {
 		_, msg, err := conn.ReadMessage()
