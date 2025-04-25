@@ -9,8 +9,10 @@ const DesktopNavbar: Component<{ CurrentPage: Pages }> = (props) => {
 
     return (
         <div class="bg-[#161717] h-screen w-[4.5vw] flex flex-col items-center">
-            <div class="p-[20%] h-[11vh]">
-                <Anga />
+            <div class="p-[20%] h-[11vh]" onClick={() => {navigate("/")}}>
+                <div class="w-full h-auto">
+                    <Anga />
+                </div>
             </div>
 
             <div class="w-full flex flex-col items-end space-y-[0.5vh]">

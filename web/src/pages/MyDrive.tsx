@@ -1,7 +1,7 @@
 import type { Accessor, Component } from "solid-js"
 import { createSignal } from "solid-js"
 import { DesktopTemplate } from "../components/Template"
-import { InfoSVG, UploadSVG, ErrorSVG, EyeSVG, CopySVG, BinSVG } from "../assets/SvgFiles"
+import { InfoSVG, UploadSVG, ErrorSVG, EyeSVG, CopySVG, BinSVG, DownloadSVG } from "../assets/SvgFiles"
 import Navbar from "../components/Navbar";
 import { useWebSocket } from "../Websockets";
 import { FileData } from "../types/types";
@@ -50,11 +50,39 @@ const FilesError: Component = () => {
     )
 }
 
-const FilePreview: Component<{link: string}> = (props) => {
-    return (
-        <img src={props.link} loading="lazy" class="max-h-full max-w-full pointer-events-none" />
-    )
-}
+const FilePreview: Component<{ link: string }> = (props) => {
+    const getFilePreview = () => {
+        const ext = props.link.split('.').pop()?.toLowerCase();
+        if (!ext) return <p class="text-white">Unsupported file type</p>;
+
+        if (["jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff"].includes(ext)) {
+            return <img src={props.link} loading="lazy" class="max-h-full max-w-full pointer-events-none" />;
+        }
+
+        if (["mp4", "mkv", "avi", "mov", "wmv", "flv", "webm"].includes(ext)) {
+            return <video src={props.link} controls class="max-h-full max-w-full pointer-events-none" preload="metadata" />;
+        }
+
+        if (["mp3", "wav", "aac", "flac", "ogg", "wma", "m4a"].includes(ext)) {
+            return <audio src={props.link} controls class="w-full pointer-events-none" />;
+        }
+
+        if (["pdf"].includes(ext)) {
+            return (
+                <iframe
+                    src={props.link}
+                    class="w-full h-full pointer-events-none"
+                    title="PDF Preview"
+                    loading="lazy"
+                />
+            );
+        }
+
+        return <p class="text-white">Preview not available for this file type</p>;
+    };
+
+    return <div class="flex justify-center items-center w-full h-full">{getFilePreview()}</div>;
+};
 
 const FileCard: Component<{ File: FileData }> = (props) => {
     const cache_link = import.meta.env.VITE_CACHE_LINK || "https://cloud.anga.pro/i/";
@@ -124,6 +152,10 @@ const FileCard: Component<{ File: FileData }> = (props) => {
                     <CopySVG />
                 </button>
                 <div/>
+                <button class="flex items-center justify-center p-2 bg-green-700/30 hover:bg-green-700/20 rounded-xl text-green-500">
+                    <DownloadSVG />
+                </button>
+                <div/>
                 <button class="flex items-center justify-center p-2 text-red-700 bg-red-800/30 hover:bg-red-900/20 rounded-xl">
                     <BinSVG />
                 </button>
@@ -134,24 +166,11 @@ const FileCard: Component<{ File: FileData }> = (props) => {
 };
 
 const DriveBody: Component<{ Files: Accessor<Array<FileData>> }> = (props) => {
-    const sampleFile: FileData = {
-        original_file_name: "Sample File.txt",
-        file_directory: "0dskxfu5ufmc.jpg",
-        file_size: 1024,
-        timestamp: Date.now(),
-        cached: false,
-    };
     return (
         <div 
             class="w-full flex justify-center flex-wrap space-x-8 space-y-8 overflow-y-scroll py-10 custom-scrollbar"
         >
-            {props.Files().length === 0 ? (
-            Array.from({ length: 15 }).map((_, index) => (
-            <FileCard File={{ ...sampleFile, original_file_name: `Sample File ${index + 1}.txt` }} />
-            ))
-            ) : (
-            props.Files().map((file) => <FileCard File={file} />)
-            )}
+            {props.Files().map((file) => <FileCard File={file} />)}
         </div>
     );
 };
@@ -164,7 +183,7 @@ const DesktopDrive: Component<{Files: Accessor<Array<FileData>>}> = (props) => {
                     <p class="text-white font-black text-[4vh]">My Files</p>
                     <button class="cursor-pointer hover:text-gray-300 text-white flex justify-center items-center bg-blue-600 hover:bg-blue-800 p-[1vh] rounded-[1vh] font-bold translate-y-[4vh]"><UploadSVG/>Upload</button>
                 </div>
-                {props.Files().length === 1 ? <FilesError /> : <DriveBody Files={props.Files} />}
+                {props.Files().length === 0 ? <FilesError /> : <DriveBody Files={props.Files} />}
             </div>
         </DesktopTemplate>
     )
@@ -194,7 +213,20 @@ const MyDrive: Component = () => {
     };
     window.addEventListener('resize', handleResize);
 
-    const [files] = createSignal<Array<FileData>>([]);
+    const sampleFile: FileData = {
+        original_file_name: "Sample File.jpg",
+        file_directory: "00oswbkqftd9.pdf",
+        file_size: 1024,
+        timestamp: Date.now(),
+        cached: false,
+    };
+
+    const [files] = createSignal<Array<FileData>>(
+        Array.from({ length: 100 }).map((_, index) => ({
+            ...sampleFile,
+            original_file_name: `Sample File ${index + 1}.jpg`,
+        }))
+    );
 
     return (
         <>
