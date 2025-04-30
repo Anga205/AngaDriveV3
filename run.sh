@@ -24,10 +24,6 @@ fi
 
 cd service
 export GIN_MODE=release
-if [[ ! -f "main" ]]; then
-    echo "Building backend..."
-    go build main.go
-fi
 if [[ ! -d "dist" ]]; then
     echo "Building frontend..."
     cd ../web
@@ -38,4 +34,4 @@ if [[ ! -d "dist" ]]; then
     mv dist ../service
     cd ../service
 fi
-./main
+go run main.go

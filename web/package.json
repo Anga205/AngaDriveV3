@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@corvu/dialog": "^0.2.4",
     "@corvu/drawer": "^0.2.4",
     "@emailjs/browser": "^4.4.1",
     "@solidjs/router": "^0.15.3",

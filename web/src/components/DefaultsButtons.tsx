@@ -43,16 +43,32 @@ const DefaultsButtons: Component = () => {
     )
 }
 
-const MobileDefaults: Component<{ bgColor: string, title: string, status: string, Icon: Component}> = (props) => {
+const MobileDefaults: Component<{ bgColor: string, title: string, status: boolean, Icon: Component}> = (props) => {
+    const [enabled, setEnabled]: [() => boolean, (value: boolean) => void] = createSignal(props.status);
+    const [isClicked, setIsClicked] = createSignal(false);
+
+    const handleClick = () => {
+        setIsClicked(true);
+        setTimeout(() => setIsClicked(false), 200);
+        setEnabled(!enabled());
+    };
+
     return (
-        <div class="flex flex-col w-1/3 rounded-xl aspect-square bg-[#242424] overflow-hidden">
+        <div 
+            class={`flex flex-col w-1/3 rounded-xl aspect-square bg-[#242424] overflow-hidden transform transition-transform duration-200 ${isClicked() ? "scale-95" : "scale-100"}`}
+            onClick={handleClick}
+            onContextMenu={(e: MouseEvent) => {
+                e.preventDefault();
+                setEnabled(props.status);
+            }}
+        >
             <div class={`w-full h-1 ${props.bgColor}`}/>
             <div class="w-full h-full p-1 flex flex-col space-y-[1vh] justify-center items-center">
                 <p class="font-black text-white text-[3vw]">{props.title}</p>
                 <div class="flex-grow aspect-square">
                     <props.Icon />
                 </div>
-                <p class="text-gray-400 text-[2vw]">Default: {props.status}</p>
+                <p class="text-gray-400 text-[2vw]">Default: {enabled() ? "Enabled" : "Disabled"}</p>
             </div>
         </div>
     )
@@ -61,9 +77,9 @@ const MobileDefaults: Component<{ bgColor: string, title: string, status: string
 const MobileButtons: Component = () => {
     return (
         <div class="w-full flex space-x-[1.5vh] px-[1.5vh] opacity-95">
-            <MobileDefaults bgColor="bg-blue-500" title="Caching" status="Disabled" Icon={DatabaseZapSVG} />
-            <MobileDefaults bgColor="bg-purple-700" title="File Previews" status="Enabled" Icon={ScanEyeSVG} />
-            <MobileDefaults bgColor="bg-green-600" title="Ultra Secure" status="Disabled" Icon={LockSVG} />
+            <MobileDefaults bgColor="bg-blue-500" title="Caching" status={false} Icon={DatabaseZapSVG} />
+            <MobileDefaults bgColor="bg-purple-700" title="File Previews" status={true} Icon={ScanEyeSVG} />
+            <MobileDefaults bgColor="bg-green-600" title="Ultra Secure" status={false} Icon={LockSVG} />
         </div>
     )
 }

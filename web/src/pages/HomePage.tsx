@@ -129,10 +129,10 @@ const MobileHome: Component<{ ramdata: RAMData; cpudata: CPUData; siteActivity: 
 }
 
 const HomePage: Component = () => {
-    const [isMobile, setIsMobile] = createSignal(window.innerWidth <= 768);
+    const [isMobile, setIsMobile] = createSignal(window.innerWidth <= 640);
 
     const handleResize = () => {
-        setIsMobile(window.innerWidth <= 768);
+        setIsMobile(window.innerWidth <= 640);
     };
     window.addEventListener('resize', handleResize);
     let socket: WebSocket | undefined;
