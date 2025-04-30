@@ -41,32 +41,28 @@ func compileFrontend() error {
 	return nil
 }
 
-var fileCache = make(map[string][]byte) // this map is basically what im using to load everything into ram
+var fileCache = make(map[string][]byte)
 
-// im doing hella vibe-coding rn, dont mind the comments, its just to help me understand later
 func setupRoutes(r *gin.Engine, distPath string) {
-	// Recursively walk through the distPath directory
-	err := filepath.Walk(distPath, func(path string, info os.FileInfo, err error) error { // disposable function to run for each file
+	err := filepath.Walk(distPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return err // Handle error, idk what errors to expect, so just return for now
+			return err
 		}
 		if !info.IsDir() {
-			data, err := os.ReadFile(path) // Read file
+			data, err := os.ReadFile(path)
 			if err != nil {
 				return err
 			}
-			relativePath := path[len(distPath):] // path is the path to the file, distPath is the path to the dist directory
-			// ^^^^  we extract the relative path by removing the distPath prefix
-			fileCache[relativePath] = data // Cache the content by adding it to the map
+			relativePath := path[len(distPath):]
+			fileCache[relativePath] = data
 		}
-		return nil // does this need to be here? it doesnt do anything but golang keeps throwing errors if i remove it
+		return nil
 	})
 	if err != nil {
 		fmt.Println("Error caching files:", err)
 		return
 	}
 
-	// Define routes, since im handling the routing on the client side, everything here just points to the same index.html file
 	r.GET("/", func(c *gin.Context) {
 		c.Data(http.StatusOK, "text/html", fileCache["/index.html"])
 	})
@@ -75,12 +71,15 @@ func setupRoutes(r *gin.Engine, distPath string) {
 		c.Data(http.StatusOK, "text/html", fileCache["/index.html"])
 	})
 
-	// Register routes for all other files (from cache)
+	r.GET("/my_collections", func(c *gin.Context) {
+		c.Data(http.StatusOK, "text/html", fileCache["/index.html"])
+	})
+
 	for relPath := range fileCache {
-		if relPath != "/index.html" { // Skip already registered paths
+		if relPath != "/index.html" {
 			r.GET(relPath, func(c *gin.Context) {
 				c.Data(
-					http.StatusOK, // this just means 200, i couldve just put 200 here but makes it look like i know what im doing
+					http.StatusOK,
 					getContentType(relPath),
 					fileCache[relPath],
 				)

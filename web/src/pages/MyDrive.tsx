@@ -5,6 +5,7 @@ import { InfoSVG, UploadSVG, ErrorSVG, EyeSVG, CopySVG, BinSVG, DownloadSVG } fr
 import Navbar from "../components/Navbar";
 import { useWebSocket } from "../Websockets";
 import { FileData } from "../types/types";
+import Dialog from "@corvu/dialog";
 
 const FilesError: Component = () => {
     const baseClass = "flex items-center p-[1vh] rounded-[1vh] w-full";
@@ -175,13 +176,33 @@ const DriveBody: Component<{ Files: Accessor<Array<FileData>> }> = (props) => {
     );
 };
 
+const DesktopPopUp: Component = () => {
+    return (
+        <Dialog>
+            <Dialog.Trigger class="cursor-pointer hover:text-gray-300 text-white flex justify-center items-center bg-blue-600 hover:bg-blue-800 p-[1vh] rounded-[1vh] font-bold translate-y-[4vh]"><UploadSVG/>Upload</Dialog.Trigger>
+            <Dialog.Portal>
+                <Dialog.Overlay class="fixed inset-0 z-50 bg-black/50 data-open:animate-in data-open:fade-in-0% data-closed:animate-out data-closed:fade-out-0%" />
+                <Dialog.Content class="bg-[#0f0f0f] text-white fixed left-1/2 top-1/2 z-50 min-w-80 -translate-x-1/2 -translate-y-1/2 rounded-lg border-2 border-gray-900 border-corvu-400 bg-corvu-100 px-6 py-5 data-open:animate-in data-open:fade-in-0% data-open:zoom-in-95% data-open:slide-in-from-top-10% data-closed:animate-out data-closed:fade-out-0% data-closed:zoom-out-95% data-closed:slide-out-to-top-10%">
+                    <Dialog.Label class="text-lg font-bold">
+                        Upload or Import Files
+                    </Dialog.Label>
+                    <label for="file-upload" class="border-dotted border-2 border-blue-800 rounded-md min-w-[30vw] min-h-[15vh] flex justify-center items-center cursor-pointer my-[1vh]">
+                        <p>Drag and drop files here or click to select files</p>
+                        <input id="file-upload" type="file" multiple class="hidden" />
+                    </label>
+                </Dialog.Content>
+            </Dialog.Portal>
+        </Dialog>
+    )
+}
+
 const DesktopDrive: Component<{Files: Accessor<Array<FileData>>}> = (props) => {
     return (
         <DesktopTemplate CurrentPage="Files">
             <div class="flex flex-col w-full h-full px-[2vh] p-[1vh] space-y-10">
                 <div class="w-full flex justify-between items-center">
                     <p class="text-white font-black text-[4vh]">My Files</p>
-                    <button class="cursor-pointer hover:text-gray-300 text-white flex justify-center items-center bg-blue-600 hover:bg-blue-800 p-[1vh] rounded-[1vh] font-bold translate-y-[4vh]"><UploadSVG/>Upload</button>
+                    <DesktopPopUp />
                 </div>
                 {props.Files().length === 0 ? <FilesError /> : <DriveBody Files={props.Files} />}
             </div>
@@ -222,7 +243,7 @@ const MyDrive: Component = () => {
     };
 
     const [files] = createSignal<Array<FileData>>(
-        Array.from({ length: 100 }).map((_, index) => ({
+        Array.from({ length: 12 }).map((_, index) => ({
             ...sampleFile,
             original_file_name: `Sample File ${index + 1}.jpg`,
         }))
