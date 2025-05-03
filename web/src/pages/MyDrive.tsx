@@ -1,11 +1,12 @@
 import type { Accessor, Component } from "solid-js"
 import { createSignal } from "solid-js"
 import { DesktopTemplate } from "../components/Template"
-import { InfoSVG, UploadSVG, ErrorSVG, EyeSVG, CopySVG, BinSVG, DownloadSVG } from "../assets/SvgFiles"
+import { InfoSVG, UploadSVG, ErrorSVG, BinSVG, FileSVG } from "../assets/SvgFiles"
 import Navbar from "../components/Navbar";
 import { useWebSocket } from "../Websockets";
 import { FileData } from "../types/types";
 import Dialog from "@corvu/dialog";
+import FileCard from "../components/FileCard";
 
 const FilesError: Component = () => {
     const baseClass = "flex items-center p-[1vh] rounded-[1vh] w-full";
@@ -14,7 +15,7 @@ const FilesError: Component = () => {
     const {status} = useWebSocket();
 
     return (
-        <div class="w-full h-full flex justify-center items-center">
+        <div class="w-full h-full flex justify-center items-center px-10 md:px-0">
             <div class={containerClass}>
                 {status() === "connecting" && (
                     <div class={`${baseClass} border-l-4 bg-yellow-600/30 border-yellow-400`}>
@@ -51,120 +52,7 @@ const FilesError: Component = () => {
     )
 }
 
-const FilePreview: Component<{ link: string }> = (props) => {
-    const getFilePreview = () => {
-        const ext = props.link.split('.').pop()?.toLowerCase();
-        if (!ext) return <p class="text-white">Unsupported file type</p>;
 
-        if (["jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff"].includes(ext)) {
-            return <img src={props.link} loading="lazy" class="max-h-full max-w-full pointer-events-none" />;
-        }
-
-        if (["mp4", "mkv", "avi", "mov", "wmv", "flv", "webm"].includes(ext)) {
-            return <video src={props.link} controls class="max-h-full max-w-full pointer-events-none" preload="metadata" />;
-        }
-
-        if (["mp3", "wav", "aac", "flac", "ogg", "wma", "m4a"].includes(ext)) {
-            return <audio src={props.link} controls class="w-full pointer-events-none" />;
-        }
-
-        if (["pdf"].includes(ext)) {
-            return (
-                <iframe
-                    src={props.link}
-                    class="w-full h-full pointer-events-none"
-                    title="PDF Preview"
-                    loading="lazy"
-                />
-            );
-        }
-
-        return <p class="text-white">Preview not available for this file type</p>;
-    };
-
-    return <div class="flex justify-center items-center w-full h-full">{getFilePreview()}</div>;
-};
-
-const FileCard: Component<{ File: FileData }> = (props) => {
-    const cache_link = import.meta.env.VITE_CACHE_LINK || "https://cloud.anga.pro/i/";
-    const default_link = import.meta.env.VITE_DEFAULT_LINK || "https://i.anga.pro/i/";
-    return (
-        <div class="flex flex-col w-80 h-96 bg-gray-950 border-gray-800 rounded-lg hover:scale-105 transform transition-transform duration-300 shadow-lg shadow-gray-900/50">
-            <div class="flex items-center overflow-hidden justify-center w-full h-[14%] bg-gray-900 rounded-t-lg">
-                <p class="text-white text-2xl font-semibold text-nowrap font-mono">{props.File.original_file_name.length >17
-                    ? `${props.File.original_file_name.slice(0,17)}...`
-                    : props.File.original_file_name}</p>
-            </div>
-            <div class="flex justify-center items-center w-full h-1/2 overflow-hidden">
-                <FilePreview link={props.File.cached?cache_link+props.File.file_directory:default_link+props.File.file_directory}/>
-            </div>
-            <div class="flex w-full space-x-2 p-2 text-xs border-b-1 border-gray-800">
-                <div class="flex flex-col items-end w-1/2 h-full text-gray-700 font-sans">
-                    <p>Type:</p>
-                    <p>Uploaded Name:</p>
-                    <p>Timestamp:</p>
-                    <p>Size:</p>
-                </div>
-                <div class="flex flex-col items-start w-1/2 h-full text-gray-700 font-sans">
-                    <p>
-                        {(() => {
-                            const ext = props.File.file_directory.split('.').pop()?.toLowerCase();
-                            if (!ext) return "Unknown";
-                            if (["jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff"].includes(ext)) return "Image";
-                            if (["mp4", "mkv", "avi", "mov", "wmv", "flv", "webm"].includes(ext)) return "Video";
-                            if (["mp3", "wav", "aac", "flac", "ogg", "wma", "m4a"].includes(ext)) return "Audio";
-                            if (["pdf"].includes(ext)) return "Document";
-                            if (["doc", "docx", "odt", "rtf", "txt", "md", "tex"].includes(ext)) return "Text Document";
-                            if (["xls", "xlsx", "ods", "csv", "tsv"].includes(ext)) return "Spreadsheet";
-                            if (["ppt", "pptx", "odp", "key"].includes(ext)) return "Presentation";
-                            if (["zip", "rar", "7z", "tar", "gz", "bz2", "xz"].includes(ext)) return "Archive";
-                            if (["exe", "msi", "bat", "sh", "apk", "dmg"].includes(ext)) return "Executable";
-                            if (["html", "htm", "css", "js", "ts", "jsx", "tsx", "json", "xml", "yaml", "yml"].includes(ext)) return "Code";
-                            if (["iso", "img", "bin", "cue"].includes(ext)) return "Disk Image";
-                            if (["epub", "mobi", "azw", "azw3"].includes(ext)) return "Ebook";
-                            return "Unknown";
-                        })()}
-                    </p>
-                    <p>{props.File.file_directory}</p>
-                    <p>{new Date(props.File.timestamp).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}</p>
-                    <p>
-                        {(() => {
-                            const bytes = props.File.file_size;
-                            if (bytes < 1024) return `${bytes} B`;
-                            const kb = bytes / 1024;
-                            if (kb < 1024) return `${kb.toFixed(2)} KB`;
-                            const mb = kb / 1024;
-                            if (mb < 1024) return `${mb.toFixed(2)} MB`;
-                            const gb = mb / 1024;
-                            if (gb < 1024) return `${gb.toFixed(2)} GB`;
-                            const tb = gb / 1024;
-                            return `${tb.toFixed(2)} TB`;
-                        })()}
-                    </p>
-                </div>
-            </div>
-            <div class="w-full flex justify-between p-2">
-                <div/>
-                <button class="flex items-center justify-center p-2 bg-yellow-700/30 hover:bg-yellow-700/20 rounded-xl text-yellow-600">
-                    <EyeSVG />
-                </button>
-                <div/>
-                <button class="flex items-center justify-center p-2 bg-cyan-700/30 hover:bg-cyan-700/20 rounded-xl text-cyan-500">
-                    <CopySVG />
-                </button>
-                <div/>
-                <button class="flex items-center justify-center p-2 bg-green-700/30 hover:bg-green-700/20 rounded-xl text-green-500">
-                    <DownloadSVG />
-                </button>
-                <div/>
-                <button class="flex items-center justify-center p-2 text-red-700 bg-red-800/30 hover:bg-red-900/20 rounded-xl">
-                    <BinSVG />
-                </button>
-                <div/>
-            </div>
-        </div>
-    );
-};
 
 const DriveBody: Component<{ Files: Accessor<Array<FileData>> }> = (props) => {
     return (
@@ -176,25 +64,100 @@ const DriveBody: Component<{ Files: Accessor<Array<FileData>> }> = (props) => {
     );
 };
 
-const DesktopPopUp: Component = () => {
+const FileUploadPreview: Component<{ file: File; index: number; handleFileDelete: (index: number) => void; }> = (props) => {
+
+    const formatFileSize = (size: number) => {
+        if (size < 1024) return `${size} B`;
+        const kb = size / 1024;
+        if (kb < 1024) return `${kb.toFixed(2)} KB`;
+        const mb = kb / 1024;
+        if (mb < 1024) return `${mb.toFixed(2)} MB`;
+        const gb = mb / 1024;
+        return `${gb.toFixed(2)} GB`;
+    };
+
+    const truncateFileName = (name: string) => {
+        return name.length > 32 ? `${name.slice(0, 32)}...` : name;
+    };
+
+    const preview_size_limit = 100 * 1024 * 1024; // 100 MB
+    const ext = props.file.name.split('.').pop()?.toLowerCase();
+
     return (
-        <Dialog>
-            <Dialog.Trigger class="cursor-pointer hover:text-gray-300 text-white flex justify-center items-center bg-blue-600 hover:bg-blue-800 p-[1vh] rounded-[1vh] font-bold translate-y-[4vh]"><UploadSVG/>Upload</Dialog.Trigger>
+        <div class="flex items-center justify-between p-3 bg-gray-900 rounded-lg shadow-lg hover:shadow-xl transition-shadow">
+            <div class="flex items-center space-x-4">
+                <div class="w-12 h-12 flex items-center justify-center bg-gray-800 rounded-md overflow-hidden">
+                    {(() => {
+                        if (ext && ["pdf"].includes(ext)) {
+                            return <p class="text-white text-xs">PDF</p>;
+                        }
+                        if (ext && ["jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff"].includes(ext) && (props.file.size < preview_size_limit)) {
+                            return <img src={URL.createObjectURL(props.file)} alt="Preview" class="w-full h-full object-cover" />;
+                        }
+                        if (ext && ["mp4", "mkv", "mov", "wmv", "flv", "webm"].includes(ext) && (props.file.size < preview_size_limit)) {
+                            return <video src={URL.createObjectURL(props.file)} class="w-full h-full object-cover" muted />;
+                        }
+                        return <FileSVG />;
+                    })()}
+                </div>
+                <div class="flex flex-col">
+                    <p class="text-white text-sm font-medium">{truncateFileName(props.file.name)}</p>
+                    <p class="text-gray-400 text-xs">{formatFileSize(props.file.size)}</p>
+                </div>
+            </div>
+            <button
+                class="flex items-center justify-center p-2 bg-red-700/30 hover:bg-red-700/20 rounded-lg text-red-500 hover:text-red-700 transition-colors"
+                onClick={() => props.handleFileDelete(props.index)}
+            >
+                <BinSVG />
+            </button>
+        </div>
+    )
+}
+
+const DesktopPopUp: Component = () => {
+    const [selectedFiles, setSelectedFiles] = createSignal<File[]>([]);
+
+    const handleFileChange = (event: Event) => {
+        const input = event.target as HTMLInputElement;
+        if (input.files) {
+            setSelectedFiles(Array.from(input.files));
+        }
+    };
+
+    const handleFileDelete = (index: number) => {
+        setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+    };
+
+    return (
+        <Dialog onOpenChange={() => setSelectedFiles([])}>
+            <Dialog.Trigger class="cursor-pointer hover:text-gray-300 text-white flex justify-center items-center bg-blue-600 hover:bg-blue-800 p-[1vh] rounded-[1vh] font-bold translate-y-[4vh]"><UploadSVG />Upload</Dialog.Trigger>
             <Dialog.Portal>
                 <Dialog.Overlay class="fixed inset-0 z-50 bg-black/50 data-open:animate-in data-open:fade-in-0% data-closed:animate-out data-closed:fade-out-0%" />
                 <Dialog.Content class="bg-[#0f0f0f] text-white fixed left-1/2 top-1/2 z-50 min-w-80 -translate-x-1/2 -translate-y-1/2 rounded-lg border-2 border-gray-900 border-corvu-400 bg-corvu-100 px-6 py-5 data-open:animate-in data-open:fade-in-0% data-open:zoom-in-95% data-open:slide-in-from-top-10% data-closed:animate-out data-closed:fade-out-0% data-closed:zoom-out-95% data-closed:slide-out-to-top-10%">
                     <Dialog.Label class="text-lg font-bold">
                         Upload or Import Files
                     </Dialog.Label>
-                    <label for="file-upload" class="border-dotted border-2 border-blue-800 rounded-md min-w-[30vw] min-h-[15vh] flex justify-center items-center cursor-pointer my-[1vh]">
-                        <p>Drag and drop files here or click to select files</p>
-                        <input id="file-upload" type="file" multiple class="hidden" />
+                    <label for="file-upload" class={`rounded-md min-w-[30vw] min-h-[15vh] flex justify-center items-center cursor-pointer my-[1vh] ${selectedFiles().length === 0 ? 'border-dotted border-2 border-blue-800' : ''}`}>
+                        {selectedFiles().length === 0 ? (
+                            <p>Drag and drop files here or click to select files</p>
+                        ) : (
+                            <div class="flex flex-col w-full space-y-4 max-h-[30vh] overflow-y-auto custom-scrollbar">
+                                {selectedFiles().map((file, index) => <FileUploadPreview file={file} index={index} handleFileDelete={handleFileDelete} />)}
+                            </div>
+                        )}
+                        <input id="file-upload" type="file" multiple class="hidden" onChange={handleFileChange} />
                     </label>
+                    {selectedFiles().length > 0 && (
+                        <button class="mt-4 w-full bg-blue-600 hover:bg-blue-800 text-white font-bold py-2 px-4 rounded">
+                            Upload
+                        </button>
+                    )}
                 </Dialog.Content>
             </Dialog.Portal>
         </Dialog>
-    )
-}
+    );
+};
 
 const DesktopDrive: Component<{Files: Accessor<Array<FileData>>}> = (props) => {
     return (
@@ -210,9 +173,9 @@ const DesktopDrive: Component<{Files: Accessor<Array<FileData>>}> = (props) => {
     )
 }
 
-const MobileDrive: Component<{Files: Accessor<Array<FileData>>}> = () => {
+const MobileDrive: Component<{Files: Accessor<Array<FileData>>}> = (props) => {
     return (
-        <div class="flex flex-col w-full min-h-screen h-screen bg-black">
+        <div class="flex flex-col w-full min-h-screen bg-black">
             <Navbar CurrentPage="Files" Type="mobile"/>
             <div class="h-[5vh]"/>
             <div class="w-full flex justify-between items-center px-[3vw]">
@@ -220,7 +183,7 @@ const MobileDrive: Component<{Files: Accessor<Array<FileData>>}> = () => {
                 <button class="cursor-pointer hover:text-gray-300 text-white flex justify-center items-center bg-blue-600 hover:bg-blue-800 p-[1vh] rounded-[1vh] font-bold translate-y-[4vh]"><UploadSVG/>Upload</button>
             </div>
             <div class="w-full h-full flex justify-center items-center">
-                <FilesError />
+                {props.Files().length === 0 ? <FilesError /> : <DriveBody Files={props.Files} />}
             </div>
         </div>
     )
