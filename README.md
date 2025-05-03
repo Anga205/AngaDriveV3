@@ -11,7 +11,7 @@ If you want to deploy and use features from this project, please refer to [AngaD
 
 # AngaDriveV3
 
-### A remote file hosting web application with a specific focus on performance and scalability
+#### A remote file hosting web application with a specific focus on performance and scalability
 
 ![preview.png](/.github/assets/preview.png)
 
@@ -19,9 +19,9 @@ If you want to deploy and use features from this project, please refer to [AngaD
 
 ![TechStack.png](https://skillicons.dev/icons?i=go,solidjs,sqlite)
 
-- **SolidJS**: Using SolidJS for the frontend (in the `web` directory) because its pretty performant for making decent frontend applications, and performance is key for this kind of project.
+- **SolidJS**: Using SolidJS for the frontend (in the `frontend` directory) because its pretty performant for making decent frontend applications, and performance is key for this kind of project.
 - **SQLite**: Because it's relatively portable compared to other relational databases like CockroachDB and MySQL
-- **Go**: Backend is written in go, all the files you can find in the `service` directory, a gonic-gin server is being used to serve up the compiled frontend files, and most updates on the frontend happen via a gorilla websocket connection
+- **Go**: Backend is written in go, all the files you can find in the `backend` directory, a gonic-gin server is being used to serve up the compiled frontend files, and most updates on the frontend happen via a gorilla websocket connection
 
 ## Self Hosting Guide
 

@@ -17,21 +17,21 @@ else
     :
 fi
 
-if [[ ! -d "service" || ! -d "web" ]]; then
+if [[ ! -d "backend" || ! -d "frontend" ]]; then
     echo "Please run this script in the root directory of the project."
     exit 1
 fi
 
-cd service
+cd backend
 export GIN_MODE=release
 if [[ ! -d "dist" ]]; then
     echo "Building frontend..."
-    cd ../web
+    cd ../frontend
     if [[ ! -d "node_modules" ]]; then
         bun install
     fi
     bun run build
-    mv dist ../service
-    cd ../service
+    mv dist ../backend
+    cd ../backend
 fi
 go run main.go
