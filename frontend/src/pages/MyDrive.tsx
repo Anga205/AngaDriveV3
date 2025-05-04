@@ -1,5 +1,5 @@
 import type { Accessor, Component } from "solid-js"
-import { createSignal } from "solid-js"
+import { createSignal, Show, For } from "solid-js"
 import { DesktopTemplate } from "../components/Template"
 import { InfoSVG, UploadSVG, ErrorSVG, BinSVG, FileSVG } from "../assets/SvgFiles"
 import Navbar from "../components/Navbar";
@@ -59,7 +59,9 @@ const DriveBody: Component<{ Files: Accessor<Array<FileData>> }> = (props) => {
         <div 
             class="w-full flex justify-center flex-wrap space-x-8 space-y-8 overflow-y-scroll py-10 custom-scrollbar"
         >
-            {props.Files().map((file) => <FileCard File={file} />)}
+            <For each={props.Files()}>
+            {(file) => <FileCard File={file} />}
+            </For>
         </div>
     );
 };
@@ -143,16 +145,20 @@ const DesktopPopUp: Component = () => {
                             <p>Drag and drop files here or click to select files</p>
                         ) : (
                             <div class="flex flex-col w-full space-y-4 max-h-[30vh] overflow-y-auto custom-scrollbar">
-                                {selectedFiles().map((file, index) => <FileUploadPreview file={file} index={index} handleFileDelete={handleFileDelete} />)}
+                                <For each={selectedFiles()}>
+                                    {(file, index) => (
+                                        <FileUploadPreview file={file} index={index()} handleFileDelete={handleFileDelete} />
+                                    )}
+                                </For>
                             </div>
                         )}
                         <input id="file-upload" type="file" multiple class="hidden" onChange={handleFileChange} />
                     </label>
-                    {selectedFiles().length > 0 && (
+                    <Show when={selectedFiles().length > 0}>
                         <button class="mt-4 w-full bg-blue-600 hover:bg-blue-800 text-white font-bold py-2 px-4 rounded">
                             Upload
                         </button>
-                    )}
+                    </Show>
                 </Dialog.Content>
             </Dialog.Portal>
         </Dialog>

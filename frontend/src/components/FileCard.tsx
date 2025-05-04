@@ -19,16 +19,16 @@ const FilePreview: Component<{ file: FileData }> = (props) => {
     } else if (!ext) {
         previewContent = <p class="text-white">Unsupported file type</p>;
     } else if (["jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff"].includes(ext)) {
-        previewContent = <img src={link} loading="lazy" class="max-h-full max-w-full pointer-events-none" />;
+        previewContent = <img src={link} loading="lazy" class="max-h-full max-w-full" />;
     } else if (["mp4", "mkv", "avi", "mov", "wmv", "flv", "webm"].includes(ext)) {
-        previewContent = <video src={link} controls class="max-h-full max-w-full pointer-events-none" preload="metadata" />;
+        previewContent = <video src={link} controls class="max-h-full max-w-full" preload="metadata" />;
     } else if (["mp3", "wav", "aac", "flac", "ogg", "wma", "m4a"].includes(ext)) {
-        previewContent = <audio src={link} controls class="w-full pointer-events-none" />;
+        previewContent = <audio src={link} controls class="w-full" />;
     } else if (["pdf"].includes(ext)) {
         previewContent = (
             <iframe
                 src={link}
-                class="w-full h-full pointer-events-none"
+                class="w-full h-full"
                 title="PDF Preview"
                 loading="lazy"
             />
