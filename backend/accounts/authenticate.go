@@ -36,18 +36,18 @@ func getBcryptCache(key string) (bool, bool) {
 	return val, ok
 }
 
-func Authenticate(details UserInfo) bool {
-	user, err := database.FindUserByEmail(details.Email)
+func Authenticate(email string, password string) bool {
+	user, err := database.FindUserByEmail(email)
 	if err != nil {
 		return false
 	}
 
-	cacheKey := user.HashedPassword + ":" + details.Password
+	cacheKey := user.HashedPassword + ":" + password
 	if result, ok := getBcryptCache(cacheKey); ok {
 		return result
 	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(user.HashedPassword), []byte(details.Password))
+	err = bcrypt.CompareHashAndPassword([]byte(user.HashedPassword), []byte(password))
 	result := err == nil
 	cacheBcryptResult(cacheKey, result)
 	return result

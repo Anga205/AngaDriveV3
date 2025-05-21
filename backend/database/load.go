@@ -15,19 +15,22 @@ func loadUserFiles() {
 	defer UserFilesMutex.Unlock()
 	defer wg.Done()
 
-	var accountTokens []string
-	err := GetDB().Model(&FileData{}).Distinct().Pluck("account_token", &accountTokens).Error
+	var accounts []Account
+	err := GetDB().Find(&accounts).Error
 	if err != nil {
-		panic("failed to load account tokens: " + err.Error())
+		panic("failed to load accounts: " + err.Error())
 	}
 
-	for _, token := range accountTokens {
+	for _, account := range accounts {
 		var files []FileData
-		err := GetDB().Where("account_token = ?", token).Find(&files).Error
+		err := GetDB().Where("account_token = ?", account.Token).Find(&files).Error
 		if err != nil {
-			panic("failed to load files for account token " + token + ": " + err.Error())
+			panic("failed to load files for account token " + account.Token + ": " + err.Error())
 		}
-		UserFiles[token] = files
+		if UserFiles[account] == nil {
+			UserFiles[account] = NewFileSet()
+		}
+		UserFiles[account].Set(files)
 	}
 	fmt.Println("User files loaded successfully.")
 }
@@ -38,19 +41,22 @@ func loadUserCollections() {
 	defer UserCollectionsMutex.Unlock()
 	defer wg.Done()
 
-	var accountTokens []string
-	err := GetDB().Model(&Collection{}).Distinct().Pluck("editors", &accountTokens).Error
+	var accounts []Account
+	err := GetDB().Find(&accounts).Error
 	if err != nil {
-		panic("failed to load account tokens for collections: " + err.Error())
+		panic("failed to load accounts for collections: " + err.Error())
 	}
 
-	for _, token := range accountTokens {
+	for _, account := range accounts {
 		var collections []Collection
-		err := GetDB().Where("editors = ?", token).Find(&collections).Error
+		err := GetDB().Where("editors LIKE ?", "%"+account.Token+"%").Find(&collections).Error
 		if err != nil {
-			panic("failed to load collections for account token " + token + ": " + err.Error())
+			panic("failed to load collections for account token " + account.Token + ": " + err.Error())
 		}
-		UserCollections[token] = collections
+		if UserCollections[account] == nil {
+			UserCollections[account] = NewCollectionSet()
+		}
+		UserCollections[account].Set(collections)
 	}
 	fmt.Println("User collections loaded successfully.")
 }
@@ -61,19 +67,24 @@ func loadCollectionFiles() {
 	defer CollectionFilesMutex.Unlock()
 	defer wg.Done()
 
-	var collectionIDs []string
-	err := GetDB().Model(&FileData{}).Distinct().Pluck("file_directory", &collectionIDs).Error
+	var collections []Collection
+	err := GetDB().Find(&collections).Error
 	if err != nil {
-		panic("failed to load collection IDs: " + err.Error())
+		panic("failed to load collections for files: " + err.Error())
 	}
-
-	for _, id := range collectionIDs {
-		var files []FileData
-		err := GetDB().Where("file_directory = ?", id).Find(&files).Error
-		if err != nil {
-			panic("failed to load files for collection ID " + id + ": " + err.Error())
+	for _, collection := range collections {
+		if CollectionFiles[collection] == nil {
+			CollectionFiles[collection] = NewFileSet()
 		}
-		CollectionFiles[id] = files
+		fileDirectoryList := collection.GetFiles()
+		for _, file := range fileDirectoryList {
+			var files []FileData
+			err := GetDB().Where("file_directory = ?", file).Find(&files).Error
+			if err != nil {
+				panic("failed to load files for collection ID " + collection.ID + ": " + err.Error())
+			}
+			CollectionFiles[collection].Set(files)
+		}
 	}
 	fmt.Println("Collection files loaded successfully.")
 }
@@ -84,39 +95,26 @@ func loadCollectionFolders() {
 	defer CollectionFoldersMutex.Unlock()
 	defer wg.Done()
 
-	var collectionIDs []string
-	err := GetDB().Model(&Collection{}).Distinct().Pluck("id", &collectionIDs).Error
+	var collections []Collection
+	err := GetDB().Find(&collections).Error
 	if err != nil {
-		panic("failed to load collection IDs for folders: " + err.Error())
+		panic("failed to load collections for folders: " + err.Error())
 	}
-
-	for _, id := range collectionIDs {
-		var collections []Collection
-		err := GetDB().Where("id = ?", id).Find(&collections).Error
-		if err != nil {
-			panic("failed to load folders for collection ID " + id + ": " + err.Error())
+	for _, collection := range collections {
+		if CollectionFolders[collection] == nil {
+			CollectionFolders[collection] = NewCollectionSet()
 		}
-		CollectionFolders[id] = collections
+		folderIDList := collection.GetCollections()
+		for _, folderID := range folderIDList {
+			var folders []Collection
+			err := GetDB().Where("id = ?", folderID).Find(&folders).Error
+			if err != nil {
+				panic("failed to load folders for collection ID " + collection.ID + ": " + err.Error())
+			}
+			CollectionFolders[collection].Set(folders)
+		}
 	}
 	fmt.Println("Collection folders loaded successfully.")
-}
-
-func loadFiles() {
-	fmt.Println("Loading files...")
-	FilesMutex.Lock()
-	defer FilesMutex.Unlock()
-	defer wg.Done()
-
-	var files []FileData
-	err := GetDB().Find(&files).Error
-	if err != nil {
-		panic("failed to load files: " + err.Error())
-	}
-
-	for _, file := range files {
-		Files[file.FileDirectory] = file
-	}
-	fmt.Println("Files loaded successfully.")
 }
 
 func loadTimeStamps() {
@@ -136,13 +134,12 @@ func loadTimeStamps() {
 }
 
 func LoadCache() {
-	wg.Add(6)
+	wg.Add(5)
 
 	go loadUserFiles()
 	go loadUserCollections()
 	go loadCollectionFiles()
 	go loadCollectionFolders()
-	go loadFiles()
 	go loadTimeStamps()
 
 	wg.Wait()

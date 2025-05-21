@@ -222,6 +222,74 @@ func reader(conn *websocket.Conn, done chan bool) {
 				})
 				ActiveWebsockets[conn].Mutex.Unlock()
 			}
+		} else if message.Type == "change_password" {
+			var req accounts.ChangePasswordRequest
+			dataBytes, _ := json.Marshal(message.Data)
+			err := json.Unmarshal(dataBytes, &req)
+			if err != nil {
+				ActiveWebsockets[conn].Mutex.Lock()
+				conn.WriteJSON(OutgoingResponse{
+					Type: "change_password_response",
+					Data: map[string]interface{}{"error": "invalid request data"},
+				})
+				ActiveWebsockets[conn].Mutex.Unlock()
+				return
+			}
+			responseInfo, err := accounts.ChangeUserPassword(req)
+			if err != nil {
+				now := time.Now()
+				timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
+				fmt.Printf("[%s] Error changing password: %v\n", timestamp, err)
+				ActiveWebsockets[conn].Mutex.Lock()
+				conn.WriteJSON(OutgoingResponse{
+					Type: "change_password_response",
+					Data: map[string]interface{}{
+						"error": err.Error(),
+					},
+				})
+				ActiveWebsockets[conn].Mutex.Unlock()
+			} else {
+				ActiveWebsockets[conn].Mutex.Lock()
+				conn.WriteJSON(OutgoingResponse{
+					Type: "change_password_response",
+					Data: responseInfo,
+				})
+				ActiveWebsockets[conn].Mutex.Unlock()
+			}
+		} else if message.Type == "change_email" {
+			var req accounts.ChangeEmailRequest
+			dataBytes, _ := json.Marshal(message.Data)
+			err := json.Unmarshal(dataBytes, &req)
+			if err != nil {
+				ActiveWebsockets[conn].Mutex.Lock()
+				conn.WriteJSON(OutgoingResponse{
+					Type: "change_email_response",
+					Data: map[string]interface{}{"error": "invalid request data"},
+				})
+				ActiveWebsockets[conn].Mutex.Unlock()
+				return
+			}
+			responseInfo, err := accounts.ChangeUserEmail(req)
+			if err != nil {
+				now := time.Now()
+				timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
+				fmt.Printf("[%s] Error changing email: %v\n", timestamp, err)
+				ActiveWebsockets[conn].Mutex.Lock()
+				conn.WriteJSON(OutgoingResponse{
+					Type: "change_email_response",
+					Data: map[string]interface{}{
+						"error": err.Error(),
+					},
+				})
+				ActiveWebsockets[conn].Mutex.Unlock()
+			} else {
+				ActiveWebsockets[conn].Mutex.Lock()
+				conn.WriteJSON(OutgoingResponse{
+					Type: "change_email_response",
+					Data: responseInfo,
+				})
+				ActiveWebsockets[conn].Mutex.Unlock()
+			}
 		}
 	}
 }
