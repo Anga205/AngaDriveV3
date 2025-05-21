@@ -38,10 +38,10 @@ func GenToken() string { // Sample Output: "VcW90bRMW8.HLrITln50boVlu5Sw3eI.1747
 	return string(part1) + "." + string(part2) + "." + fmt.Sprintf("%d", timestamp)
 }
 
-func RegisterUser(RequestInfo RegisterRequest) (RegisterResponse, error) {
+func RegisterUser(RequestInfo RegisterRequest) (database.Account, error) {
 	_, err := database.FindUserByEmail(RequestInfo.Email)
 	if err == nil {
-		return RegisterResponse{}, fmt.Errorf("email already exists")
+		return database.Account{}, fmt.Errorf("email already exists")
 	}
 
 	NewUser := database.Account{
@@ -50,16 +50,10 @@ func RegisterUser(RequestInfo RegisterRequest) (RegisterResponse, error) {
 		Email:          RequestInfo.Email,
 		HashedPassword: RequestInfo.HashedPassword,
 	}
-	db := database.GetDB()
-	err = db.Create(&NewUser).Error
+	err = database.InsertNewUser(NewUser)
 	if err != nil {
-		return RegisterResponse{}, err
+		return database.Account{}, fmt.Errorf("failed to insert new user: %v", err)
 	}
 
-	go func() {
-		database.UserAccountsMutex.Lock()
-		database.UserAccounts[NewUser.Email] = NewUser
-		database.UserAccountsMutex.Unlock()
-	}()
-	return RegisterResponse{NewUser.Token}, nil
+	return NewUser, nil
 }

@@ -11,7 +11,7 @@ func LoginUser(request LoginRequest) (database.Account, error) {
 		return database.Account{}, err
 	}
 
-	if Authenticate(UserInfo(request)) {
+	if Authenticate(request.Email, request.Password) {
 		return user, nil
 	}
 

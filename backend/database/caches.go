@@ -2,69 +2,140 @@ package database
 
 import "sync"
 
+type FileSet struct {
+	mu   sync.RWMutex
+	data map[FileData]struct{}
+}
+
+func NewFileSet() *FileSet {
+	return &FileSet{
+		data: make(map[FileData]struct{}),
+	}
+}
+
+func (s *FileSet) Add(value FileData) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.data[value] = struct{}{}
+}
+
+func (s *FileSet) Remove(value FileData) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.data, value)
+}
+
+func (s *FileSet) Contains(value FileData) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	_, exists := s.data[value]
+	return exists
+}
+
+func (s *FileSet) Array() []FileData {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	keys := make([]FileData, 0, len(s.data))
+	for key := range s.data {
+		keys = append(keys, key)
+	}
+	return keys
+}
+
+func (s *FileSet) Set(values []FileData) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for key := range s.data {
+		delete(s.data, key)
+	}
+	for _, value := range values {
+		s.data[value] = struct{}{}
+	}
+}
+
+func (s *FileSet) CommaSeparated() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var result string
+	for key := range s.data {
+		result += key.FileDirectory + ","
+	}
+	if len(result) > 0 {
+		result = result[:len(result)-1]
+	}
+	return result
+}
+
+type CollectionSet struct {
+	mu   sync.RWMutex
+	data map[Collection]struct{}
+}
+
+func NewCollectionSet() *CollectionSet {
+	return &CollectionSet{
+		data: make(map[Collection]struct{}),
+	}
+}
+
+func (s *CollectionSet) Add(value Collection) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.data[value] = struct{}{}
+}
+
+func (s *CollectionSet) Remove(value Collection) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.data, value)
+}
+
+func (s *CollectionSet) Contains(value Collection) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	_, exists := s.data[value]
+	return exists
+}
+
+func (s *CollectionSet) Array() []Collection {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	keys := make([]Collection, 0, len(s.data))
+	for key := range s.data {
+		keys = append(keys, key)
+	}
+	return keys
+}
+
+func (s *CollectionSet) Set(values []Collection) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for key := range s.data {
+		delete(s.data, key)
+	}
+	for _, value := range values {
+		s.data[value] = struct{}{}
+	}
+}
+
 var (
-	UserFiles      = make(map[string][]FileData)
+	UserFiles      = make(map[Account]*FileSet)
 	UserFilesMutex sync.RWMutex
 
-	UserCollections      = make(map[string][]Collection)
+	UserCollections      = make(map[Account]*CollectionSet)
 	UserCollectionsMutex sync.RWMutex
 
-	CollectionFiles      = make(map[string][]FileData)
+	CollectionFiles      = make(map[Collection]*FileSet)
 	CollectionFilesMutex sync.RWMutex
 
-	CollectionFolders      = make(map[string][]Collection)
+	CollectionFolders      = make(map[Collection]*CollectionSet)
 	CollectionFoldersMutex sync.RWMutex
-
-	Files      = make(map[string]FileData)
-	FilesMutex sync.RWMutex
 
 	TimeStamps      = []int64{}
 	TimeStampsMutex sync.RWMutex
 
-	UserAccounts      = make(map[string]Account)
-	UserAccountsMutex sync.RWMutex
+	UserAccountsByEmail      = make(map[string]Account)
+	UserAccountsByEmailMutex sync.RWMutex
+
+	UserAccountsByToken      = make(map[string]Account)
+	UserAccountsByTokenMutex sync.RWMutex
 )
-
-func DeleteFileFromCaches(file FileData) {
-	UserFilesMutex.Lock()
-	for _, files := range UserFiles {
-		for i, f := range files {
-			if f == file {
-				files = append(files[:i], files[i+1:]...)
-			}
-		}
-	}
-	UserFilesMutex.Unlock()
-
-	CollectionFilesMutex.Lock()
-	for _, collections := range CollectionFiles {
-		for i, f := range collections {
-			if f == file {
-				collections = append(collections[:i], collections[i+1:]...)
-			}
-		}
-	}
-	CollectionFilesMutex.Unlock()
-}
-
-func DeleteCollectionFromCaches(collection Collection) {
-	UserCollectionsMutex.Lock()
-	CollectionFoldersMutex.Lock()
-	for _, collections := range UserCollections {
-		for i, c := range collections {
-			if c == collection {
-				collections = append(collections[:i], collections[i+1:]...)
-			}
-		}
-	}
-	defer UserCollectionsMutex.Unlock()
-
-	for _, folders := range CollectionFolders {
-		for i, c := range folders {
-			if c == collection {
-				folders = append(folders[:i], folders[i+1:]...)
-			}
-		}
-	}
-	defer CollectionFoldersMutex.Unlock()
-}

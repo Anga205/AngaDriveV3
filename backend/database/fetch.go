@@ -5,9 +5,9 @@ import (
 )
 
 func FindUserByEmail(email string) (Account, error) {
-	UserAccountsMutex.RLock()
-	user, found := UserAccounts[email]
-	UserAccountsMutex.RUnlock()
+	UserAccountsByEmailMutex.RLock()
+	user, found := UserAccountsByEmail[email]
+	UserAccountsByEmailMutex.RUnlock()
 	if found {
 		return user, nil
 	}
@@ -23,9 +23,9 @@ func FindUserByEmail(email string) (Account, error) {
 	err := db.Where("email = ?", email).First(&dbUser).Error
 	if err == nil {
 		go func() {
-			UserAccountsMutex.Lock()
-			UserAccounts[email] = dbUser
-			UserAccountsMutex.Unlock()
+			UserAccountsByEmailMutex.Lock()
+			UserAccountsByEmail[email] = dbUser
+			UserAccountsByEmailMutex.Unlock()
 		}()
 	}
 	return dbUser, err
