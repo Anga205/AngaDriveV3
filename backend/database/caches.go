@@ -20,6 +20,9 @@ var (
 
 	TimeStamps      = []int64{}
 	TimeStampsMutex sync.RWMutex
+
+	UserAccounts      = make(map[string]Account)
+	UserAccountsMutex sync.RWMutex
 )
 
 func DeleteFileFromCaches(file FileData) {

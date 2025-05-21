@@ -9,7 +9,7 @@ const DefaultButton: Component<{ bgColor: string, title: string, status: boolean
 
     return (
         <div 
-            class="w-1/3 bg-[#242424] h-[15vh] rounded-[1.5vh] overflow-hidden transform transition-transform duration-300 hover:scale-105" 
+            class="w-1/3 bg-[#242424] h-[15vh] rounded-[1.5vh] overflow-hidden transform transition-transform duration-300 active:scale-95 hover:brightness-150" 
             style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);"
             onClick={() => {setEnabled(!enabled())}}
             onContextMenu={(e: MouseEvent) => {

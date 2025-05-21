@@ -1,8 +1,10 @@
 package setup
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"service/accounts"
 	"service/database"
 	"service/info"
 	"sync"
@@ -34,19 +36,24 @@ func Pulse() {
 		BeginAtZero: true,
 	}
 	for conn, connMutex := range ActiveWebsockets {
-		connMutex.Mutex.Lock()
-		err := conn.WriteJSON(map[string]interface{}{
-			"type": "graph_data",
-			"data": graphData,
-		})
-		connMutex.Mutex.Unlock()
-		if err != nil {
-			fmt.Printf("Error writing to websocket: %v\n", err)
-			ActiveWebsocketsMutex.Lock()
-			delete(ActiveWebsockets, conn)
-			ActiveWebsocketsMutex.Unlock()
-			conn.Close()
+		if !connMutex.HomePageUpdates {
+			continue
 		}
+		go func(conn *websocket.Conn, connMutex WebsocketData) {
+			connMutex.Mutex.Lock()
+			defer connMutex.Mutex.Unlock()
+			err := conn.WriteJSON(map[string]interface{}{
+				"type": "graph_data",
+				"data": graphData,
+			})
+			if err != nil {
+				fmt.Printf("Error writing to websocket: %v\n", err)
+				ActiveWebsocketsMutex.Lock()
+				delete(ActiveWebsockets, conn)
+				ActiveWebsocketsMutex.Unlock()
+				conn.Close()
+			}
+		}(conn, connMutex)
 	}
 }
 
@@ -59,19 +66,24 @@ func updateAllWebsockets() {
 		sysInfo, _ := info.GetSysInfo()
 
 		for conn, connMutex := range ActiveWebsockets {
-			connMutex.Mutex.Lock()
-			err := conn.WriteJSON(map[string]interface{}{
-				"type": "system_information",
-				"data": sysInfo,
-			})
-			connMutex.Mutex.Unlock()
-			if err != nil {
-				fmt.Printf("Error writing to websocket: %v\n", err)
-				ActiveWebsocketsMutex.Lock()
-				delete(ActiveWebsockets, conn)
-				ActiveWebsocketsMutex.Unlock()
-				conn.Close()
+			if !connMutex.HomePageUpdates {
+				continue
 			}
+			go func(conn *websocket.Conn, connMutex WebsocketData) {
+				connMutex.Mutex.Lock()
+				defer connMutex.Mutex.Unlock()
+				err := conn.WriteJSON(map[string]interface{}{
+					"type": "system_information",
+					"data": sysInfo,
+				})
+				if err != nil {
+					fmt.Printf("Error writing to websocket: %v\n", err)
+					ActiveWebsocketsMutex.Lock()
+					delete(ActiveWebsockets, conn)
+					ActiveWebsocketsMutex.Unlock()
+					conn.Close()
+				}
+			}(conn, connMutex)
 		}
 	}
 }
@@ -95,7 +107,7 @@ func SetupWebsocket(r *gin.Engine) {
 		defer conn.Close()
 
 		ActiveWebsocketsMutex.Lock()
-		ActiveWebsockets[conn] = WebsocketData{Mutex: &sync.Mutex{}}
+		ActiveWebsockets[conn] = WebsocketData{Mutex: &sync.Mutex{}, HomePageUpdates: false}
 		ActiveWebsocketsMutex.Unlock()
 
 		defer func() {
@@ -128,5 +140,88 @@ func reader(conn *websocket.Conn, done chan bool) {
 			break
 		}
 		fmt.Printf("Received message: %s\n", msg)
+		var message IncomingMessage
+		err = json.Unmarshal(msg, &message)
+		if err != nil {
+			now := time.Now()
+			timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
+			fmt.Printf("[%s] Error unmarshalling JSON: %v\n", timestamp, err)
+			break
+		}
+		if message.Type == "register" {
+			var req accounts.RegisterRequest
+			dataBytes, _ := json.Marshal(message.Data)
+			err := json.Unmarshal(dataBytes, &req)
+			if err != nil {
+				ActiveWebsockets[conn].Mutex.Lock()
+				conn.WriteJSON(OutgoingResponse{
+					Type: "register_response",
+					Data: map[string]interface{}{"error": "invalid request data"},
+				})
+				ActiveWebsockets[conn].Mutex.Unlock()
+				return
+			}
+			responseInfo, err := accounts.RegisterUser(req)
+			if err != nil {
+				now := time.Now()
+				timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
+				fmt.Printf("[%s] Error registering user: %v\n", timestamp, err)
+				ActiveWebsockets[conn].Mutex.Lock()
+				conn.WriteJSON(OutgoingResponse{
+					Type: "register_response",
+					Data: map[string]interface{}{
+						"error": err.Error(),
+					},
+				})
+				ActiveWebsockets[conn].Mutex.Unlock()
+			} else {
+				ActiveWebsockets[conn].Mutex.Lock()
+				conn.WriteJSON(OutgoingResponse{
+					Type: "register_response",
+					Data: responseInfo,
+				})
+				ActiveWebsockets[conn].Mutex.Unlock()
+			}
+		} else if message.Type == "enable_homepage_updates" {
+			ActiveWebsocketsMutex.Lock()
+			data := ActiveWebsockets[conn]
+			data.HomePageUpdates = message.Data.(bool)
+			ActiveWebsockets[conn] = data
+			ActiveWebsocketsMutex.Unlock()
+		} else if message.Type == "login" {
+			var req accounts.LoginRequest
+			dataBytes, _ := json.Marshal(message.Data)
+			err := json.Unmarshal(dataBytes, &req)
+			if err != nil {
+				ActiveWebsockets[conn].Mutex.Lock()
+				conn.WriteJSON(OutgoingResponse{
+					Type: "login_response",
+					Data: map[string]interface{}{"error": "invalid request data"},
+				})
+				ActiveWebsockets[conn].Mutex.Unlock()
+				return
+			}
+			responseInfo, err := accounts.LoginUser(req)
+			if err != nil {
+				now := time.Now()
+				timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
+				fmt.Printf("[%s] Error logging in user: %v\n", timestamp, err)
+				ActiveWebsockets[conn].Mutex.Lock()
+				conn.WriteJSON(OutgoingResponse{
+					Type: "login_response",
+					Data: map[string]interface{}{
+						"error": err.Error(),
+					},
+				})
+				ActiveWebsockets[conn].Mutex.Unlock()
+			} else {
+				ActiveWebsockets[conn].Mutex.Lock()
+				conn.WriteJSON(OutgoingResponse{
+					Type: "login_response",
+					Data: responseInfo,
+				})
+				ActiveWebsockets[conn].Mutex.Unlock()
+			}
+		}
 	}
 }

@@ -1,10 +1,10 @@
 package database
 
 type Account struct {
-	Token          string `gorm:"primaryKey"`
-	DisplayName    string
-	Email          string
-	HashedPassword string
+	Token          string `gorm:"primaryKey" json:"token"`
+	DisplayName    string `json:"display_name"`
+	Email          string `json:"email"`
+	HashedPassword string `json:"-"`
 }
 
 type Activity struct {
@@ -12,6 +12,9 @@ type Activity struct {
 }
 
 func (Activity) TableName() string {
+	// Override the default table name, which would be "activities", idk why gorm does this
+	// but it does, so we need to override it
+	// DO NOT REMOVE THIS FUNCTION
 	return "activity"
 }
 
