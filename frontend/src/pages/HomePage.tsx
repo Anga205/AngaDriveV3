@@ -135,7 +135,7 @@ const HomePage: Component = () => {
         setIsMobile(window.innerWidth <= 640);
     };
     window.addEventListener('resize', handleResize);
-    let socket: WebSocket | undefined;
+    let socketRef: WebSocket | undefined;
     const [systemInformation, setSystemInformation] = createSignal<SysInfo>({
         ram: {
             total_ram: 0,
@@ -172,10 +172,11 @@ const HomePage: Component = () => {
     })
 
     onMount(() => {
-        const {socket} = useWebSocket();
+        const { socket } = useWebSocket();
+        socketRef = socket;
         
-        if (socket) {
-            socket.addEventListener('message', (event) => {
+        if (socketRef) {
+            socketRef.addEventListener('message', (event) => {
                 try {
                     const data = JSON.parse(event.data) as IncomingData;
                     if (data.type === 'system_information') {
@@ -194,12 +195,19 @@ const HomePage: Component = () => {
                     }
                 }
             });
+            if (socketRef.readyState === WebSocket.OPEN) {
+                socketRef.send(JSON.stringify({ type: 'enable_homepage_updates', data: true }));
+            } else {
+                socketRef.addEventListener('open', () => {
+                    socketRef && socketRef.send(JSON.stringify({ type: 'enable_homepage_updates', data: true }));
+                }, { once: true });
+            }
         }
     });
       
     onCleanup(() => {
-        if (socket && socket.readyState === WebSocket.OPEN) {
-            socket.close();
+        if (socketRef && socketRef.readyState === WebSocket.OPEN) {
+            socketRef.send(JSON.stringify({ type: 'enable_homepage_updates', data: false }));
         }
         window.removeEventListener('resize', handleResize);
     });

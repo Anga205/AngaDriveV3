@@ -29,7 +29,6 @@ const WebSocketProvider: ParentComponent = (props) => {
     ws.onclose = () => {
       setStatus("disconnected");
       console.log("WebSocket disconnected");
-      setTimeout(() => createSocket(), 3000);
     };
     
     ws.onerror = (error) => {

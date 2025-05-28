@@ -42,8 +42,10 @@ const DesktopNavbar: Component<{ CurrentPage: Pages }> = (props) => {
                 </button>
             </div>
             <div class="flex-grow" />
-            <div class="w-full p-[32%]">
-                <UserSVG />
+            <div class="w-full p-[16%]" onClick={() => {navigate("/account")}}>
+                <div class="hover:bg-black p-[20%] rounded-full">
+                    <UserSVG />
+                </div>
             </div>
         </div>
     )
