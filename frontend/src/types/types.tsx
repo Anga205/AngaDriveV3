@@ -29,7 +29,7 @@ interface IncomingData {
 
 type SocketStatus = "connected" | "disconnected" | "connecting" | "error";
 
-type Pages = "Home" | "Files" | "Collections";
+type Pages = "Home" | "Files" | "Collections" | "Account";
 
 interface FileData {
     original_file_name: string;
