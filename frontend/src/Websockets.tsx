@@ -1,9 +1,10 @@
-import { createContext, onCleanup, useContext, createSignal, ParentComponent } from 'solid-js';
+import { createContext, onCleanup, useContext, createSignal, ParentComponent, Accessor } from 'solid-js';
 import { SocketStatus } from './types/types';
 
+const RECONNECT_DELAY = 1000;
 
 type WebSocketContextType = {
-  socket: WebSocket;
+  socket: Accessor<WebSocket | undefined>;
   status: () => SocketStatus;
 };
 
@@ -11,45 +12,94 @@ const WebSocketContext = createContext<WebSocketContextType>();
 
 const WebSocketProvider: ParentComponent = (props) => {
   const [status, setStatus] = createSignal<SocketStatus>("connecting");
+  const [webSocketInstance, setWebSocketInstance] = createSignal<WebSocket>();
   
-  const createSocket = () => {
+  let reconnectTimeoutId: number | undefined;
+
+  const createAndConnectSocket = () => {
+    if (reconnectTimeoutId) {
+      clearTimeout(reconnectTimeoutId);
+      reconnectTimeoutId = undefined;
+    }
+
+    // Clean up any existing socket instance
+    const oldSocket = webSocketInstance();
+    if (oldSocket) {
+      // Nullify handlers to prevent them from firing on the old instance, especially onclose
+      oldSocket.onopen = null;
+      oldSocket.onmessage = null; 
+      oldSocket.onerror = null;
+      oldSocket.onclose = null; // Crucial to prevent old onclose from re-triggering logic
+      if (oldSocket.readyState !== WebSocket.CLOSED && oldSocket.readyState !== WebSocket.CLOSING) {
+        oldSocket.close();
+      }
+    }
+    
+    setStatus("connecting");
     const host = window.location.host;
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     const isViteDev = import.meta.env.DEV;
     const wsUrl = isViteDev ? "ws://localhost:8080/ws" : `${protocol}://${host}/ws`;
     
     const ws = new WebSocket(wsUrl);
-    setStatus("connecting");
     
     ws.onopen = () => {
       setStatus("connected");
       console.log("WebSocket connected");
+      if (reconnectTimeoutId) { // Clear any pending reconnect if we successfully connected
+        clearTimeout(reconnectTimeoutId);
+        reconnectTimeoutId = undefined;
+      }
     };
     
     ws.onclose = () => {
-      setStatus("disconnected");
-      console.log("WebSocket disconnected");
+      // Only attempt to reconnect if this instance was the one we intended to be active
+      if (webSocketInstance() === ws || !webSocketInstance()) { // also reconnect if webSocketInstance was cleared
+        setStatus("reconnecting");
+        console.log("WebSocket disconnected. Attempting to reconnect...");
+        reconnectTimeoutId = setTimeout(createAndConnectSocket, RECONNECT_DELAY);
+      } else {
+        console.log("An old WebSocket instance closed.");
+      }
     };
     
     ws.onerror = (error) => {
-      setStatus("error");
-      console.error("WebSocket error:", error);
+      // Only act if this instance was the one we intended to be active
+      if (webSocketInstance() === ws) {
+        setStatus("error");
+        console.error("WebSocket error:", error);
+        // Most browsers will fire 'onclose' after 'onerror'.
+        // If not, you might need to explicitly call ws.close() here to trigger the onclose logic.
+      }
     };
     
-    return ws;
+    setWebSocketInstance(ws);
   };
 
-  const wsInstance = createSocket();
+  // Initial connection attempt
+  createAndConnectSocket();
 
   onCleanup(() => {
-    if (wsInstance.readyState === WebSocket.OPEN) {
-      wsInstance.close();
+    if (reconnectTimeoutId) {
+      clearTimeout(reconnectTimeoutId);
     }
+    const ws = webSocketInstance();
+    if (ws) {
+      // Prevent onclose from triggering reconnection during component cleanup
+      ws.onopen = null;
+      ws.onmessage = null;
+      ws.onerror = null;
+      ws.onclose = null; 
+      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+        ws.close();
+      }
+    }
+    setWebSocketInstance(undefined); // Clean up the signal
   });
 
   return (
     <WebSocketContext.Provider value={{
-      socket: wsInstance,
+      socket: webSocketInstance, // Pass the accessor directly
       status
     }}>
       {props.children}
@@ -64,3 +114,4 @@ const useWebSocket = (): WebSocketContextType => {
 };
 
 export { WebSocketProvider, useWebSocket };
+export type { SocketStatus }; // Export SocketStatus if it's defined here and not in types/types

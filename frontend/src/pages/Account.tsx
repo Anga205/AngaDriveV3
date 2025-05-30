@@ -17,7 +17,7 @@ const isPasswordValid = (password: string): boolean => {
 const LoginCard: Component<{ onSignUpClick: () => void }> = (props) => {
     const [email, setEmail] = createSignal("");
     const [password, setPassword] = createSignal("");
-    const { socket, status } = useWebSocket();
+    const { socket: getSocket, status } = useWebSocket();
 
     const isFormValid = () => isEmailValid(email()) && isPasswordValid(password());
 
@@ -41,11 +41,70 @@ const LoginCard: Component<{ onSignUpClick: () => void }> = (props) => {
             toast.error("Password must be between 3 and 64 characters.");
             return;
         }
-        if (status() !== "connected") {
+
+        const currentSocket = getSocket();
+
+        if (!currentSocket || currentSocket.readyState !== WebSocket.OPEN) {
             toast.error("WebSocket is not connected. Please try again later.");
             return;
         }
-        socket.send(
+
+        let messageHandler: ((event: MessageEvent) => void) | null = null;
+        let errorHandler: ((event: Event) => void) | null = null;
+        let closeHandler: (() => void) | null = null;
+
+        const cleanupListeners = () => {
+            if (messageHandler && currentSocket) currentSocket.removeEventListener('message', messageHandler);
+            if (errorHandler && currentSocket) currentSocket.removeEventListener('error', errorHandler);
+            if (closeHandler && currentSocket) currentSocket.removeEventListener('close', closeHandler);
+            messageHandler = null;
+            errorHandler = null;
+            closeHandler = null;
+        };
+
+        messageHandler = (event: MessageEvent) => {
+            try {
+                const response = JSON.parse(event.data);
+                if (response.type === "login_response") {
+                    if (response.data.token) {
+                        toast.success("Login successful!");
+                        localStorage.setItem("email", email());
+                        localStorage.setItem("password", password());
+                    } else {
+                        toast.error(
+                            response.data.error === "record not found"
+                                ? "Account not found"
+                                : response.data.error
+                                    ? response.data.error.charAt(0).toUpperCase() + response.data.error.slice(1)
+                                    : "Login failed. Please try again."
+                        );
+                    }
+                    cleanupListeners();
+                }
+            } catch (err) {
+                console.error("Failed to parse login response:", err);
+                toast.error("Received an invalid response from server.");
+                cleanupListeners();
+            }
+        };
+
+        errorHandler = (error: Event) => {
+            console.error("WebSocket error during login:", error);
+            toast.error("An error occurred during login. Please try again later.");
+            cleanupListeners();
+        };
+
+        closeHandler = () => {
+            console.warn("WebSocket connection closed during login attempt.");
+            toast.error("Login failed: Connection lost. Please try again.");
+            cleanupListeners();
+        };
+
+        currentSocket.addEventListener('message', messageHandler);
+        currentSocket.addEventListener('error', errorHandler);
+        currentSocket.addEventListener('close', closeHandler);
+
+        currentSocket.send(
             JSON.stringify({
                 type: "login",
                 data: {
@@ -54,30 +113,6 @@ const LoginCard: Component<{ onSignUpClick: () => void }> = (props) => {
                 },
             })
         );
-        socket.onmessage = (event) => {
-            const response = JSON.parse(event.data);
-            if (response.type === "login_response") {
-                if (response.data.token) {
-                    toast.success("Login successful!");
-                    localStorage.setItem("email", email());
-                    localStorage.setItem("password", password());
-                } else {
-                    toast.error(
-                        response.data.error
-                            ? response.data.error.charAt(0).toUpperCase() + response.data.error.slice(1)
-                            : "Login failed. Please try again."
-                    );
-                }
-            }
-        }
-        socket.onerror = (error) => {
-            console.error("WebSocket error:", error);
-            toast.error("An error occurred while connecting to the server. Please try again later.");
-        }
-        socket.onclose = () => {
-            console.warn("WebSocket connection closed.");
-            toast.error("WebSocket connection closed. Please refresh the page to try again.");
-        }
     };
 
     return (
@@ -106,6 +141,7 @@ const LoginCard: Component<{ onSignUpClick: () => void }> = (props) => {
             <button
                 class={`w-full py-3 mb-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600 ${isFormValid()?'':'cursor-not-allowed opacity-50'}`}
                 onClick={handleLogin}
+                disabled={status() === "connecting" || status() === "reconnecting"}
             >
                 Login
             </button>
@@ -133,7 +169,7 @@ const RegisterCard: Component<{ onLoginClick: () => void }> = (props) => {
     const [email, setEmail] = createSignal("");
     const [password, setPassword] = createSignal("");
     const [confirmPassword, setConfirmPassword] = createSignal("");
-    const { socket, status } = useWebSocket();
+    const { socket: getSocket, status } = useWebSocket();
     
     const isFormValid = () => {
         return (
@@ -160,6 +196,10 @@ const RegisterCard: Component<{ onLoginClick: () => void }> = (props) => {
             );
             return;
         }
+        if (displayName().length < 3 || displayName().length > 64) {
+            toast.error("Display name must be between 3 and 64 characters.");
+            return;
+        }
         if (!isEmailValid(email())) {
             toast.error("Please enter a valid email address.");
             return;
@@ -172,14 +212,71 @@ const RegisterCard: Component<{ onLoginClick: () => void }> = (props) => {
             toast.error("Passwords do not match.");
             return;
         }
-        if (status() !== "connected") {
+
+        const currentSocket = getSocket(); // Get the current socket instance
+
+        if (!currentSocket || currentSocket.readyState !== WebSocket.OPEN) {
             toast.error("WebSocket is not connected. Please try again later.");
             return;
         }
+
+        let messageHandler: ((event: MessageEvent) => void) | null = null;
+        let errorHandler: ((event: Event) => void) | null = null;
+        let closeHandler: (() => void) | null = null;
+
+        const cleanupListeners = () => {
+            if (messageHandler && currentSocket) currentSocket.removeEventListener('message', messageHandler);
+            if (errorHandler && currentSocket) currentSocket.removeEventListener('error', errorHandler);
+            if (closeHandler && currentSocket) currentSocket.removeEventListener('close', closeHandler);
+            messageHandler = null;
+            errorHandler = null;
+            closeHandler = null;
+        };
+        
+        messageHandler = (event: MessageEvent) => {
+            try {
+                const response = JSON.parse(event.data);
+                if (response.type === "register_response") {
+                    if (response.data.token) {
+                        toast.success("Registration successful!");
+                        localStorage.setItem("email", email());
+                        localStorage.setItem("password", password()); // Consider security implications
+                    } else {
+                        toast.error(
+                            response.data.error
+                                ? response.data.error.charAt(0).toUpperCase() + response.data.error.slice(1)
+                                : "Registration failed. Please try again."
+                        );
+                    }
+                    cleanupListeners();
+                }
+            } catch (err) {
+                console.error("Failed to parse register response:", err);
+                toast.error("Received an invalid response from server.");
+                cleanupListeners();
+            }
+        };
+
+        errorHandler = (error: Event) => {
+            console.error("WebSocket error during registration:", error);
+            toast.error("An error occurred during registration. Please try again later.");
+            cleanupListeners();
+        };
+
+        closeHandler = () => {
+            console.warn("WebSocket connection closed during registration attempt.");
+            toast.error("Registration failed: Connection lost. Please try again.");
+            cleanupListeners();
+        };
+
+        currentSocket.addEventListener('message', messageHandler);
+        currentSocket.addEventListener('error', errorHandler);
+        currentSocket.addEventListener('close', closeHandler);
+        
         const salt = bcrypt.genSaltSync(10);
         const hashedPassword = bcrypt.hashSync(password(), salt);
 
-        socket.send(
+        currentSocket.send(
             JSON.stringify({
                 type: "register",
                 data: {
@@ -189,30 +286,6 @@ const RegisterCard: Component<{ onLoginClick: () => void }> = (props) => {
                 },
             })
         );
-        socket.onmessage = (event) => {
-            const response = JSON.parse(event.data);
-            if (response.type === "register_response") {
-                if (response.data.token) {
-                    toast.success("Registration successful!");
-                    localStorage.setItem("email", email());
-                    localStorage.setItem("password", password());
-                } else {
-                    toast.error(
-                        response.data.error
-                            ? response.data.error.charAt(0).toUpperCase() + response.data.error.slice(1)
-                            : "Registration failed. Please try again."
-                    );
-                }
-            }
-        }
-        socket.onerror = (error) => {
-            console.error("WebSocket error:", error);
-            toast.error("An error occurred while connecting to the server. Please try again later.");
-        }
-        socket.onclose = () => {
-            console.warn("WebSocket connection closed.");
-            toast.error("WebSocket connection closed. Please refresh the page to try again.");
-        }
     };
     return (
         <div class="flex flex-col items-center p-6 border-2 border-gray-500 rounded-lg min-w-[350px] bg-gray-900 shadow-lg overflow-hidden">
@@ -260,6 +333,7 @@ const RegisterCard: Component<{ onLoginClick: () => void }> = (props) => {
             <button 
                 class={`w-full py-3 mb-4 bg-green-500 text-white rounded-lg hover:bg-green-600 ${isFormValid()?'':'cursor-not-allowed opacity-50'}`}
                 onClick={handleRegister}
+                disabled={status() === "connecting" || status() === "reconnecting"}
             >
                 Register
             </button>

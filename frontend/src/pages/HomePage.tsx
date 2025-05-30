@@ -2,7 +2,7 @@ import {DefaultsButtons, MobileButtons} from "../components/DefaultsButtons";
 import {Header, MobileHeader} from "../components/Header";
 import { RAMUsage, CPUUsage } from "../components/CircularProgress";
 import GraphComponent from "../components/GraphComponent";
-import { Component, onMount, onCleanup, createSignal, Accessor } from "solid-js";
+import { Component, onMount, onCleanup, createSignal, Accessor, createEffect } from "solid-js";
 import { Butterfly } from "../assets/SvgFiles";
 import type { CPUData, GraphData, IncomingData, RAMData, SysInfo } from "../types/types";
 import ContactMe from "../components/ContactMe";
@@ -134,8 +134,6 @@ const HomePage: Component = () => {
     const handleResize = () => {
         setIsMobile(window.innerWidth <= 640);
     };
-    window.addEventListener('resize', handleResize);
-    let socketRef: WebSocket | undefined;
     const [systemInformation, setSystemInformation] = createSignal<SysInfo>({
         ram: {
             total_ram: 0,
@@ -171,44 +169,63 @@ const HomePage: Component = () => {
         begin_at_zero: true,
     })
 
+    const { socket: getSocket } = useWebSocket();
+
     onMount(() => {
-        const { socket } = useWebSocket();
-        socketRef = socket;
-        
-        if (socketRef) {
-            socketRef.addEventListener('message', (event) => {
-                try {
-                    const data = JSON.parse(event.data) as IncomingData;
-                    if (data.type === 'system_information') {
-                        setSystemInformation(data.data as SysInfo);
-                    } else if (data.type === 'graph_data') {
-                        const graphData = data.data as GraphData;
-                        if (graphData.label === 'Space Used') {
-                            setSpaceUsed(graphData);
-                        } else if (graphData.label === 'Site Activity') {
-                            setSiteActivity(graphData);
+        window.addEventListener('resize', handleResize);
+
+        createEffect(() => {
+            const currentSocket = getSocket();
+
+            if (currentSocket) {
+                const messageHandler = (event: MessageEvent) => {
+                    try {
+                        const data = JSON.parse(event.data) as IncomingData;
+                        if (data.type === 'system_information') {
+                            setSystemInformation(data.data as SysInfo);
+                        } else if (data.type === 'graph_data') {
+                            const graphData = data.data as GraphData;
+                            if (graphData.label === 'Space Used') {
+                                setSpaceUsed(graphData);
+                            } else if (graphData.label === 'Site Activity' || graphData.label === 'Database Reads') {
+                                setSiteActivity(graphData);
+                            }
+                        }
+                    } catch (error) {
+                        if (import.meta.env.DEV) {
+                            console.error('Failed to parse WebSocket message:', error);
                         }
                     }
-                } catch (error) {
-                    if (import.meta.env.DEV) {
-                        console.error('Failed to parse WebSocket message:', error);
+                };
+
+                const openHandler = () => {
+                    if (currentSocket.readyState === WebSocket.OPEN) {
+                        console.log("HomePage: Socket open, enabling updates.");
+                        currentSocket.send(JSON.stringify({ type: 'enable_homepage_updates', data: true }));
                     }
+                };
+
+                currentSocket.addEventListener('message', messageHandler);
+                currentSocket.addEventListener('open', openHandler);
+
+                if (currentSocket.readyState === WebSocket.OPEN) {
+                    openHandler();
                 }
-            });
-            if (socketRef.readyState === WebSocket.OPEN) {
-                socketRef.send(JSON.stringify({ type: 'enable_homepage_updates', data: true }));
-            } else {
-                socketRef.addEventListener('open', () => {
-                    socketRef && socketRef.send(JSON.stringify({ type: 'enable_homepage_updates', data: true }));
-                }, { once: true });
+                
+                onCleanup(() => {
+                    currentSocket.removeEventListener('message', messageHandler);
+                    currentSocket.removeEventListener('open', openHandler);
+                    
+                    if (currentSocket.readyState === WebSocket.OPEN) {
+                        console.log("HomePage: Disabling updates for old/unmounting socket.");
+                        currentSocket.send(JSON.stringify({ type: 'enable_homepage_updates', data: false }));
+                    }
+                });
             }
-        }
+        });
     });
       
     onCleanup(() => {
-        if (socketRef && socketRef.readyState === WebSocket.OPEN) {
-            socketRef.send(JSON.stringify({ type: 'enable_homepage_updates', data: false }));
-        }
         window.removeEventListener('resize', handleResize);
     });
 

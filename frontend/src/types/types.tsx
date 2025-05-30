@@ -27,7 +27,7 @@ interface IncomingData {
     data: SysInfo | GraphData;
 }
 
-type SocketStatus = "connected" | "disconnected" | "connecting" | "error";
+type SocketStatus = "connecting" | "connected" | "disconnected" | "error" | "reconnecting";
 
 type Pages = "Home" | "Files" | "Collections" | "Account";
 
