@@ -1,4 +1,5 @@
-import { Component, createSignal } from "solid-js";
+import { Accessor, Component, createSignal, onMount } from "solid-js";
+import Dialog from '@corvu/dialog'; // Or import { Root, Trigger, ... } from '@corvu/dialog'
 import { DesktopTemplate } from "../components/Template";
 import { toast, Toaster } from "solid-toast";
 import { useWebSocket } from "../Websockets";
@@ -14,7 +15,7 @@ const isPasswordValid = (password: string): boolean => {
     return password.length >= 3 && password.length <= 64;
 };
 
-const LoginCard: Component<{ onSignUpClick: () => void }> = (props) => {
+const LoginCard: Component<{ onSignUpClick: () => void; onLoginSuccess: () => void }> = (props) => {
     const [email, setEmail] = createSignal("");
     const [password, setPassword] = createSignal("");
     const { socket: getSocket, status } = useWebSocket();
@@ -70,6 +71,8 @@ const LoginCard: Component<{ onSignUpClick: () => void }> = (props) => {
                         toast.success("Login successful!");
                         localStorage.setItem("email", email());
                         localStorage.setItem("password", password());
+                        localStorage.setItem("display_name", response.data.display_name);
+                        props.onLoginSuccess(); // Call the callback on successful login
                     } else {
                         toast.error(
                             response.data.error === "record not found"
@@ -164,7 +167,7 @@ const LoginCard: Component<{ onSignUpClick: () => void }> = (props) => {
     );
 };
 
-const RegisterCard: Component<{ onLoginClick: () => void }> = (props) => {
+const RegisterCard: Component<{ onLoginClick: () => void; onRegisterSuccess: () => void }> = (props) => {
     const [displayName, setDisplayName] = createSignal("");
     const [email, setEmail] = createSignal("");
     const [password, setPassword] = createSignal("");
@@ -240,7 +243,9 @@ const RegisterCard: Component<{ onLoginClick: () => void }> = (props) => {
                     if (response.data.token) {
                         toast.success("Registration successful!");
                         localStorage.setItem("email", email());
-                        localStorage.setItem("password", password()); // Consider security implications
+                        localStorage.setItem("password", password());
+                        localStorage.setItem("display_name", displayName());
+                        props.onRegisterSuccess(); // Call the callback on successful registration
                     } else {
                         toast.error(
                             response.data.error
@@ -356,17 +361,148 @@ const RegisterCard: Component<{ onLoginClick: () => void }> = (props) => {
     );
 };
 
-const AccountManager: Component = () => {
+const LoginScreen: Component<{ onLoginSuccess: () => void }> = (props) => {
     const [signUp, setSignUp] = createSignal<boolean>(false);
     return (
         <DesktopTemplate CurrentPage="Account">
             <div class="flex justify-center items-center w-full h-full pl-[2vh] pr-[1vh] py-[1vh] text-white">
                 {signUp() ? (
-                    <RegisterCard onLoginClick={() => setSignUp(false)} />
+                    <RegisterCard onLoginClick={() => setSignUp(false)} onRegisterSuccess={props.onLoginSuccess} />
                 ) : (
-                    <LoginCard onSignUpClick={() => setSignUp(true)} />
+                    <LoginCard onSignUpClick={() => setSignUp(true)} onLoginSuccess={props.onLoginSuccess} />
                 )}
             </div>
+        </DesktopTemplate>
+    );
+};
+
+const AccountDetails: Component<{email: Accessor<string>; displayName: Accessor<string>}> = (props) => {
+    const [open, setOpen] = createSignal(false);
+    return (
+        <Dialog open={open()} onOpenChange={setOpen}>
+            <div class="bg-gray-950 border border-gray-700 rounded-md w-full p-[2vh] text-white flex flex-col shadow-md">
+                <p class="font-semibold text-[2.5vh] mb-[2vh]">Account Details</p>
+                <div class="mb-[1vh]">
+                    <p class="text-gray-500 text-[1.5vh] uppercase tracking-wider">Display Name:</p>
+                    <p class="text-[2vh]">{props.displayName()}</p>
+                </div>
+                <div class="mb-[1vh]">
+                    <p class="text-gray-500 text-[1.5vh] uppercase tracking-wider">Email:</p>
+                    <p class="text-[2vh] truncate">{props.email()}</p>
+                </div>
+                <div class="mb-[2vh]">
+                    <p class="text-gray-500 text-[1.5vh] uppercase tracking-wider">Password:</p>
+                    <p class="text-[2vh]">************</p>
+                </div>
+                <Dialog.Trigger class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-[1vh] rounded mt-auto transition-colors duration-200 text-[1.5vh]">
+                    Edit Account
+                </Dialog.Trigger>
+            </div>
+            <Dialog.Portal>
+                <Dialog.Overlay class="fixed inset-0 bg-black/50" />
+                <Dialog.Content class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-800 p-6 rounded-md shadow-lg text-white w-[clamp(300px,50vw,500px)]">
+                    <Dialog.Label class="text-xl font-semibold mb-4">Edit Account Details</Dialog.Label>
+                    {/* TODO: Complete this */}
+                    <p class="mb-4">This is where the account editing form will go.</p>
+                    <div class="flex justify-end space-x-2">
+                        <Dialog.Close class="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded transition-colors duration-200">
+                            Cancel
+                        </Dialog.Close>
+                        <button class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded transition-colors duration-200">
+                            Save Changes
+                        </button>
+                    </div>
+                </Dialog.Content>
+            </Dialog.Portal>
+        </Dialog>
+    )
+}
+
+const DangerZone: Component<{logout: () => void; class?: string}> = (props) => {
+    return (
+        <div class={`bg-red-950 border border-red-700 rounded-md p-[2vh] text-white flex flex-col shadow-md w-full ${props.class}`}>
+            <p class="font-semibold text-[2vh] mb-[2vh] text-center">Danger Zone</p>
+            <div class="w-full flex space-x-[1vh]">
+                <button class="bg-red-600 hover:bg-red-700 w-full text-white font-semibold py-[1vh] px-[1vw] rounded mt-auto transition-colors duration-200 text-[1.5vh]">
+                    Delete&nbsp;Account
+                </button>
+                <button class="bg-yellow-600 w-full hover:bg-yellow-700 text-white font-semibold py-[1vh] px-[1vw] rounded mt-auto transition-colors duration-200 text-[1.5vh]"
+                onClick={() => {
+                    props.logout();
+                }}
+                >
+                    Log Out
+                </button>
+            </div>
+        </div>
+    )
+}
+
+const UserStat: Component<{title: string; value: string; class?: string}> = (props) => {
+    return (
+        <div class={`bg-neutral-900 w-full h-full rounded-md border border-neutral-700 flex justify-between items-center flex-col text-white p-[1vh] ${props.class ?? ''}`}>
+            <p class="text-blue-700 font-bold text-[2.5vh]">{props.title}</p>
+            <p class="text-[2vh]">{props.value}</p>
+        </div>
+    )
+}
+
+const AccountManager: Component<{logout: () => void}> = (props) => {
+
+    const [email] = createSignal(localStorage.getItem("email") || "{email}");
+    const [displayName] = createSignal(localStorage.getItem("display_name") || "{display_name}");
+    const [spaceUsed] = createSignal("10 GB");
+    const [filesHosted] = createSignal("100");
+    const [collections] = createSignal("5");
+
+    return (
+        <DesktopTemplate CurrentPage="Account">
+            <div class="w-full h-full flex justify-center items-center space-x-[1vh]">
+                <div class="flex flex-col w-[20%] space-y-[2vh]">
+                    <AccountDetails email={email} displayName={displayName}/>
+                </div>
+                <div class="min-w-[20%] grid grid-cols-2 grid-rows-2 gap-[1vh]">
+                    <UserStat title="Space&nbsp;Used" value={spaceUsed()} class="col-span-2"/>
+                    <UserStat title="Files&nbsp;Hosted" value={filesHosted()}/>
+                    <UserStat title="Collections" value={collections()}/>
+                    <DangerZone logout={props.logout} class="col-span-2"/>
+                </div>
+            </div>
+        </DesktopTemplate>
+    )
+}
+
+const Account: Component = () => {
+    const [isLoggedIn, setIsLoggedIn] = createSignal(false);
+
+    const handleLoginSuccess = () => {
+        setIsLoggedIn(true);
+    };
+
+    const handleLogout = () => {
+        localStorage.removeItem("email");
+        localStorage.removeItem("password");
+        localStorage.removeItem("display_name");
+        setIsLoggedIn(false);
+        toast('Logged out successfully!', {
+            icon: '↩️'
+        })
+    };
+
+    onMount(() => {
+        const storedEmail = localStorage.getItem("email");
+        const storedPassword = localStorage.getItem("password");
+        if (storedEmail && storedPassword) {
+            setIsLoggedIn(true);
+        } else {
+            setIsLoggedIn(false);
+        }
+    });
+    
+    return (
+        <>
+            <title>Account | DriveV3</title>
+            {isLoggedIn() ? <AccountManager logout={handleLogout}/> : <LoginScreen onLoginSuccess={handleLoginSuccess} />}
             <Toaster
             position="bottom-right"
             gutter={8}
@@ -381,7 +517,8 @@ const AccountManager: Component = () => {
                 },
             }}
             />
-        </DesktopTemplate>
+        </>
     );
-};
-export default AccountManager;
+}
+
+export default Account;

@@ -34,12 +34,13 @@ const DesktopNavbar: Component<{ CurrentPage: Pages }> = (props) => {
                 >
                     <CollectionSVG />
                 </button>
-                <button 
+                <a 
+                    href="https://github.com/Anga205/AngaDriveV3"
+                    target="_blank"
                     class="w-5/6 bg-[#161717] hover:bg-black pl-[0.7vw] pr-[1.7vw] py-[1.5vh] rounded-l-[1.6vh]"
-                    onClick={() => {window.open("https://github.com/Anga205/AngaDriveV3", "_blank")}}
                 >
                     <GitHubSVG />
-                </button>
+                </a>
             </div>
             <div class="flex-grow" />
             <div class="w-full p-[16%]" onClick={() => {navigate("/account")}}>
