@@ -173,56 +173,71 @@ const HomePage: Component = () => {
 
     onMount(() => {
         window.addEventListener('resize', handleResize);
+    });
 
-        createEffect(() => {
-            const currentSocket = getSocket();
+    let currentSocket: WebSocket | null = null; // Keep track of the current socket
 
-            if (currentSocket) {
-                const messageHandler = (event: MessageEvent) => {
-                    try {
-                        const data = JSON.parse(event.data) as IncomingData;
-                        if (data.type === 'system_information') {
-                            setSystemInformation(data.data as SysInfo);
-                        } else if (data.type === 'graph_data') {
-                            const graphData = data.data as GraphData;
-                            if (graphData.label === 'Space Used') {
-                                setSpaceUsed(graphData);
-                            } else if (graphData.label === 'Site Activity' || graphData.label === 'Database Reads') {
-                                setSiteActivity(graphData);
-                            }
-                        }
-                    } catch (error) {
-                        if (import.meta.env.DEV) {
-                            console.error('Failed to parse WebSocket message:', error);
-                        }
-                    }
-                };
-
-                const openHandler = () => {
-                    if (currentSocket.readyState === WebSocket.OPEN) {
-                        console.log("HomePage: Socket open, enabling updates.");
-                        currentSocket.send(JSON.stringify({ type: 'enable_homepage_updates', data: true }));
-                    }
-                };
-
-                currentSocket.addEventListener('message', messageHandler);
-                currentSocket.addEventListener('open', openHandler);
-
-                if (currentSocket.readyState === WebSocket.OPEN) {
-                    openHandler();
+    const messageHandler = (event: MessageEvent) => {
+        try {
+            const data = JSON.parse(event.data) as IncomingData;
+            if (data.type === 'system_information') {
+                setSystemInformation(data.data as SysInfo);
+            } else if (data.type === 'graph_data') {
+                const graphData = data.data as GraphData;
+                if (graphData.label === 'Space Used') {
+                    setSpaceUsed(graphData);
+                } else if (graphData.label === 'Site Activity' || graphData.label === 'Database Reads') {
+                    setSiteActivity(graphData);
                 }
-                
-                onCleanup(() => {
+            }
+        } catch (error) {
+            if (import.meta.env.DEV) {
+                console.error('Failed to parse WebSocket message:', error);
+            }
+        }
+    };
+
+    const openHandler = (updatedSocket: WebSocket) => {
+        if (updatedSocket.readyState === WebSocket.OPEN) {
+            console.log("HomePage: Socket open, enabling updates.");
+            updatedSocket.send(JSON.stringify({ type: 'enable_homepage_updates', data: true }));
+        }
+    };
+
+    createEffect(() => {
+        const newSocket = getSocket(); // Get the latest socket from the signal
+
+        if (newSocket) {
+
+
+
+            // Add listeners to the new socket
+            newSocket.addEventListener('message', messageHandler);
+            const socketOpenHandler = () => openHandler(newSocket);
+            newSocket.addEventListener('open', socketOpenHandler);
+
+            if (newSocket.readyState === WebSocket.OPEN) {
+                openHandler(newSocket);
+            }
+
+            // Cleanup function (called when the effect re-runs or the component unmounts)
+
+            currentSocket = newSocket; // Update the current socket
+            onCleanup(() => {
+                console.log("HomePage: Cleaning up socket listeners.");
+
+                // Remove listeners from the *old* socket (if there was one)
+                if (currentSocket) {
                     currentSocket.removeEventListener('message', messageHandler);
-                    currentSocket.removeEventListener('open', openHandler);
-                    
+                    currentSocket.removeEventListener('open', socketOpenHandler);
+
                     if (currentSocket.readyState === WebSocket.OPEN) {
                         console.log("HomePage: Disabling updates for old/unmounting socket.");
                         currentSocket.send(JSON.stringify({ type: 'enable_homepage_updates', data: false }));
                     }
-                });
-            }
-        });
+                }
+            });
+        }
     });
       
     onCleanup(() => {
