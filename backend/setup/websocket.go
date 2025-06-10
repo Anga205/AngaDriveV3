@@ -188,6 +188,26 @@ func reader(conn *websocket.Conn, done chan bool) {
 			data.HomePageUpdates = message.Data.(bool)
 			ActiveWebsockets[conn] = data
 			ActiveWebsocketsMutex.Unlock()
+			x_axis, y_axis := info.GetLast7DaysCounts()
+			graphData := GraphData{
+				XAxis:       x_axis,
+				YAxis:       y_axis,
+				Label:       "Site Activity",
+				BeginAtZero: true,
+			}
+			ActiveWebsockets[conn].Mutex.Lock()
+			err := conn.WriteJSON(map[string]interface{}{
+				"type": "graph_data",
+				"data": graphData,
+			})
+			if err != nil {
+				fmt.Printf("Error writing to websocket: %v\n", err)
+				ActiveWebsocketsMutex.Lock()
+				delete(ActiveWebsockets, conn)
+				ActiveWebsocketsMutex.Unlock()
+				conn.Close()
+			}
+			ActiveWebsockets[conn].Mutex.Unlock()
 		} else if message.Type == "login" {
 			var req accounts.LoginRequest
 			dataBytes, _ := json.Marshal(message.Data)
@@ -290,6 +310,43 @@ func reader(conn *websocket.Conn, done chan bool) {
 				})
 				ActiveWebsockets[conn].Mutex.Unlock()
 			}
+		} else if message.Type == "change_display_name" {
+			var req accounts.ChangeDisplayNameRequest
+			dataBytes, _ := json.Marshal(message.Data)
+			err := json.Unmarshal(dataBytes, &req)
+			if err != nil {
+				ActiveWebsockets[conn].Mutex.Lock()
+				conn.WriteJSON(OutgoingResponse{
+					Type: "change_display_name_response",
+					Data: map[string]interface{}{"error": "invalid request data"},
+				})
+				ActiveWebsockets[conn].Mutex.Unlock()
+				return
+			}
+			responseInfo, err := accounts.ChangeUserDisplayName(req)
+			if err != nil {
+				now := time.Now()
+				timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
+				fmt.Printf("[%s] Error changing display name: %v\n", timestamp, err)
+				ActiveWebsockets[conn].Mutex.Lock()
+				conn.WriteJSON(OutgoingResponse{
+					Type: "change_display_name_response",
+					Data: map[string]interface{}{
+						"error": err.Error(),
+					},
+				})
+				ActiveWebsockets[conn].Mutex.Unlock()
+			} else {
+				ActiveWebsockets[conn].Mutex.Lock()
+				conn.WriteJSON(OutgoingResponse{
+					Type: "change_display_name_response",
+					Data: responseInfo,
+				})
+				ActiveWebsockets[conn].Mutex.Unlock()
+			}
+		} else {
+			fmt.Printf("Unknown message type: %s\n", message.Type)
+			continue
 		}
 	}
 }
