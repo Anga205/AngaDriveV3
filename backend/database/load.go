@@ -27,10 +27,10 @@ func loadUserFiles() {
 		if err != nil {
 			panic("failed to load files for account token " + account.Token + ": " + err.Error())
 		}
-		if UserFiles[account] == nil {
-			UserFiles[account] = NewFileSet()
+		if UserFiles[account.Token] == nil {
+			UserFiles[account.Token] = NewFileSet()
 		}
-		UserFiles[account].Set(files)
+		UserFiles[account.Token].Set(files)
 	}
 	fmt.Println("User files loaded successfully.")
 }
@@ -53,10 +53,10 @@ func loadUserCollections() {
 		if err != nil {
 			panic("failed to load collections for account token " + account.Token + ": " + err.Error())
 		}
-		if UserCollections[account] == nil {
-			UserCollections[account] = NewCollectionSet()
+		if UserCollections[account.Token] == nil {
+			UserCollections[account.Token] = NewCollectionSet()
 		}
-		UserCollections[account].Set(collections)
+		UserCollections[account.Token].Set(collections)
 	}
 	fmt.Println("User collections loaded successfully.")
 }

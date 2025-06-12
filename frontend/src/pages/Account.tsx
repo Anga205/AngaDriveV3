@@ -72,6 +72,9 @@ const LoginCard: Component<{ onSignUpClick: () => void; onLoginSuccess: () => vo
                         localStorage.setItem("password", password());
                         localStorage.setItem("display_name", response.data.display_name);
                         props.onLoginSuccess(); // Call the callback on successful login
+                        // TODO: Setup user migration
+                        // for now, just remove the previous token
+                        localStorage.removeItem("token");
                     } else {
                         toast.error(
                             response.data.error === "record not found"
@@ -244,6 +247,7 @@ const RegisterCard: Component<{ onLoginClick: () => void; onRegisterSuccess: () 
                         localStorage.setItem("email", email());
                         localStorage.setItem("password", password());
                         localStorage.setItem("display_name", displayName());
+                        localStorage.removeItem("token");
                         props.onRegisterSuccess(); // Call the callback on successful registration
                     } else {
                         toast.error(

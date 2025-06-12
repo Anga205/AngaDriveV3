@@ -1,7 +1,7 @@
 import { createContext, onCleanup, useContext, createSignal, ParentComponent, Accessor } from 'solid-js';
 import { SocketStatus } from './types/types';
 
-const RECONNECT_DELAY = 1000;
+const RECONNECT_DELAY = 300;
 
 type WebSocketContextType = {
   socket: Accessor<WebSocket | undefined>;
@@ -46,6 +46,50 @@ const WebSocketProvider: ParentComponent = (props) => {
     ws.onopen = () => {
       setStatus("connected");
       console.log("WebSocket connected");
+      const userEmail = localStorage.getItem("email") || "";
+      const userPassword = localStorage.getItem("password") || "";
+      if (userEmail || userPassword) {
+        if (!(userEmail && userPassword)) {
+          localStorage.removeItem("email");
+          localStorage.removeItem("password");
+          localStorage.removeItem("display_name")
+          return;
+        }
+        ws.send(JSON.stringify({
+          type: "login",
+          data: {
+            email: userEmail,
+            password: userPassword
+          }
+        }))
+        let firstPing = false;
+        ws.onmessage = (event) => {
+          if(!firstPing){
+            try {
+              const message = JSON.parse(event.data);
+              interface WebSocketMessage {
+                type: string;
+                data: any;
+              }
+
+              const typedMessage = message as WebSocketMessage;
+              if (typedMessage.type === "login_response"){
+                firstPing = true;
+                if (typedMessage.data.error !== undefined) {
+                  console.error("Login failed:", typedMessage.data.error);
+                  localStorage.removeItem("email");
+                  localStorage.removeItem("password");
+                  localStorage.removeItem("display_name");
+                  localStorage.removeItem("token");
+                }
+              }
+
+            } catch (_) {
+              // do nothing
+            }
+          }
+        };
+      }
       if (reconnectTimeoutId) { // Clear any pending reconnect if we successfully connected
         clearTimeout(reconnectTimeoutId);
         reconnectTimeoutId = undefined;
