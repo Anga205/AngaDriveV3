@@ -118,10 +118,10 @@ func (s *CollectionSet) Set(values []Collection) {
 }
 
 var (
-	UserFiles      = make(map[Account]*FileSet)
+	UserFiles      = make(map[string]*FileSet)
 	UserFilesMutex sync.RWMutex
 
-	UserCollections      = make(map[Account]*CollectionSet)
+	UserCollections      = make(map[string]*CollectionSet)
 	UserCollectionsMutex sync.RWMutex
 
 	CollectionFiles      = make(map[Collection]*FileSet)

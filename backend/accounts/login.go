@@ -6,12 +6,12 @@ import (
 )
 
 func LoginUser(request LoginRequest) (database.Account, error) {
-	user, err := database.FindUserByEmail(request.Email)
-	if err != nil {
-		return database.Account{}, err
-	}
 
 	if Authenticate(request.Email, request.Password) {
+		user, err := database.FindUserByEmail(request.Email)
+		if err != nil {
+			return database.Account{}, err
+		}
 		return user, nil
 	}
 

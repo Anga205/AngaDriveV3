@@ -24,6 +24,11 @@ func createUploadedFilesDir(dirName string) error {
 	if err != nil {
 		return fmt.Errorf("createUploadedFilesDir: %w", err)
 	}
+	subDir = dirName + string(os.PathSeparator) + "tmp_chunks"
+	err = os.Mkdir(subDir, 0755)
+	if err != nil {
+		return fmt.Errorf("createUploadedFilesDir: %w", err)
+	}
 	return nil
 }
 
