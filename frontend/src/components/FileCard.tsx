@@ -3,8 +3,8 @@ import type { FileData } from "../types/types"
 import { BinSVG, CopySVG, DownloadSVG, EyeSVG, FileTextSVG } from "../assets/SvgFiles";
 
 const FilePreview: Component<{ file: FileData }> = (props) => {
-    const cache_link = import.meta.env.VITE_CACHE_LINK || "https://cloud.anga.pro/i/";
-    const default_link = import.meta.env.VITE_DEFAULT_LINK || "https://i.anga.pro/i/";
+    const cache_link = import.meta.env.DEV ? "http://localhost:8080/i/" : import.meta.env.VITE_CACHE_LINK || "https://cloud.anga.pro/i/";
+    const default_link = import.meta.env.DEV ? "http://localhost:8080/i/" : import.meta.env.VITE_DEFAULT_LINK || "https://i.anga.pro/i/";
     const preview_size_limit = 50 * 1024 * 1024;
 
     const link = props.file.cached ? cache_link + props.file.file_directory : default_link + props.file.file_directory;

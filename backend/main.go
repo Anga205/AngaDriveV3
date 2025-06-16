@@ -2,8 +2,8 @@ package main
 
 import (
 	"service/database"
+	"service/endpoints"
 	"service/setup"
-	"service/uploader"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/gzip"
@@ -29,7 +29,7 @@ func main() {
 	database.InitializeDatabase(UPLOAD_DIR)
 
 	setup.SetupWebsocket(r)
-	uploader.SetupUploaderRoutes(r, UPLOAD_DIR)
+	endpoints.InitEndpoints(r, UPLOAD_DIR)
 
 	r.Static("/i", "./"+UPLOAD_DIR+"/i")
 

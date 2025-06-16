@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"service/accounts"
 	"service/database"
+	"service/endpoints"
 	"service/info"
 	"sync"
 	"time"
@@ -341,6 +342,41 @@ func reader(conn *websocket.Conn, done chan bool) {
 				conn.WriteJSON(OutgoingResponse{
 					Type: "change_display_name_response",
 					Data: responseInfo,
+				})
+				ActiveWebsockets[conn].Mutex.Unlock()
+			}
+		} else if message.Type == "get_user_files" {
+			var req endpoints.AuthRequest
+			dataBytes, _ := json.Marshal(message.Data)
+			err := json.Unmarshal(dataBytes, &req)
+			if err != nil {
+				ActiveWebsockets[conn].Mutex.Lock()
+				conn.WriteJSON(OutgoingResponse{
+					Type: "get_user_files_response",
+					Data: map[string]interface{}{"error": "invalid request data"},
+				})
+				ActiveWebsockets[conn].Mutex.Unlock()
+				return
+			}
+			files, err := endpoints.GetUserFiles(req)
+			if err != nil {
+				now := time.Now()
+				timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
+				fmt.Printf("[%s] Error getting user files: %v\n", timestamp, err)
+				ActiveWebsockets[conn].Mutex.Lock()
+				conn.WriteJSON(OutgoingResponse{
+					Type: "get_user_files_response",
+					Data: map[string]interface{}{
+						"error": err.Error(),
+					},
+				})
+				ActiveWebsockets[conn].Mutex.Unlock()
+				return
+			} else {
+				ActiveWebsockets[conn].Mutex.Lock()
+				conn.WriteJSON(OutgoingResponse{
+					Type: "get_user_files_response",
+					Data: files,
 				})
 				ActiveWebsockets[conn].Mutex.Unlock()
 			}

@@ -45,7 +45,7 @@ const WebSocketProvider: ParentComponent = (props) => {
     
     ws.onopen = () => {
       setStatus("connected");
-      console.log("WebSocket connected");
+      console.log("Websockets.tsx: WebSocket connected");
       const userEmail = localStorage.getItem("email") || "";
       const userPassword = localStorage.getItem("password") || "";
       if (userEmail || userPassword) {
@@ -100,7 +100,7 @@ const WebSocketProvider: ParentComponent = (props) => {
       // Only attempt to reconnect if this instance was the one we intended to be active
       if (webSocketInstance() === ws || !webSocketInstance()) { // also reconnect if webSocketInstance was cleared
         setStatus("reconnecting");
-        console.log("WebSocket disconnected. Attempting to reconnect...");
+        console.log("Websockets.tsx: WebSocket disconnected. Attempting to reconnect...");
         reconnectTimeoutId = setTimeout(createAndConnectSocket, RECONNECT_DELAY);
       } else {
         console.log("An old WebSocket instance closed.");
