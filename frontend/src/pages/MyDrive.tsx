@@ -1,5 +1,5 @@
 import type { Accessor, Component } from "solid-js"
-import { createSignal, Show, For, createMemo, onCleanup } from "solid-js"
+import { createSignal, Show, For, createMemo, onCleanup, createEffect } from "solid-js"
 import { DesktopTemplate } from "../components/Template"
 import { InfoSVG, UploadSVG, ErrorSVG, BinSVG, FileSVG } from "../assets/SvgFiles"
 import Navbar from "../components/Navbar";
@@ -7,10 +7,12 @@ import { useWebSocket } from "../Websockets";
 import { FileData } from "../types/types";
 import Dialog from "@corvu/dialog";
 import FileCard from "../components/FileCard";
+import { Toaster } from 'solid-toast';
+import toast from "solid-toast";
 
 const FilesError: Component = () => {
     const baseClass = "flex items-center p-[1vh] rounded-[1vh] w-full";
-    const textClass = "text-[1.5vh]";
+    const textClass = "text-[0.75vw]";
     const containerClass = "md:max-w-1/3 flex flex-col items-center space-y-[2vh]";
     const {status} = useWebSocket();
 
@@ -18,8 +20,8 @@ const FilesError: Component = () => {
         <div class="w-full h-full flex justify-center items-center px-10 md:px-0">
             <div class={containerClass}>
                 {((status() === "connecting") || (status() === "reconnecting") ) && (
-                    <div class={`${baseClass} border-l-4 bg-yellow-600/30 border-yellow-400`}>
-                        <div class="pr-[1.5vh] text-yellow-600">
+                    <div class={`${baseClass} border-l-[0.2vw] bg-yellow-600/30 border-yellow-400`}>
+                        <div class="pr-[0.75vw] text-yellow-600 w-[3vw]">
                             <InfoSVG />
                         </div>
                         <div>
@@ -28,8 +30,8 @@ const FilesError: Component = () => {
                     </div>
                 )}
                 {status() === "connected" && (
-                    <div class={`${baseClass} border-l-4 bg-blue-600/30 border-blue-400`}>
-                        <div class="pr-[1.5vh] text-blue-600">
+                    <div class={`${baseClass} border-l-[0.2vw] bg-blue-600/30 border-blue-400`}>
+                        <div class="pr-[0.75vw] text-blue-600 w-[3vw]">
                             <InfoSVG />
                         </div>
                         <div>
@@ -39,7 +41,7 @@ const FilesError: Component = () => {
                 )}
                 {(status() === "error" || status() === "disconnected") && (
                     <div class={`${baseClass} border-1 bg-red-600/30 border-red-400`}>
-                        <div class="pr-[1.5vh] text-red-600">
+                        <div class="pr-[0.75vw] text-red-600 w-[3vw]">
                             <ErrorSVG />
                         </div>
                         <div>
@@ -555,13 +557,64 @@ const MyDrive: Component = () => {
     };
     window.addEventListener('resize', handleResize);
     onCleanup(() => window.removeEventListener('resize', handleResize));
-    const [files] = createSignal<Array<FileData>>([]);
+    const [files, setFiles] = createSignal<Array<FileData>>([]);
+
+    const { socket: getSocket } = useWebSocket();
+
+    const messageHandler = (event: MessageEvent) => {
+        const data = JSON.parse(event.data);
+        if (data.type === "get_user_files_response") {
+            if (data.error) {
+                toast.error(`Error fetching files: ${data.error}`);
+            } else {
+                setFiles(data.data || []);
+            }
+        }
+    }
+
+    const sendFilesRequest = (socket: WebSocket) => {
+        if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({
+                type: "get_user_files",
+                data: {
+                    email: localStorage.getItem("email") || "",
+                    password: localStorage.getItem("password") || "",
+                    token: localStorage.getItem("token") || ""
+                }
+            }));
+        }
+    }
+
+    createEffect(() => {
+        const socket = getSocket();
+        if (!socket) return;
+        socket.addEventListener("message", messageHandler)
+        socket.addEventListener("open", () => sendFilesRequest(socket))
+        onCleanup(() => {
+            socket.removeEventListener("message", messageHandler);
+            socket.removeEventListener("open", () => sendFilesRequest(socket));
+        });
+    })
 
 
     return (
         <>
             <title>My Files | DriveV3</title>
             {isMobile() ? <MobileDrive Files={files}/> : <DesktopDrive Files={files}/>}
+            <Toaster
+            position="bottom-right"
+            gutter={8}
+            containerClassName=""
+            containerStyle={{}}
+            toastOptions={{
+                className: '',
+                duration: 2000,
+                style: {
+                background: '#363636',
+                color: '#fff',
+                },
+            }}
+            />
         </>
     )
 }

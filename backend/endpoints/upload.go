@@ -1,4 +1,4 @@
-package uploader
+package endpoints
 
 import (
 	"fmt"
@@ -210,7 +210,7 @@ func resetUploadTimer(uploadID string) {
 	}
 }
 
-func SetupUploaderRoutes(r *gin.Engine, UPLOAD_DIR_BASE string) {
+func setupUploaderRoutes(r *gin.Engine, UPLOAD_DIR_BASE string) {
 	chunkDir = UPLOAD_DIR_BASE + "/tmp_chunks"
 	UPLOAD_DIR = UPLOAD_DIR_BASE
 	os.RemoveAll(chunkDir)

@@ -57,3 +57,28 @@ func FindUserByToken(token string) (Account, error) {
 	}
 	return dbUser, err
 }
+
+func GetUserFiles(token string) ([]FileData, error) {
+	UserFilesMutex.RLock()
+	files, found := UserFiles[token]
+	if found {
+		UserFilesMutex.RUnlock()
+		return files.Array(), nil
+	}
+	UserFilesMutex.RUnlock()
+	db := GetDB()
+	var dbFiles []FileData
+	err := db.Where("account_token = ?", token).Find(&dbFiles).Error
+	if err != nil {
+		return nil, err
+	}
+	go func() {
+		UserFilesMutex.Lock()
+		defer UserFilesMutex.Unlock()
+		if _, ok := UserFiles[token]; !ok {
+			UserFiles[token] = NewFileSet()
+		}
+		UserFiles[token].Set(dbFiles)
+	}()
+	return dbFiles, nil
+}
