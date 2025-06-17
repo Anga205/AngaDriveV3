@@ -1,5 +1,5 @@
 import type { Accessor, Component } from "solid-js"
-import { createSignal, Show, For, createMemo, onCleanup, createEffect } from "solid-js"
+import { createSignal, Show, For, createMemo, onCleanup, createEffect, useContext } from "solid-js"
 import { DesktopTemplate } from "../components/Template"
 import { InfoSVG, UploadSVG, ErrorSVG, BinSVG, FileSVG } from "../assets/SvgFiles"
 import Navbar from "../components/Navbar";
@@ -9,6 +9,7 @@ import Dialog from "@corvu/dialog";
 import FileCard from "../components/FileCard";
 import { Toaster } from 'solid-toast';
 import toast from "solid-toast";
+import { AppContext } from "../Context";
 
 const FilesError: Component = () => {
     const baseClass = "flex items-center p-[1vh] rounded-[1vh] w-full";
@@ -557,7 +558,8 @@ const MyDrive: Component = () => {
     };
     window.addEventListener('resize', handleResize);
     onCleanup(() => window.removeEventListener('resize', handleResize));
-    const [files, setFiles] = createSignal<Array<FileData>>([]);
+
+    const ctx = useContext(AppContext)!;
 
     const { socket: getSocket } = useWebSocket();
 
@@ -567,7 +569,11 @@ const MyDrive: Component = () => {
             if (data.error) {
                 toast.error(`Error fetching files: ${data.error}`);
             } else {
-                setFiles(data.data || []);
+                ctx.setFiles(data.data.sort((a: FileData, b: FileData) => b.timestamp - a.timestamp) || []);
+            }
+        } else if (data.type === "file_update") {
+            if (data.data.toggle === true) {
+                ctx.setFiles(prev => [data.data.File, ...prev]);
             }
         }
     }
@@ -588,11 +594,27 @@ const MyDrive: Component = () => {
     createEffect(() => {
         const socket = getSocket();
         if (!socket) return;
-        socket.addEventListener("message", messageHandler)
-        socket.addEventListener("open", () => sendFilesRequest(socket))
+
+        let hasRun = false;
+
+        const runOnce = () => {
+            if (!hasRun) {
+                console.log("MyDrive.tsx: Sending request to get user files");
+                sendFilesRequest(socket);
+                hasRun = true;
+            }
+        };
+
+        socket.addEventListener("message", messageHandler);
+        socket.addEventListener("open", runOnce);
+
+        if (socket.readyState === WebSocket.OPEN) {
+            runOnce();
+        }
+
         onCleanup(() => {
             socket.removeEventListener("message", messageHandler);
-            socket.removeEventListener("open", () => sendFilesRequest(socket));
+            socket.removeEventListener("open", runOnce);
         });
     })
 
@@ -600,7 +622,7 @@ const MyDrive: Component = () => {
     return (
         <>
             <title>My Files | DriveV3</title>
-            {isMobile() ? <MobileDrive Files={files}/> : <DesktopDrive Files={files}/>}
+            {isMobile() ? <MobileDrive Files={ctx.files}/> : <DesktopDrive Files={ctx.files}/>}
             <Toaster
             position="bottom-right"
             gutter={8}

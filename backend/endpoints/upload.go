@@ -11,6 +11,7 @@ import (
 
 	"service/accounts"
 	"service/database"
+	"service/socketHandler"
 
 	"github.com/gin-gonic/gin"
 )
@@ -173,6 +174,11 @@ func finalizeUpload(c *gin.Context) {
 		// Log this error, but the upload is mostly successful
 		fmt.Printf("Warning: Failed to remove chunk directory %s: %v\n", uploadPath, err)
 	}
+
+	var FileUpdate socketHandler.FileUpdate
+	FileUpdate.File = fileData
+	FileUpdate.Toggle = true
+	go socketHandler.UserFilesPulse(FileUpdate)
 
 	c.JSON(200, gin.H{
 		"message":       "Upload successful and file assembled",

@@ -96,7 +96,7 @@ const FileCard: Component<{ File: FileData }> = (props) => {
                         {getFileType(props.File.file_directory)}
                     </p>
                     <p>{props.File.file_directory}</p>
-                    <p>{new Date(props.File.timestamp).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}</p>
+                    <p>{new Date(props.File.timestamp*1000).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}</p>
                     <p>
                         {formatFileSize(props.File.file_size)}
                     </p>
