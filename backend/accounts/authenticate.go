@@ -52,3 +52,15 @@ func Authenticate(email string, password string) bool {
 	cacheBcryptResult(cacheKey, result)
 	return result
 }
+
+func AuthenticateHashed(email string, hashedPassword string) bool {
+	user, err := database.FindUserByEmail(email)
+	if err != nil {
+		return false
+	}
+
+	if email == user.Email && hashedPassword == user.HashedPassword {
+		return true
+	}
+	return false
+}

@@ -1,4 +1,4 @@
-package setup
+package socketHandler
 
 import (
 	"encoding/json"
@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"service/accounts"
 	"service/database"
-	"service/endpoints"
 	"service/info"
 	"sync"
 	"time"
@@ -20,78 +19,9 @@ var (
 	ActiveWebsocketsMutex sync.RWMutex
 )
 
-type GraphData struct {
-	XAxis       []string `json:"x_axis"`
-	YAxis       []int64  `json:"y_axis"`
-	Label       string   `json:"label"`
-	BeginAtZero bool     `json:"begin_at_zero"`
-}
-
-func Pulse() {
-	database.PushTimeStamp(time.Now().Unix())
-	x_axis, y_axis := info.GetLast7DaysCounts()
-	graphData := GraphData{
-		XAxis:       x_axis,
-		YAxis:       y_axis,
-		Label:       "Site Activity",
-		BeginAtZero: true,
-	}
-	for conn, connMutex := range ActiveWebsockets {
-		if !connMutex.HomePageUpdates {
-			continue
-		}
-		go func(conn *websocket.Conn, connMutex WebsocketData) {
-			connMutex.Mutex.Lock()
-			defer connMutex.Mutex.Unlock()
-			err := conn.WriteJSON(map[string]interface{}{
-				"type": "graph_data",
-				"data": graphData,
-			})
-			if err != nil {
-				fmt.Printf("Error writing to websocket: %v\n", err)
-				ActiveWebsocketsMutex.Lock()
-				delete(ActiveWebsockets, conn)
-				ActiveWebsocketsMutex.Unlock()
-				conn.Close()
-			}
-		}(conn, connMutex)
-	}
-}
-
-func updateAllWebsockets() {
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
-
-	for {
-		<-ticker.C
-		sysInfo, _ := info.GetSysInfo()
-
-		for conn, connMutex := range ActiveWebsockets {
-			if !connMutex.HomePageUpdates {
-				continue
-			}
-			go func(conn *websocket.Conn, connMutex WebsocketData) {
-				connMutex.Mutex.Lock()
-				defer connMutex.Mutex.Unlock()
-				err := conn.WriteJSON(map[string]interface{}{
-					"type": "system_information",
-					"data": sysInfo,
-				})
-				if err != nil {
-					fmt.Printf("Error writing to websocket: %v\n", err)
-					ActiveWebsocketsMutex.Lock()
-					delete(ActiveWebsockets, conn)
-					ActiveWebsocketsMutex.Unlock()
-					conn.Close()
-				}
-			}(conn, connMutex)
-		}
-	}
-}
-
 func SetupWebsocket(r *gin.Engine) {
 	info.InitializeSysInfo()
-	go updateAllWebsockets()
+	go sysinfoPulse()
 	r.GET("/ws", func(c *gin.Context) {
 		conn, err := upgradeToWebSocket(c)
 		if err != nil {
@@ -104,11 +34,11 @@ func SetupWebsocket(r *gin.Engine) {
 			"type": "system_information",
 			"data": sysInfo,
 		})
-		go Pulse()
+		go siteActivityPulse()
 		defer conn.Close()
 
 		ActiveWebsocketsMutex.Lock()
-		ActiveWebsockets[conn] = WebsocketData{Mutex: &sync.Mutex{}, HomePageUpdates: false}
+		ActiveWebsockets[conn] = WebsocketData{Mutex: &sync.Mutex{}, HomePageUpdates: false, UserInfo: UserInfo{"", "", ""}}
 		ActiveWebsocketsMutex.Unlock()
 
 		defer func() {
@@ -346,7 +276,7 @@ func reader(conn *websocket.Conn, done chan bool) {
 				ActiveWebsockets[conn].Mutex.Unlock()
 			}
 		} else if message.Type == "get_user_files" {
-			var req endpoints.AuthRequest
+			var req AuthRequest
 			dataBytes, _ := json.Marshal(message.Data)
 			err := json.Unmarshal(dataBytes, &req)
 			if err != nil {
@@ -358,7 +288,7 @@ func reader(conn *websocket.Conn, done chan bool) {
 				ActiveWebsockets[conn].Mutex.Unlock()
 				return
 			}
-			files, err := endpoints.GetUserFiles(req)
+			files, err := GetUserFiles(req)
 			if err != nil {
 				now := time.Now()
 				timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
@@ -378,6 +308,20 @@ func reader(conn *websocket.Conn, done chan bool) {
 					Type: "get_user_files_response",
 					Data: files,
 				})
+				if req.Email != "" && req.Password != "" && accounts.Authenticate(req.Email, req.Password) {
+					accountInfo, _ := database.FindUserByEmail(req.Email)
+					data := ActiveWebsockets[conn]
+					data.UserInfo.Token = ""
+					data.UserInfo.Email = accountInfo.Email
+					data.UserInfo.HashedPassword = accountInfo.HashedPassword
+					ActiveWebsockets[conn] = data
+				} else {
+					data := ActiveWebsockets[conn]
+					data.UserInfo.Token = req.Token
+					data.UserInfo.Email = ""
+					data.UserInfo.HashedPassword = ""
+					ActiveWebsockets[conn] = data
+				}
 				ActiveWebsockets[conn].Mutex.Unlock()
 			}
 		} else {

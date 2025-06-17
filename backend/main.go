@@ -3,7 +3,7 @@ package main
 import (
 	"service/database"
 	"service/endpoints"
-	"service/setup"
+	"service/socketHandler"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/gzip"
@@ -22,13 +22,13 @@ func main() {
 	config.AllowCredentials = true
 	r.Use(cors.New(config))
 
-	err := setup.SetupFrontend(r)
+	err := endpoints.SetupFrontend(r)
 	if err != nil {
 		panic(err)
 	}
 	database.InitializeDatabase(UPLOAD_DIR)
 
-	setup.SetupWebsocket(r)
+	socketHandler.SetupWebsocket(r)
 	endpoints.InitEndpoints(r, UPLOAD_DIR)
 
 	r.Static("/i", "./"+UPLOAD_DIR+"/i")
