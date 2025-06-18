@@ -1,7 +1,6 @@
 package endpoints
 
 import (
-	"crypto/md5"
 	"fmt"
 	"io"
 	"os"
@@ -53,21 +52,6 @@ func handleChunkUpload(c *gin.Context) {
 	resetUploadTimer(uploadID)
 
 	c.String(200, "Chunk received")
-}
-
-func md5sum(filepath string) (string, error) {
-	file, err := os.Open(filepath)
-	if err != nil {
-		return "", err
-	}
-	defer file.Close()
-
-	hash := md5.New()
-	if _, err := io.Copy(hash, file); err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
 
 func finalizeUpload(c *gin.Context) {
