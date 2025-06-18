@@ -60,5 +60,5 @@ type FileData struct {
 	AccountToken     string `json:"account_token"`
 	FileSize         int    `json:"file_size"`
 	Timestamp        int64  `json:"timestamp"`
-	Cached           bool   `gorm:"default:false" json:"cached"`
+	Md5sum           string `json:"-"`
 }

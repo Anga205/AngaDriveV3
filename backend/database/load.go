@@ -133,14 +133,33 @@ func loadTimeStamps() {
 	fmt.Println("Timestamps loaded successfully.")
 }
 
+func loadFiles() {
+	fmt.Println("Loading files...")
+	FileCacheLock.Lock()
+	defer FileCacheLock.Unlock()
+	defer wg.Done()
+
+	var files []FileData
+	err := GetDB().Find(&files).Error
+	if err != nil {
+		panic("failed to load files: " + err.Error())
+	}
+
+	for _, file := range files {
+		FileCache[file.FileDirectory] = file
+	}
+	fmt.Println("Files loaded successfully.")
+}
+
 func LoadCache() {
-	wg.Add(5)
+	wg.Add(6)
 
 	go loadUserFiles()
 	go loadUserCollections()
 	go loadCollectionFiles()
 	go loadCollectionFolders()
 	go loadTimeStamps()
+	go loadFiles()
 
 	wg.Wait()
 }

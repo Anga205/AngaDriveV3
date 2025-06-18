@@ -82,3 +82,26 @@ func GetUserFiles(token string) ([]FileData, error) {
 	}()
 	return dbFiles, nil
 }
+
+func GetFile(file_directory string) (FileData, error) {
+	FileCacheLock.RLock()
+	data, found := FileCache[file_directory]
+	FileCacheLock.RUnlock()
+
+	if found {
+		return data, nil
+	}
+
+	db := GetDB()
+	var fileData FileData
+	err := db.Where("file_directory = ?", file_directory).First(&fileData).Error
+	if err != nil {
+		return FileData{}, err
+	}
+
+	FileCacheLock.Lock()
+	FileCache[file_directory] = fileData
+	FileCacheLock.Unlock()
+
+	return fileData, nil
+}

@@ -1,13 +1,11 @@
 import { Component } from "solid-js";
-import type { FileData } from "../types/types"
+import type { FileData } from "../library/types"
 import { BinSVG, CopySVG, DownloadSVG, EyeSVG, FileTextSVG } from "../assets/SvgFiles";
+import { formatFileSize, getFileType } from "../library/functions";
 
 const FilePreview: Component<{ file: FileData }> = (props) => {
-    const cache_link = import.meta.env.DEV ? "http://localhost:8080/i/" : import.meta.env.VITE_CACHE_LINK || "https://cloud.anga.pro/i/";
-    const default_link = import.meta.env.DEV ? "http://localhost:8080/i/" : import.meta.env.VITE_DEFAULT_LINK || "https://i.anga.pro/i/";
+    const link = import.meta.env.DEV ? "http://localhost:8080/i/" : import.meta.env.VITE_DEFAULT_LINK || "https://i.anga.pro/i/";
     const preview_size_limit = 50 * 1024 * 1024;
-
-    const link = props.file.cached ? cache_link + props.file.file_directory : default_link + props.file.file_directory;
 
     const ext = link.split('.').pop()?.toLowerCase();
 
@@ -40,37 +38,6 @@ const FilePreview: Component<{ file: FileData }> = (props) => {
     }
 
     return <div class="flex justify-center items-center w-full h-full opacity-70">{previewContent}</div>;
-};
-
-const formatFileSize = (size: number) => {
-    const units = ["B", "KB", "MB", "GB", "TB"];
-    let index = 0;
-    let formattedSize = size;
-
-    while (formattedSize >= 1024 && index < units.length - 1) {
-        formattedSize /= 1024;
-        index++;
-    }
-
-    return `${formattedSize.toFixed(2)} ${units[index]}`;
-};
-
-const getFileType = (filePath: string) => {
-    const ext = filePath.split('.').pop()?.toLowerCase();
-    if (!ext) return "Unknown";
-    if (["jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff"].includes(ext)) return "Image";
-    if (["mp4", "mkv", "avi", "mov", "wmv", "flv", "webm"].includes(ext)) return "Video";
-    if (["mp3", "wav", "aac", "flac", "ogg", "wma", "m4a"].includes(ext)) return "Audio";
-    if (["pdf"].includes(ext)) return "Document";
-    if (["doc", "docx", "odt", "rtf", "txt", "md", "tex"].includes(ext)) return "Text Document";
-    if (["xls", "xlsx", "ods", "csv", "tsv"].includes(ext)) return "Spreadsheet";
-    if (["ppt", "pptx", "odp", "key"].includes(ext)) return "Presentation";
-    if (["zip", "rar", "7z", "tar", "gz", "bz2", "xz"].includes(ext)) return "Archive";
-    if (["exe", "msi", "bat", "sh", "apk", "dmg"].includes(ext)) return "Executable";
-    if (["html", "htm", "css", "js", "ts", "jsx", "tsx", "json", "xml", "yaml", "yml", "c", "py"].includes(ext)) return "Code";
-    if (["iso", "img", "bin", "cue"].includes(ext)) return "Disk Image";
-    if (["epub", "mobi", "azw", "azw3"].includes(ext)) return "Ebook";
-    return "Unknown";
 };
 
 const FileCard: Component<{ File: FileData }> = (props) => {

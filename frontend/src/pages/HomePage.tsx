@@ -4,7 +4,7 @@ import { RAMUsage, CPUUsage } from "../components/CircularProgress";
 import GraphComponent from "../components/GraphComponent";
 import { Component, onMount, onCleanup, createSignal, Accessor, createEffect } from "solid-js";
 import { Butterfly } from "../assets/SvgFiles";
-import type { CPUData, GraphData, IncomingData, RAMData, SysInfo } from "../types/types";
+import type { CPUData, GraphData, IncomingData, RAMData, SysInfo } from "../library/types";
 import ContactMe from "../components/ContactMe";
 import { DesktopTemplate } from "../components/Template";
 import { Toaster } from 'solid-toast';

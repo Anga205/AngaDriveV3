@@ -34,7 +34,7 @@ func SetupWebsocket(r *gin.Engine) {
 			"type": "system_information",
 			"data": sysInfo,
 		})
-		go siteActivityPulse()
+		go SiteActivityPulse()
 		defer conn.Close()
 
 		ActiveWebsocketsMutex.Lock()
@@ -90,7 +90,6 @@ func reader(conn *websocket.Conn, done chan bool) {
 					Data: map[string]interface{}{"error": "invalid request data"},
 				})
 				ActiveWebsockets[conn].Mutex.Unlock()
-				return
 			}
 			responseInfo, err := accounts.RegisterUser(req)
 			if err != nil {
@@ -150,7 +149,6 @@ func reader(conn *websocket.Conn, done chan bool) {
 					Data: map[string]interface{}{"error": "invalid request data"},
 				})
 				ActiveWebsockets[conn].Mutex.Unlock()
-				return
 			}
 			responseInfo, err := accounts.LoginUser(req)
 			if err != nil {
@@ -184,7 +182,6 @@ func reader(conn *websocket.Conn, done chan bool) {
 					Data: map[string]interface{}{"error": "invalid request data"},
 				})
 				ActiveWebsockets[conn].Mutex.Unlock()
-				return
 			}
 			responseInfo, err := accounts.ChangeUserPassword(req)
 			if err != nil {
@@ -218,7 +215,6 @@ func reader(conn *websocket.Conn, done chan bool) {
 					Data: map[string]interface{}{"error": "invalid request data"},
 				})
 				ActiveWebsockets[conn].Mutex.Unlock()
-				return
 			}
 			responseInfo, err := accounts.ChangeUserEmail(req)
 			if err != nil {
@@ -252,7 +248,6 @@ func reader(conn *websocket.Conn, done chan bool) {
 					Data: map[string]interface{}{"error": "invalid request data"},
 				})
 				ActiveWebsockets[conn].Mutex.Unlock()
-				return
 			}
 			responseInfo, err := accounts.ChangeUserDisplayName(req)
 			if err != nil {
@@ -286,7 +281,6 @@ func reader(conn *websocket.Conn, done chan bool) {
 					Data: map[string]interface{}{"error": "invalid request data"},
 				})
 				ActiveWebsockets[conn].Mutex.Unlock()
-				return
 			}
 			files, err := GetUserFiles(req)
 			if err != nil {
@@ -301,7 +295,6 @@ func reader(conn *websocket.Conn, done chan bool) {
 					},
 				})
 				ActiveWebsockets[conn].Mutex.Unlock()
-				return
 			} else {
 				ActiveWebsockets[conn].Mutex.Lock()
 				conn.WriteJSON(OutgoingResponse{

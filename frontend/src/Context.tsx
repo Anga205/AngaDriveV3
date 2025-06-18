@@ -1,5 +1,5 @@
 import { createContext, ParentComponent, createSignal } from 'solid-js';
-import { FileData } from './types/types';
+import { FileData } from './library/types';
 
 
 

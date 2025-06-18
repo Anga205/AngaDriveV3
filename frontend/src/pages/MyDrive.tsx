@@ -4,12 +4,13 @@ import { DesktopTemplate } from "../components/Template"
 import { InfoSVG, UploadSVG, ErrorSVG, BinSVG, FileSVG } from "../assets/SvgFiles"
 import Navbar from "../components/Navbar";
 import { useWebSocket } from "../Websockets";
-import { FileData } from "../types/types";
+import { FileData } from "../library/types";
 import Dialog from "@corvu/dialog";
 import FileCard from "../components/FileCard";
 import { Toaster } from 'solid-toast';
 import toast from "solid-toast";
 import { AppContext } from "../Context";
+import { formatFileSize, getFileMD5, truncateFileName } from "../library/functions";
 
 const FilesError: Component = () => {
     const baseClass = "flex items-center p-[1vh] rounded-[1vh] w-full";
@@ -87,19 +88,6 @@ const FileUploadPreview: Component<{
     uploadInfo?: Accessor<FileUploadProgressData | undefined>;
     onDelete: (uniqueId: string) => void;
 }> = (props) => {
-    const formatFileSize = (size: number) => {
-        if (size < 1024) return `${size} B`;
-        const kb = size / 1024;
-        if (kb < 1024) return `${kb.toFixed(2)} KB`;
-        const mb = kb / 1024;
-        if (mb < 1024) return `${mb.toFixed(2)} MB`;
-        const gb = mb / 1024;
-        return `${gb.toFixed(2)} GB`;
-    };
-
-    const truncateFileName = (name: string) => {
-        return name.length > 32 ? `${name.slice(0, 32)}...` : name;
-    };
 
     const preview_size_limit = 100 * 1024 * 1024; // 100 MB
     const ext = props.selectableFile.file.name.split('.').pop()?.toLowerCase();
@@ -228,8 +216,10 @@ async function uploadFileInChunks(
     }
 
     let finalizeFormData = new FormData();
+    let md5sum = await getFileMD5(selectableFile.file)
     finalizeFormData.append('totalChunks', String(totalChunks));
     finalizeFormData.append('originalFileName', file.name);
+    finalizeFormData.append('md5sum', md5sum);
 
     if (authDetails.token) {
         finalizeFormData.append('token', authDetails.token);
@@ -580,6 +570,11 @@ const MyDrive: Component = () => {
 
     const sendFilesRequest = (socket: WebSocket) => {
         if (socket.readyState === WebSocket.OPEN) {
+            if (!localStorage.getItem("token") && (!localStorage.getItem("email") || !localStorage.getItem("password"))) {
+                localStorage.setItem("token", generateClientToken());
+                localStorage.removeItem("email");
+                localStorage.removeItem("password");
+            }
             socket.send(JSON.stringify({
                 type: "get_user_files",
                 data: {

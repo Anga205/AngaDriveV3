@@ -2,7 +2,7 @@ import type { Component } from 'solid-js'
 import { useNavigate } from "@solidjs/router";
 import { Anga, CollectionSVG, FileSVG, GitHubSVG, HomeSVG, UserSVG, HamburgerSVG } from '../assets/SvgFiles'
 import Drawer from '@corvu/drawer'
-import { Pages } from '../types/types';
+import { Pages } from '../library/types';
 
 const DesktopNavbar: Component<{ CurrentPage: Pages }> = (props) => {
     const navigate = useNavigate();

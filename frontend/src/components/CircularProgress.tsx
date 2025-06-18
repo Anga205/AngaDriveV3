@@ -2,7 +2,7 @@ import type { Component } from 'solid-js';
 import { onMount, onCleanup, createSignal } from 'solid-js';
 import { Chart, Title, Tooltip, Colors, ArcElement } from 'chart.js';
 import { Doughnut } from 'solid-chartjs';
-import { CPUData, RAMData } from '../types/types';
+import { CPUData, RAMData } from '../library/types';
 
 const RAMUsage: Component<{data: RAMData}> = (props) => {
 

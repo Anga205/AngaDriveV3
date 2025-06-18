@@ -1,5 +1,5 @@
 import { createContext, onCleanup, useContext, createSignal, ParentComponent, Accessor } from 'solid-js';
-import { SocketStatus } from './types/types';
+import { SocketStatus } from './library/types';
 
 const RECONNECT_DELAY = 300;
 

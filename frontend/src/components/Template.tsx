@@ -1,6 +1,6 @@
 import type { Component } from "solid-js";
 import Navbar from "./Navbar";
-import type { Pages } from "../types/types";
+import type { Pages } from "../library/types";
 
 const DesktopTemplate: Component<{ CurrentPage: Pages; children: any }> = (props) => {
     return (
