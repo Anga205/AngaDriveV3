@@ -36,7 +36,6 @@ interface FileData {
     file_directory: string;
     file_size: number;
     timestamp: number;
-    cached: boolean;
 }
 
 export type {RAMData, CPUData, SysInfo, GraphData, IncomingData, SocketStatus, Pages, FileData};

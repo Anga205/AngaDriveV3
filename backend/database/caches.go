@@ -138,4 +138,7 @@ var (
 
 	UserAccountsByToken      = make(map[string]Account)
 	UserAccountsByTokenMutex sync.RWMutex
+
+	FileCache     = make(map[string]FileData)
+	FileCacheLock = sync.RWMutex{}
 )

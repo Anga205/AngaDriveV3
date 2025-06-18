@@ -2,7 +2,7 @@ import type { Component } from 'solid-js';
 import { onMount, Accessor } from 'solid-js';
 import { Chart, Title, Tooltip, Colors } from 'chart.js'
 import { Line } from 'solid-chartjs'
-import { GraphData } from '../types/types';
+import { GraphData } from '../library/types';
 
 const GraphComponent: Component<{ GraphData: Accessor<GraphData> }> = (props) => {
     onMount(() => {

@@ -31,7 +31,5 @@ func main() {
 	socketHandler.SetupWebsocket(r)
 	endpoints.InitEndpoints(r, UPLOAD_DIR)
 
-	r.Static("/i", "./"+UPLOAD_DIR+"/i")
-
 	r.Run()
 }

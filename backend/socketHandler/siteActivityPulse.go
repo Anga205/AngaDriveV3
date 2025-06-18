@@ -9,7 +9,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func siteActivityPulse() {
+func SiteActivityPulse() {
 	database.PushTimeStamp(time.Now().Unix())
 	x_axis, y_axis := info.GetLast7DaysCounts()
 	graphData := GraphData{

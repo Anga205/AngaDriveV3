@@ -1,6 +1,7 @@
 package endpoints
 
 import (
+	"crypto/md5"
 	"fmt"
 	"io"
 	"os"
@@ -54,10 +55,26 @@ func handleChunkUpload(c *gin.Context) {
 	c.String(200, "Chunk received")
 }
 
+func md5sum(filepath string) (string, error) {
+	file, err := os.Open(filepath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	hash := md5.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%x", hash.Sum(nil)), nil
+}
+
 func finalizeUpload(c *gin.Context) {
 	uploadID := c.Param("uuid")
 	totalChunksStr := c.PostForm("totalChunks")
 	originalFileName := c.PostForm("originalFileName")
+	md5sum := c.PostForm("md5sum")
 
 	userToken := c.PostForm("token")
 	email := c.PostForm("email")
@@ -103,14 +120,17 @@ func finalizeUpload(c *gin.Context) {
 		return
 	}
 
-	// All chunks are present, proceed to assemble
-	uniqueFileName := database.GenerateUniqueFileName(originalFileName)
 	finalDestDir := filepath.Join(UPLOAD_DIR, "i")
 	if err := os.MkdirAll(finalDestDir, os.ModePerm); err != nil {
 		c.String(500, "Failed to create destination directory")
 		return
 	}
-	finalFilePath := filepath.Join(finalDestDir, uniqueFileName)
+	finalFilePath := filepath.Join(finalDestDir, md5sum+filepath.Ext(originalFileName))
+
+	// if _, err := os.Stat(finalFilePath); !os.IsNotExist(err) {
+	// 	c.String(400, "File already exists")
+	// 	return
+	// }
 
 	destFile, err := os.Create(finalFilePath)
 	if err != nil {
@@ -146,14 +166,15 @@ func finalizeUpload(c *gin.Context) {
 	}
 	fileSize := int(fileInfo.Size())
 
+	uniqueFileName := database.GenerateUniqueFileName(originalFileName)
 	// Insert file metadata into database
 	fileData := database.FileData{
 		OriginalFileName: originalFileName,
-		FileDirectory:    uniqueFileName, // This is the generated unique name
+		FileDirectory:    uniqueFileName,
 		AccountToken:     accountToken,
 		FileSize:         fileSize,
 		Timestamp:        time.Now().Unix(),
-		Cached:           false, // Default value
+		Md5sum:           md5sum + filepath.Ext(originalFileName),
 	}
 
 	if err := database.InsertNewFile(fileData); err != nil {

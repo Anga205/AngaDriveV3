@@ -84,12 +84,20 @@ func InsertNewFile(fileData FileData) error {
 		return err
 	}
 
-	UserFilesMutex.Lock()
-	defer UserFilesMutex.Unlock()
+	go func() {
+		UserFilesMutex.Lock()
+		defer UserFilesMutex.Unlock()
 
-	if _, ok := UserFiles[fileData.AccountToken]; ok {
-		UserFiles[fileData.AccountToken].Add(fileData)
-	}
+		if _, ok := UserFiles[fileData.AccountToken]; ok {
+			UserFiles[fileData.AccountToken].Add(fileData)
+		}
+	}()
+
+	go func() {
+		FileCacheLock.Lock()
+		defer FileCacheLock.Unlock()
+		FileCache[fileData.FileDirectory] = fileData
+	}()
 
 	return nil
 }
