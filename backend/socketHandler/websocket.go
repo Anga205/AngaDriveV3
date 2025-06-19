@@ -17,9 +17,11 @@ import (
 var (
 	ActiveWebsockets      = make(map[*websocket.Conn]WebsocketData)
 	ActiveWebsocketsMutex sync.RWMutex
+	UPLOAD_DIR            string
 )
 
-func SetupWebsocket(r *gin.Engine) {
+func SetupWebsocket(r *gin.Engine, upload_dir string) {
+	UPLOAD_DIR = upload_dir
 	info.InitializeSysInfo()
 	go sysinfoPulse()
 	r.GET("/ws", func(c *gin.Context) {
@@ -317,6 +319,81 @@ func reader(conn *websocket.Conn, done chan bool) {
 				}
 				ActiveWebsockets[conn].Mutex.Unlock()
 			}
+		} else if message.Type == "convert_video" {
+			var req ConvertVideoRequest
+			dataBytes, _ := json.Marshal(message.Data)
+			err := json.Unmarshal(dataBytes, &req)
+			if err != nil {
+				ActiveWebsockets[conn].Mutex.Lock()
+				conn.WriteJSON(OutgoingResponse{
+					Type: "convert_video_response",
+					Data: map[string]interface{}{"error": "invalid request data"},
+				})
+				ActiveWebsockets[conn].Mutex.Unlock()
+			}
+			if req.Auth.Token == "" {
+				if !accounts.Authenticate(req.Auth.Email, req.Auth.Password) {
+					now := time.Now()
+					timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
+					fmt.Printf("[%s] Authentication failed for convert_video request\n", timestamp)
+					ActiveWebsockets[conn].Mutex.Lock()
+					conn.WriteJSON(OutgoingResponse{
+						Type: "convert_video_response",
+						Data: map[string]interface{}{
+							"error": "authentication failed",
+						},
+					})
+					ActiveWebsockets[conn].Mutex.Unlock()
+					continue
+				}
+				user, err := database.FindUserByEmail(req.Auth.Email)
+				if err != nil {
+					now := time.Now()
+					timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
+					fmt.Printf("[%s] Error fetching user by email: %v\n", timestamp, err)
+					ActiveWebsockets[conn].Mutex.Lock()
+					conn.WriteJSON(OutgoingResponse{
+						Type: "convert_video_response",
+						Data: map[string]interface{}{
+							"error": err.Error(),
+						},
+					})
+					ActiveWebsockets[conn].Mutex.Unlock()
+					continue
+				}
+				req.Auth.Token = user.Token
+			}
+			fileDirectory := req.FileDirectory
+			fileToConvert, err := database.GetFile(fileDirectory)
+			if err != nil {
+				now := time.Now()
+				timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
+				fmt.Printf("[%s] Error fetching file: %v\n", timestamp, err)
+				ActiveWebsockets[conn].Mutex.Lock()
+				conn.WriteJSON(OutgoingResponse{
+					Type: "convert_video_response",
+					Data: map[string]interface{}{
+						"error": err.Error(),
+					},
+				})
+				ActiveWebsockets[conn].Mutex.Unlock()
+				continue
+			}
+			if fileToConvert.AccountToken != req.Auth.Token {
+				now := time.Now()
+				timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
+				fmt.Printf("[%s] Authentication failed for convert_video request: file %s does not belong to user %s\n", timestamp, fileToConvert.OriginalFileName, req.Auth.Email)
+				ActiveWebsockets[conn].Mutex.Lock()
+				conn.WriteJSON(OutgoingResponse{
+					Type: "convert_video_response",
+					Data: map[string]interface{}{
+						"error": "authentication failed: file does not belong to user",
+					},
+				})
+				ActiveWebsockets[conn].Mutex.Unlock()
+				continue
+			}
+			go ConvertToMP4(fileToConvert, ActiveWebsockets[conn].Mutex, conn)
 		} else {
 			fmt.Printf("Unknown message type: %s\n", message.Type)
 			continue

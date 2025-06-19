@@ -28,7 +28,7 @@ func main() {
 	}
 	database.InitializeDatabase(UPLOAD_DIR)
 
-	socketHandler.SetupWebsocket(r)
+	socketHandler.SetupWebsocket(r, UPLOAD_DIR)
 	endpoints.InitEndpoints(r, UPLOAD_DIR)
 
 	r.Run()

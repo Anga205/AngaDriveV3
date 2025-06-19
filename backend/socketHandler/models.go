@@ -44,3 +44,8 @@ type AuthRequest struct {
 	Password string `json:"password"`
 	Token    string `json:"token"`
 }
+
+type ConvertVideoRequest struct {
+	FileDirectory string      `json:"file_directory"`
+	Auth          AuthRequest `json:"auth"`
+}
