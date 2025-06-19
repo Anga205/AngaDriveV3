@@ -4,10 +4,11 @@ import { BinSVG, CopySVG, DownloadSVG, EyeSVG, FileTextSVG } from "../assets/Svg
 import { formatFileSize, getFileType } from "../library/functions";
 
 const FilePreview: Component<{ file: FileData }> = (props) => {
-    const link = import.meta.env.DEV ? "http://localhost:8080/i/" : import.meta.env.VITE_DEFAULT_LINK || "https://i.anga.pro/i/";
+    let link = import.meta.env.DEV ? "http://localhost:8080/i/" : import.meta.env.VITE_DEFAULT_LINK || "https://i.anga.pro/i/";
     const preview_size_limit = 50 * 1024 * 1024;
+    link += props.file.file_directory;
 
-    const ext = link.split('.').pop()?.toLowerCase();
+    const ext = props.file.original_file_name.split('.').pop()?.toLowerCase();
 
     let previewContent;
     if (props.file.file_size > preview_size_limit) {
@@ -23,14 +24,10 @@ const FilePreview: Component<{ file: FileData }> = (props) => {
     } else if (["mp3", "wav", "aac", "flac", "ogg", "wma", "m4a"].includes(ext)) {
         previewContent = <audio src={link} controls class="w-full" />;
     } else if (["pdf"].includes(ext)) {
-        previewContent = (
-            <iframe
-                src={link}
-                class="w-full h-full"
-                title="PDF Preview"
-                loading="lazy"
-            />
-        );
+        link = import.meta.env.DEV ? "http://localhost:8080/preview/" : import.meta.env.VITE_DEFAULT_LINK || "https://i.anga.pro/preview/";
+        link += props.file.file_directory;
+        link += '.png'
+        previewContent = <img src={link} loading="lazy" class="max-h-full max-w-full" />;
     } else {
         previewContent = (
             <FileTextSVG class="max-h-full p-4 opacity-50"/>
