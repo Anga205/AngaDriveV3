@@ -565,6 +565,12 @@ const MyDrive: Component = () => {
             if (data.data.toggle === true) {
                 ctx.setFiles(prev => [data.data.File, ...prev]);
             }
+        } else if (data.type === "convert_video_response") {
+            if (data.data.error) {
+                toast.error(`Error converting video: ${data.data.error}`);
+            } else {
+                toast.success(`Video converted successfully: ${data.data.file.original_file_name}`);
+            }
         }
     }
 

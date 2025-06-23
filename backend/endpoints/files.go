@@ -1,7 +1,6 @@
 package endpoints
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"service/database"
@@ -23,7 +22,6 @@ func returnFile(c *gin.Context) {
 	file_directory := c.Param("file_directory")
 
 	filePath := getFilePath(file_directory)
-	fmt.Println("File path:", filePath)
 	if filePath == "" {
 		c.JSON(404, gin.H{
 			"error": "File not found",
