@@ -1,5 +1,5 @@
-import { Component, createEffect } from "solid-js";
-import type { FileData, IncomingData } from "../library/types"
+import { Component } from "solid-js";
+import type { FileData } from "../library/types"
 import { BinSVG, CopySVG, DownloadSVG, EyeSVG, FileTextSVG, RefreshSVG } from "../assets/SvgFiles";
 import { formatFileSize, getFileType } from "../library/functions";
 import toast from "solid-toast";
@@ -59,38 +59,6 @@ const ConvertButton: Component<{ file: FileData }> = (props) => {
         }
         getSocket()?.send(JSON.stringify(convertRequest));
     };
-
-    const handleMessage = (event: MessageEvent) => {
-        try {
-            const data = JSON.parse(event.data) as IncomingData;
-            if (data.type === 'convert_video_response') {
-                if (data.type) {
-                    toast.success(`Conversion successful: ${props.file.original_file_name.split('.').slice(0, -1).join('.') + '.mp4'}`, {
-                        duration: 3000,
-                        position: "bottom-right",
-                        style: {
-                            background: "#1f2937",
-                            color: "#f3f4f6"
-                        }
-                    });
-                }
-            }
-        } catch (error) {
-            if (import.meta.env.DEV) {
-                console.error('Failed to parse WebSocket message:', error);
-            }
-        }
-    }
-
-    createEffect(() => {
-        const newSocket = getSocket();
-        if (newSocket) {
-            newSocket.addEventListener('message', handleMessage);
-        }
-        return () => {
-            newSocket?.removeEventListener('message', handleMessage);
-        };
-    })
 
     return (
         <button class="flex items-center justify-center p-2 bg-blue-700/30 hover:bg-blue-700/20 rounded-xl text-blue-500" onClick={handleConvert}>

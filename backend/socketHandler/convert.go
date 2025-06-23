@@ -1,6 +1,7 @@
 package socketHandler
 
 import (
+	"bytes"
 	"crypto/md5"
 	"fmt"
 	"io"
@@ -39,6 +40,8 @@ func md5sum(filepath string) (string, error) {
 
 var alreadyConverting sync.Map
 
+var stderr bytes.Buffer
+
 func ConvertToMP4(inputFile database.FileData, mutex *sync.Mutex, conn *websocket.Conn) error {
 	// Check if the file is already being converted
 	_, loaded := alreadyConverting.LoadOrStore(inputFile.Md5sum, true)
@@ -72,13 +75,17 @@ func ConvertToMP4(inputFile database.FileData, mutex *sync.Mutex, conn *websocke
 	cmd := exec.Command("ffmpeg",
 		"-i", inputFilePath,
 		"-c:v", "libx264",
+		"-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2", // force even dimensions
 		"-preset", "veryslow",
 		"-crf", "18",
 		"-c:a", "copy",
 		outputFilePath,
 	)
 
+	cmd.Stderr = &stderr
+
 	if err := cmd.Run(); err != nil {
+		go os.Remove(outputFilePath)
 		mutex.Lock()
 		conn.WriteJSON(OutgoingResponse{
 			Type: "convert_video_response",
@@ -102,7 +109,7 @@ func ConvertToMP4(inputFile database.FileData, mutex *sync.Mutex, conn *websocke
 		return fmt.Errorf("failed to get output file stats: %w", err)
 	}
 	fileSize := int(fileInfo.Size())
-	uniqueFileName := database.GenerateUniqueFileName(inputFile.OriginalFileName)
+	uniqueFileName := database.GenerateUniqueFileName(inputFile.OriginalFileName + ".mp4")
 	outputMd5sum, err := md5sum(outputFilePath)
 	if err != nil {
 		mutex.Lock()
@@ -135,6 +142,7 @@ func ConvertToMP4(inputFile database.FileData, mutex *sync.Mutex, conn *websocke
 		Timestamp:        time.Now().UTC().Unix(),
 		Md5sum:           outputMd5sum + ".mp4",
 	}
+
 	database.InsertNewFile(fileData)
 	go UserFilesPulse(
 		FileUpdate{

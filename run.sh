@@ -17,6 +17,13 @@ else
     :
 fi
 
+if ! command -v ffmpeg &> /dev/null; then
+    sudo apt update &> /dev/null
+    sudo apt install ffmpeg -y &> /dev/null
+else
+    :
+fi
+
 if [[ ! -d "backend" || ! -d "frontend" ]]; then
     echo "Please run this script in the root directory of the project."
     exit 1
