@@ -3,24 +3,30 @@ package socketHandler
 import (
 	"fmt"
 	"service/database"
-	"service/info"
-	"time"
 
 	"github.com/gorilla/websocket"
 )
 
-func SiteActivityPulse() {
-	database.PushTimeStamp(time.Now().Unix())
-	x_axis, y_axis := info.GetLast7DaysCounts()
-	graphData := GraphData{
-		XAxis:       x_axis,
-		YAxis:       y_axis,
-		Label:       "Site Activity",
-		BeginAtZero: true,
+var userCount int64
+
+func initializeUserCount() {
+	userCount, _ = database.GetCumulativeUserCount()
+}
+
+func UpdateUserCount() {
+	localUserCount, err := database.GetCumulativeUserCount()
+	if err != nil {
+		fmt.Print("[socketHandler/userCountPulse.go] Error fetching user count: ", err)
+	} else {
+		if localUserCount != userCount {
+			userCount = localUserCount
+			go UserCountPulse()
+		}
 	}
+}
 
+func UserCountPulse() {
 	var connectionsToUpdate []connInfo
-
 	ActiveWebsocketsMutex.RLock()
 	for conn, connData := range ActiveWebsockets {
 		if connData.HomePageUpdates {
@@ -28,14 +34,16 @@ func SiteActivityPulse() {
 		}
 	}
 	ActiveWebsocketsMutex.RUnlock()
-
 	for _, ci := range connectionsToUpdate {
 		go func(conn *websocket.Conn, connData WebsocketData) {
 			connData.Mutex.Lock()
 			defer connData.Mutex.Unlock()
+			if !connData.HomePageUpdates {
+				return
+			}
 			err := conn.WriteJSON(map[string]any{
-				"type": "graph_data",
-				"data": graphData,
+				"type": "user_count",
+				"data": userCount,
 			})
 			if err != nil {
 				fmt.Printf("Error writing to websocket: %v\n", err)

@@ -3,6 +3,8 @@ package socketHandler
 import (
 	"service/database"
 	"sync"
+
+	"github.com/gorilla/websocket"
 )
 
 type UserInfo struct {
@@ -53,4 +55,9 @@ type ConvertVideoRequest struct {
 type DeleteFileRequest struct {
 	FileDirectory string      `json:"file_directory"`
 	Auth          AuthRequest `json:"auth"`
+}
+
+type connInfo struct {
+	conn *websocket.Conn
+	data WebsocketData
 }

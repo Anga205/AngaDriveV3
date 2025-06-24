@@ -132,7 +132,7 @@ func GetCollection(collectionID string) (Collection, error) {
 	return collection, nil
 }
 
-func CheckForFilesWithMd5sum(md5sum string) bool { // Check if the file with the given md5sum exists in the cache or database
+func CheckForFilesWithMd5sum(md5sum string) bool {
 	// if the file is in the cache or database, return true
 	FileCacheLock.RLock()
 	for _, file := range FileCache {
@@ -149,4 +149,33 @@ func CheckForFilesWithMd5sum(md5sum string) bool { // Check if the file with the
 		return false
 	}
 	return count > 0
+}
+
+func GetCumulativeUserCount() (int64, error) {
+	db := GetDB()
+	var count int64
+	err := db.Model(&Account{}).Distinct("token").Count(&count).Error
+	if err != nil {
+		return 0, err
+	}
+
+	var fileCount int64
+	err = db.Model(&FileData{}).
+		Distinct("account_token").
+		Where("account_token NOT IN (SELECT token FROM accounts)").
+		Count(&fileCount).Error
+	if err != nil {
+		return 0, err
+	}
+
+	var collectionCount int64
+	err = db.Model(&Collection{}). // TODO: this is technically wrong since editors is a comma-separated string that for now just so happens to only contain one value.
+					Distinct("editors").
+					Where("editors NOT IN (SELECT token FROM accounts)").
+					Where("editors NOT IN (SELECT account_token FROM file_data)").
+					Count(&collectionCount).Error
+	if err != nil {
+		return 0, err
+	}
+	return count + fileCount + collectionCount, nil
 }

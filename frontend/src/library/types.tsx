@@ -24,7 +24,7 @@ interface GraphData {
 
 interface IncomingData {
     type: string;
-    data: SysInfo | GraphData;
+    data: SysInfo | GraphData | number;
 }
 
 type SocketStatus = "connecting" | "connected" | "disconnected" | "error" | "reconnecting";

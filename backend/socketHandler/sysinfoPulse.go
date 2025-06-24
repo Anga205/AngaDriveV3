@@ -11,18 +11,26 @@ import (
 func sysinfoPulse() {
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
-
+	var connectionsToUpdate []connInfo
 	for {
 		<-ticker.C
 		sysInfo, _ := info.GetSysInfo()
+
+		connectionsToUpdate = connectionsToUpdate[:0] // Reset the slice for each tick
+
+		ActiveWebsocketsMutex.RLock()
 		for conn, connMutex := range ActiveWebsockets {
-			if !connMutex.HomePageUpdates {
-				continue
+			if connMutex.HomePageUpdates {
+				connectionsToUpdate = append(connectionsToUpdate, connInfo{conn, connMutex})
 			}
+		}
+		ActiveWebsocketsMutex.RUnlock()
+
+		for _, c := range connectionsToUpdate {
 			go func(conn *websocket.Conn, connMutex WebsocketData) {
 				connMutex.Mutex.Lock()
 				defer connMutex.Mutex.Unlock()
-				err := conn.WriteJSON(map[string]interface{}{
+				err := conn.WriteJSON(map[string]any{
 					"type": "system_information",
 					"data": sysInfo,
 				})
@@ -33,7 +41,7 @@ func sysinfoPulse() {
 					ActiveWebsocketsMutex.Unlock()
 					conn.Close()
 				}
-			}(conn, connMutex)
+			}(c.conn, c.data)
 		}
 	}
 }
