@@ -18,16 +18,22 @@ func SiteActivityPulse() {
 		Label:       "Site Activity",
 		BeginAtZero: true,
 	}
+
+	var connectionsToUpdate []connInfo
+
 	ActiveWebsocketsMutex.RLock()
-	defer ActiveWebsocketsMutex.RUnlock()
 	for conn, connData := range ActiveWebsockets {
-		if !connData.HomePageUpdates {
-			continue
+		if connData.HomePageUpdates {
+			connectionsToUpdate = append(connectionsToUpdate, connInfo{conn: conn, data: connData})
 		}
+	}
+	ActiveWebsocketsMutex.RUnlock()
+
+	for _, ci := range connectionsToUpdate {
 		go func(conn *websocket.Conn, connData WebsocketData) {
 			connData.Mutex.Lock()
 			defer connData.Mutex.Unlock()
-			err := conn.WriteJSON(map[string]interface{}{
+			err := conn.WriteJSON(map[string]any{
 				"type": "graph_data",
 				"data": graphData,
 			})
@@ -38,6 +44,6 @@ func SiteActivityPulse() {
 				ActiveWebsocketsMutex.Unlock()
 				conn.Close()
 			}
-		}(conn, connData)
+		}(ci.conn, ci.data)
 	}
 }

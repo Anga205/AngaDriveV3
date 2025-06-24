@@ -184,6 +184,7 @@ func finalizeUpload(c *gin.Context) {
 	FileUpdate.File = fileData
 	FileUpdate.Toggle = true
 	go socketHandler.UserFilesPulse(FileUpdate)
+	go socketHandler.UpdateUserCount()
 
 	c.JSON(200, gin.H{
 		"message":       "Upload successful and file assembled",

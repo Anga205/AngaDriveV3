@@ -7,10 +7,46 @@ import { Butterfly } from "../assets/SvgFiles";
 import type { CPUData, GraphData, IncomingData, RAMData, SysInfo } from "../library/types";
 import ContactMe from "../components/ContactMe";
 import { DesktopTemplate } from "../components/Template";
-import { Toaster } from 'solid-toast';
+import toast, { Toaster } from 'solid-toast';
 import Navbar from "../components/Navbar";
 import { useWebSocket } from "../Websockets";
 
+const UserCount: Component<{isMobile: boolean}> = (props) => {
+    let currentSocket: WebSocket | null = null;
+    const { socket: getSocket } = useWebSocket();
+    const [userCount, setUserCount] = createSignal(0);
+    const messageHandler = (event: MessageEvent) => {
+        try {
+            const data = JSON.parse(event.data) as IncomingData;
+            if (data.type === 'user_count') {
+                setUserCount(data.data as number);
+            }
+        } catch (error) {
+            if (import.meta.env.DEV) {
+                toast.error(`Failed to parse WebSocket message: ${String(error)}`);
+            }
+        }
+    };
+    createEffect(() => {
+        const newSocket = getSocket();
+        if (newSocket) {
+            newSocket.addEventListener('message', messageHandler);
+
+            currentSocket = newSocket;
+            onCleanup(() => {
+                if (currentSocket) {
+                    currentSocket.removeEventListener('message', messageHandler);
+                }
+            });
+        }
+    });
+    return (
+        <div class={`bg-[#242424] ${props.isMobile?'flex-grow rounded-xl p-[1vw]':'h-[20vh] w-[28%] p-[1vh] rounded-[1.5vh]'} flex flex-col items-center justify-center`} style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
+            <p class={props.isMobile?"text-center font-black text-white text-[5vw]":"text-white font-semibold text-[0.9vw]"}>Users</p>
+            <p class={props.isMobile?"text-center font-black text-white text-[6vw]":"text-white font-semibold text-[5vw]"}>{userCount()}</p>
+        </div>
+    );
+}
 
 const DesktopHome: Component<{ ramdata: RAMData; cpudata: CPUData; siteActivity: Accessor<GraphData>; spaceUsed: Accessor<GraphData> }> = (props) => {
     return (
@@ -47,10 +83,7 @@ const DesktopHome: Component<{ ramdata: RAMData; cpudata: CPUData; siteActivity:
                         </div>
                         <div class="absolute top-0 left-0 w-full h-full flex flex-col space-y-[1.5vh]">
                             <div class="space-x-[1.5vh] items-end flex w-full h-[70%]">
-                                <div class="bg-[#242424] h-[20vh] w-[28%] flex flex-col items-center justify-center p-[1vh] rounded-[1.5vh]" style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
-                                    <p class="text-white font-semibold text-[0.9vw]">Users</p>
-                                    <p class="text-white font-semibold text-[5vw]">33</p>
-                                </div>
+                                <UserCount isMobile={false} />
                                 <div class="bg-[#242424] h-[20vh] w-[28%] flex flex-col justify-center items-center p-[1vh] rounded-[1.5vh] overflow-hidden" style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
                                     <p class="text-white font-semibold text-[0.9vw]">Files Hosted</p>
                                     <p class="text-white font-semibold text-[4vw]">1619</p>
@@ -112,10 +145,7 @@ const MobileHome: Component<{ ramdata: RAMData; cpudata: CPUData; siteActivity: 
                 </div>
                 <div class="w-full px-[1.5vh] opacity-95 flex space-x-[1.5vh] pb-[1.5vh]">
                     <div class="w-1/3 flex flex-col space-y-[1.5vh]">
-                        <div class="flex justify-center items-center flex-col flex-grow bg-[#242424] rounded-xl p-[1vw]">
-                            <p class="text-center font-black text-white text-[5vw]">Users</p>
-                            <p class="text-center font-black text-white text-[6vw]">33</p>
-                        </div>
+                        <UserCount isMobile={true} />
                         <div class="flex justify-center items-center flex-col flex-grow bg-[#242424] rounded-xl p-[1vw]">
                             <p class="text-center font-black text-white text-[4vw]">Files&nbsp;Hosted</p>
                             <p class="text-center font-black text-white text-[6vw]">1619</p>

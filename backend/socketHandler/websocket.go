@@ -23,6 +23,7 @@ var (
 func SetupWebsocket(r *gin.Engine, upload_dir string) {
 	UPLOAD_DIR = upload_dir
 	info.InitializeSysInfo()
+	initializeUserCount()
 	go sysinfoPulse()
 	r.GET("/ws", func(c *gin.Context) {
 		conn, err := upgradeToWebSocket(c)
@@ -30,12 +31,6 @@ func SetupWebsocket(r *gin.Engine, upload_dir string) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upgrade to websocket"})
 			return
 		}
-
-		sysInfo, _ := info.GetSysInfo()
-		conn.WriteJSON(map[string]interface{}{
-			"type": "system_information",
-			"data": sysInfo,
-		})
 		go SiteActivityPulse()
 		defer conn.Close()
 
@@ -107,6 +102,7 @@ func reader(conn *websocket.Conn, done chan bool) {
 				})
 				ActiveWebsockets[conn].Mutex.Unlock()
 			} else {
+				go UpdateUserCount()
 				ActiveWebsockets[conn].Mutex.Lock()
 				conn.WriteJSON(OutgoingResponse{
 					Type: "register_response",
@@ -127,10 +123,19 @@ func reader(conn *websocket.Conn, done chan bool) {
 				Label:       "Site Activity",
 				BeginAtZero: true,
 			}
+			sysinfo, _ := info.GetSysInfo()
 			ActiveWebsockets[conn].Mutex.Lock()
-			err := conn.WriteJSON(map[string]interface{}{
+			conn.WriteJSON(map[string]interface{}{
 				"type": "graph_data",
 				"data": graphData,
+			})
+			conn.WriteJSON(map[string]interface{}{
+				"type": "user_count",
+				"data": userCount,
+			})
+			err := conn.WriteJSON(map[string]interface{}{
+				"type": "system_information",
+				"data": sysinfo,
 			})
 			if err != nil {
 				fmt.Printf("Error writing to websocket: %v\n", err)
@@ -426,6 +431,7 @@ func reader(conn *websocket.Conn, done chan bool) {
 				Toggle: false,
 				File:   fileToDelete,
 			})
+			go UpdateUserCount()
 			ActiveWebsockets[conn].Mutex.Lock()
 			conn.WriteJSON(OutgoingResponse{
 				Type: "delete_file_response",
