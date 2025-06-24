@@ -69,7 +69,7 @@ func IsFileNamePresent(filename string) bool {
 	defer UserFilesMutex.Unlock()
 	for _, fileSet := range UserFiles {
 		for file := range fileSet.data {
-			if file.FileDirectory == filename {
+			if file == filename {
 				return true // Filename exists in the cache
 			}
 		}
@@ -89,7 +89,7 @@ func InsertNewFile(fileData FileData) error {
 		defer UserFilesMutex.Unlock()
 
 		if _, ok := UserFiles[fileData.AccountToken]; ok {
-			UserFiles[fileData.AccountToken].Add(fileData)
+			UserFiles[fileData.AccountToken].Add(fileData.FileDirectory)
 		}
 	}()
 

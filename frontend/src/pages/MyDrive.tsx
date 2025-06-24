@@ -564,12 +564,20 @@ const MyDrive: Component = () => {
         } else if (data.type === "file_update") {
             if (data.data.toggle === true) {
                 ctx.setFiles(prev => [data.data.File, ...prev]);
+            } else if (data.data.toggle === false) {
+                ctx.setFiles(prev => prev.filter(file => file.file_directory !== data.data.File.file_directory));
             }
         } else if (data.type === "convert_video_response") {
             if (data.data.error) {
                 toast.error(`Error converting video: ${data.data.error}`);
             } else {
                 toast.success(`Video converted successfully: ${data.data.file.original_file_name}`);
+            }
+        } else if (data.type === "delete_file_response") {
+            if (data.data.error) {
+                toast.error(`Error deleting file: ${data.data.error}`);
+            } else {
+                toast.success(`File deleted successfully: ${data.data.success}`);
             }
         }
     }

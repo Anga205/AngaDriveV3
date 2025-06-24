@@ -1,6 +1,28 @@
 package database
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
+
+func removeFile(fileList string, file string) string {
+	// Split fileList into slice
+	files := strings.Split(fileList, ",")
+
+	// Prepare slice to hold filtered results
+	var filtered []string
+
+	// Iterate and exclude the file
+	for _, f := range files {
+		f = strings.TrimSpace(f)
+		if f != "" && f != file {
+			filtered = append(filtered, f)
+		}
+	}
+
+	// Join filtered results back into comma-separated string
+	return strings.Join(filtered, ",")
+}
 
 func DeleteFile(file FileData) error {
 
@@ -8,7 +30,7 @@ func DeleteFile(file FileData) error {
 		UserFilesMutex.Lock()
 		for _, fileSet := range UserFiles {
 			if fileSet != nil {
-				fileSet.Remove(file)
+				fileSet.Remove(file.FileDirectory)
 			}
 		}
 		UserFilesMutex.Unlock()
@@ -18,10 +40,25 @@ func DeleteFile(file FileData) error {
 		CollectionFilesMutex.Lock()
 		for _, fileSet := range CollectionFiles {
 			if fileSet != nil {
-				fileSet.Remove(file)
+				fileSet.Remove(file.FileDirectory)
 			}
 		}
 		CollectionFilesMutex.Unlock()
+	}()
+
+	go func() { // Remove from FileCache
+		FileCacheLock.Lock()
+		delete(FileCache, file.FileDirectory)
+		FileCacheLock.Unlock()
+	}()
+
+	go func() { // remove from collection cache
+		CollectionCacheLock.Lock()
+		for key, collection := range CollectionCache {
+			collection.Files = removeFile(collection.Files, file.FileDirectory)
+			CollectionCache[key] = collection
+		}
+		CollectionCacheLock.Unlock()
 	}()
 
 	// Delete from database
@@ -32,6 +69,15 @@ func DeleteFile(file FileData) error {
 	}
 	if result.RowsAffected == 0 {
 		return fmt.Errorf("file not found: %v", file)
+	}
+	// Delete file from collections
+	var collections []Collection
+	db.Where("Files LIKE ?", "%"+file.FileDirectory+"%").Find(&collections)
+	for _, collection := range collections {
+		collection.Files = removeFile(collection.Files, file.FileDirectory)
+		if err := db.Save(&collection).Error; err != nil {
+			return fmt.Errorf("failed to update collection %s: %v", collection.Name, err)
+		}
 	}
 	return nil
 }
