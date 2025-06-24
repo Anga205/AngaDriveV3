@@ -99,9 +99,35 @@ func GetFile(file_directory string) (FileData, error) {
 		return FileData{}, err
 	}
 
-	FileCacheLock.Lock()
-	FileCache[file_directory] = fileData
-	FileCacheLock.Unlock()
+	go func() {
+		FileCacheLock.Lock()
+		defer FileCacheLock.Unlock()
+		FileCache[file_directory] = fileData
+	}()
 
 	return fileData, nil
+}
+
+func GetCollection(collectionID string) (Collection, error) {
+	CollectionCacheLock.RLock()
+	data, found := CollectionCache[collectionID]
+	CollectionCacheLock.RUnlock()
+
+	if found {
+		return data, nil
+	}
+	db := GetDB()
+	var collection Collection
+	err := db.Where("id = ?", collectionID).First(&collection).Error
+	if err != nil {
+		return Collection{}, err
+	}
+
+	go func() {
+		CollectionCacheLock.Lock()
+		defer CollectionCacheLock.Unlock()
+		CollectionCache[collectionID] = collection
+	}()
+
+	return collection, nil
 }

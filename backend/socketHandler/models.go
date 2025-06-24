@@ -49,3 +49,8 @@ type ConvertVideoRequest struct {
 	FileDirectory string      `json:"file_directory"`
 	Auth          AuthRequest `json:"auth"`
 }
+
+type DeleteFileRequest struct {
+	FileDirectory string      `json:"file_directory"`
+	Auth          AuthRequest `json:"auth"`
+}

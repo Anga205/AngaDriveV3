@@ -4,28 +4,28 @@ import "sync"
 
 type FileSet struct {
 	mu   sync.RWMutex
-	data map[FileData]struct{}
+	data map[string]struct{}
 }
 
 func NewFileSet() *FileSet {
 	return &FileSet{
-		data: make(map[FileData]struct{}),
+		data: make(map[string]struct{}),
 	}
 }
 
-func (s *FileSet) Add(value FileData) {
+func (s *FileSet) Add(value string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.data[value] = struct{}{}
 }
 
-func (s *FileSet) Remove(value FileData) {
+func (s *FileSet) Remove(value string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.data, value)
 }
 
-func (s *FileSet) Contains(value FileData) bool {
+func (s *FileSet) Contains(value string) bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	_, exists := s.data[value]
@@ -37,7 +37,11 @@ func (s *FileSet) Array() []FileData {
 	defer s.mu.RUnlock()
 	keys := make([]FileData, 0, len(s.data))
 	for key := range s.data {
-		keys = append(keys, key)
+		file, err := GetFile(key)
+		if err != nil {
+			continue // Skip if file not found
+		}
+		keys = append(keys, file)
 	}
 	return keys
 }
@@ -49,7 +53,7 @@ func (s *FileSet) Set(values []FileData) {
 		delete(s.data, key)
 	}
 	for _, value := range values {
-		s.data[value] = struct{}{}
+		s.data[value.FileDirectory] = struct{}{}
 	}
 }
 
@@ -58,7 +62,7 @@ func (s *FileSet) CommaSeparated() string {
 	defer s.mu.RUnlock()
 	var result string
 	for key := range s.data {
-		result += key.FileDirectory + ","
+		result += key + ","
 	}
 	if len(result) > 0 {
 		result = result[:len(result)-1]
@@ -68,28 +72,28 @@ func (s *FileSet) CommaSeparated() string {
 
 type CollectionSet struct {
 	mu   sync.RWMutex
-	data map[Collection]struct{}
+	data map[string]struct{}
 }
 
 func NewCollectionSet() *CollectionSet {
 	return &CollectionSet{
-		data: make(map[Collection]struct{}),
+		data: make(map[string]struct{}),
 	}
 }
 
-func (s *CollectionSet) Add(value Collection) {
+func (s *CollectionSet) Add(value string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.data[value] = struct{}{}
 }
 
-func (s *CollectionSet) Remove(value Collection) {
+func (s *CollectionSet) Remove(value string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.data, value)
 }
 
-func (s *CollectionSet) Contains(value Collection) bool {
+func (s *CollectionSet) Contains(value string) bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	_, exists := s.data[value]
@@ -101,7 +105,11 @@ func (s *CollectionSet) Array() []Collection {
 	defer s.mu.RUnlock()
 	keys := make([]Collection, 0, len(s.data))
 	for key := range s.data {
-		keys = append(keys, key)
+		collection, err := GetCollection(key)
+		if err != nil {
+			continue // Skip if collection not found
+		}
+		keys = append(keys, collection)
 	}
 	return keys
 }
@@ -113,7 +121,7 @@ func (s *CollectionSet) Set(values []Collection) {
 		delete(s.data, key)
 	}
 	for _, value := range values {
-		s.data[value] = struct{}{}
+		s.data[value.ID] = struct{}{}
 	}
 }
 
@@ -124,10 +132,10 @@ var (
 	UserCollections      = make(map[string]*CollectionSet)
 	UserCollectionsMutex sync.RWMutex
 
-	CollectionFiles      = make(map[Collection]*FileSet)
+	CollectionFiles      = make(map[string]*FileSet)
 	CollectionFilesMutex sync.RWMutex
 
-	CollectionFolders      = make(map[Collection]*CollectionSet)
+	CollectionFolders      = make(map[string]*CollectionSet)
 	CollectionFoldersMutex sync.RWMutex
 
 	TimeStamps      = []int64{}
@@ -141,4 +149,7 @@ var (
 
 	FileCache     = make(map[string]FileData)
 	FileCacheLock = sync.RWMutex{}
+
+	CollectionCache     = make(map[string]Collection)
+	CollectionCacheLock = sync.RWMutex{}
 )

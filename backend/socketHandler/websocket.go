@@ -394,6 +394,46 @@ func reader(conn *websocket.Conn, done chan bool) {
 				continue
 			}
 			go ConvertToMP4(fileToConvert, ActiveWebsockets[conn].Mutex, conn)
+		} else if message.Type == "delete_file" {
+			var req DeleteFileRequest
+			dataBytes, _ := json.Marshal(message.Data)
+			err := json.Unmarshal(dataBytes, &req)
+			if err != nil {
+				ActiveWebsockets[conn].Mutex.Lock()
+				conn.WriteJSON(OutgoingResponse{
+					Type: "delete_file_response",
+					Data: map[string]interface{}{"error": "invalid request data"},
+				})
+				ActiveWebsockets[conn].Mutex.Unlock()
+			}
+			fileToDelete, _ := database.GetFile(req.FileDirectory)
+			err = DeleteFile(req)
+			if err != nil {
+				now := time.Now()
+				timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
+				fmt.Printf("[%s] Error deleting file: %v\n", timestamp, err)
+				ActiveWebsockets[conn].Mutex.Lock()
+				conn.WriteJSON(OutgoingResponse{
+					Type: "delete_file_response",
+					Data: map[string]interface{}{
+						"error": err.Error(),
+					},
+				})
+				ActiveWebsockets[conn].Mutex.Unlock()
+				continue
+			}
+			go UserFilesPulse(FileUpdate{
+				Toggle: false,
+				File:   fileToDelete,
+			})
+			ActiveWebsockets[conn].Mutex.Lock()
+			conn.WriteJSON(OutgoingResponse{
+				Type: "delete_file_response",
+				Data: map[string]interface{}{
+					"success": fileToDelete.OriginalFileName,
+				},
+			})
+			ActiveWebsockets[conn].Mutex.Unlock()
 		} else {
 			fmt.Printf("Unknown message type: %s\n", message.Type)
 			continue

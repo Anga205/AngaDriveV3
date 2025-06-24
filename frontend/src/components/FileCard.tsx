@@ -61,10 +61,43 @@ const ConvertButton: Component<{ file: FileData }> = (props) => {
     };
 
     return (
-        <button class="flex items-center justify-center p-2 bg-blue-700/30 hover:bg-blue-700/20 rounded-xl text-blue-500" onClick={handleConvert}>
-            <RefreshSVG/>
-        </button>
+        ["mkv", "avi", "mov", "wmv", "flv", "webm"].includes(props.file.original_file_name.split('.').pop()?.toLowerCase() || '') ?
+        <>
+            <div/>
+            <button class="flex items-center justify-center p-2 bg-blue-700/30 hover:bg-blue-700/20 rounded-xl text-blue-500" onClick={handleConvert}>
+                <RefreshSVG/>
+            </button>
+            <div/>
+        </>
+        : <div/>
     );
+}
+
+const DeleteButton: Component<{ file: FileData }> = (props) => {
+    const { socket: getSocket } = useWebSocket();
+    const handleDelete = async () => {
+        const deleteRequest = {
+            type: "delete_file",
+            data: {
+                file_directory: props.file.file_directory,
+                auth: {
+                    token: localStorage.getItem("token") || "",
+                    email: localStorage.getItem("email") || "",
+                    password: localStorage.getItem("password") || ""
+                }
+            }
+        }
+        if (getSocket()?.readyState !== WebSocket.OPEN) {
+            toast.error("WebSocket is not available");
+            return;
+        }
+        getSocket()?.send(JSON.stringify(deleteRequest));
+    }
+    return (
+        <button class="flex items-center justify-center p-2 text-red-700 bg-red-800/30 hover:bg-red-900/20 rounded-xl" onClick={handleDelete}>
+            <BinSVG />
+        </button>
+    )
 }
 
 const FileCard: Component<{ File: FileData }> = (props) => {
@@ -142,12 +175,8 @@ const FileCard: Component<{ File: FileData }> = (props) => {
                 }}>
                     <DownloadSVG />
                 </button>
-                <div/>
-                {['mov', 'mkv', 'webm'].includes(props.File.original_file_name.split('.').pop()?.toLowerCase() || '') ? <ConvertButton file={props.File} /> : null}
-                {['mov', 'mkv', 'webm'].includes(props.File.original_file_name.split('.').pop()?.toLowerCase() || '') ? <div /> : null}
-                <button class="flex items-center justify-center p-2 text-red-700 bg-red-800/30 hover:bg-red-900/20 rounded-xl">
-                    <BinSVG />
-                </button>
+                <ConvertButton file={props.File} />
+                <DeleteButton file={props.File} />
                 <div/>
             </div>
         </div>

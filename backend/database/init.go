@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/gin-gonic/gin"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -57,7 +58,9 @@ func InitializeDatabase(uploadedFilesDir string) error {
 	if err != nil {
 		return fmt.Errorf("InitializeDatabase: %w", err)
 	}
-	LoadCache()
+	if gin.Mode() != gin.ReleaseMode {
+		LoadCache()
+	}
 	fmt.Println("[GIN-debug] Database initialized successfully")
 	return nil
 }

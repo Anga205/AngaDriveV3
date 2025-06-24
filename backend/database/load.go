@@ -73,8 +73,8 @@ func loadCollectionFiles() {
 		panic("failed to load collections for files: " + err.Error())
 	}
 	for _, collection := range collections {
-		if CollectionFiles[collection] == nil {
-			CollectionFiles[collection] = NewFileSet()
+		if CollectionFiles[collection.ID] == nil {
+			CollectionFiles[collection.ID] = NewFileSet()
 		}
 		fileDirectoryList := collection.GetFiles()
 		for _, file := range fileDirectoryList {
@@ -83,7 +83,7 @@ func loadCollectionFiles() {
 			if err != nil {
 				panic("failed to load files for collection ID " + collection.ID + ": " + err.Error())
 			}
-			CollectionFiles[collection].Set(files)
+			CollectionFiles[collection.ID].Set(files)
 		}
 	}
 	fmt.Println("Collection files loaded successfully.")
@@ -101,8 +101,8 @@ func loadCollectionFolders() {
 		panic("failed to load collections for folders: " + err.Error())
 	}
 	for _, collection := range collections {
-		if CollectionFolders[collection] == nil {
-			CollectionFolders[collection] = NewCollectionSet()
+		if CollectionFolders[collection.ID] == nil {
+			CollectionFolders[collection.ID] = NewCollectionSet()
 		}
 		folderIDList := collection.GetCollections()
 		for _, folderID := range folderIDList {
@@ -111,7 +111,7 @@ func loadCollectionFolders() {
 			if err != nil {
 				panic("failed to load folders for collection ID " + collection.ID + ": " + err.Error())
 			}
-			CollectionFolders[collection].Set(folders)
+			CollectionFolders[collection.ID].Set(folders)
 		}
 	}
 	fmt.Println("Collection folders loaded successfully.")
@@ -133,6 +133,42 @@ func loadTimeStamps() {
 	fmt.Println("Timestamps loaded successfully.")
 }
 
+func loadUserAccountsByEmail() {
+	fmt.Println("Loading user accounts by email...")
+	UserAccountsByEmailMutex.Lock()
+	defer UserAccountsByEmailMutex.Unlock()
+	defer wg.Done()
+
+	var accounts []Account
+	err := GetDB().Find(&accounts).Error
+	if err != nil {
+		panic("failed to load accounts by email: " + err.Error())
+	}
+
+	for _, account := range accounts {
+		UserAccountsByEmail[account.Email] = account
+	}
+	fmt.Println("User accounts by email loaded successfully.")
+}
+
+func loadUserAccountsByToken() {
+	fmt.Println("Loading user accounts by token...")
+	UserAccountsByTokenMutex.Lock()
+	defer UserAccountsByTokenMutex.Unlock()
+	defer wg.Done()
+
+	var accounts []Account
+	err := GetDB().Find(&accounts).Error
+	if err != nil {
+		panic("failed to load accounts by token: " + err.Error())
+	}
+
+	for _, account := range accounts {
+		UserAccountsByToken[account.Token] = account
+	}
+	fmt.Println("User accounts by token loaded successfully.")
+}
+
 func loadFiles() {
 	fmt.Println("Loading files...")
 	FileCacheLock.Lock()
@@ -151,8 +187,25 @@ func loadFiles() {
 	fmt.Println("Files loaded successfully.")
 }
 
+func loadCollections() {
+	fmt.Println("Loading collections...")
+	CollectionCacheLock.Lock()
+	defer CollectionCacheLock.Unlock()
+	defer wg.Done()
+
+	var collections []Collection
+	err := GetDB().Find(&collections).Error
+	if err != nil {
+		panic("failed to load collections: " + err.Error())
+	}
+	for _, collection := range collections {
+		CollectionCache[collection.ID] = collection
+	}
+	fmt.Println("Collections loaded successfully.")
+}
+
 func LoadCache() {
-	wg.Add(6)
+	wg.Add(9)
 
 	go loadUserFiles()
 	go loadUserCollections()
@@ -160,6 +213,9 @@ func LoadCache() {
 	go loadCollectionFolders()
 	go loadTimeStamps()
 	go loadFiles()
+	go loadCollections()
+	go loadUserAccountsByEmail()
+	go loadUserAccountsByToken()
 
 	wg.Wait()
 }
