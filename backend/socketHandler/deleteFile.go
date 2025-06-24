@@ -17,6 +17,15 @@ func getExtension(filename string) string {
 	return ""
 }
 
+func RemoveFile(md5sum string) {
+	if !database.CheckForFilesWithMd5sum(md5sum) {
+		os.Remove(UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + md5sum)
+		if getExtension(md5sum) == "pdf" {
+			os.Remove(UPLOAD_DIR + string(os.PathSeparator) + "pdf_previews" + string(os.PathSeparator) + md5sum + ".png")
+		}
+	}
+}
+
 func DeleteFile(req DeleteFileRequest) error {
 	if req.Auth.Token == "" {
 		if !accounts.Authenticate(req.Auth.Email, req.Auth.Password) {
@@ -54,9 +63,6 @@ func DeleteFile(req DeleteFileRequest) error {
 		fmt.Printf("[%s] Error deleting file: %v\n", timestamp, err)
 		return fmt.Errorf("error deleting file: %v", err)
 	}
-	go os.Remove(UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + fileToDelete.Md5sum)
-	if getExtension(req.FileDirectory) == "pdf" {
-		go os.Remove(UPLOAD_DIR + string(os.PathSeparator) + "pdf_previews" + string(os.PathSeparator) + req.FileDirectory + ".png")
-	}
+	go RemoveFile(fileToDelete.Md5sum)
 	return nil
 }
