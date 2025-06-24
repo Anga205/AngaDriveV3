@@ -131,3 +131,22 @@ func GetCollection(collectionID string) (Collection, error) {
 
 	return collection, nil
 }
+
+func CheckForFilesWithMd5sum(md5sum string) bool { // Check if the file with the given md5sum exists in the cache or database
+	// if the file is in the cache or database, return true
+	FileCacheLock.RLock()
+	for _, file := range FileCache {
+		if file.Md5sum == md5sum {
+			FileCacheLock.RUnlock()
+			return true
+		}
+	}
+	FileCacheLock.RUnlock()
+	db := GetDB()
+	var count int64
+	err := db.Model(&FileData{}).Where("md5sum = ?", md5sum).Count(&count).Error
+	if err != nil {
+		return false
+	}
+	return count > 0
+}
