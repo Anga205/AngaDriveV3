@@ -192,6 +192,8 @@ const HomePage: Component = () => {
             } else if (data.type === 'graph_data') {
                 const graphData = data.data as GraphData;
                 if (graphData.label === 'Space Used') {
+                    graphData.y_axis = graphData.y_axis.map(bytes => (bytes / (1024 ** 3)));
+                                        graphData.label = 'Space Used (GB)';
                     setSpaceUsed(graphData);
                 } else if (graphData.label === 'Site Activity' || graphData.label === 'Database Reads') {
                     setSiteActivity(graphData);
