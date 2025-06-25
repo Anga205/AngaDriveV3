@@ -189,3 +189,26 @@ func CountFiles() (int64, error) {
 	}
 	return count, nil
 }
+
+type SizeAndTime struct {
+	Size int64
+	Time int64
+}
+
+func GetAllFileSizesAndTimes() ([]SizeAndTime, error) {
+	db := GetDB()
+	var files []FileData
+	err := db.Find(&files).Error
+	if err != nil {
+		return nil, err
+	}
+
+	var fileSizesAndTimes []SizeAndTime
+	for _, file := range files {
+		fileSizesAndTimes = append(fileSizesAndTimes, SizeAndTime{
+			Size: file.FileSize,
+			Time: file.Timestamp,
+		})
+	}
+	return fileSizesAndTimes, nil
+}

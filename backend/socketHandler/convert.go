@@ -183,7 +183,7 @@ func performConversion(inputFile database.FileData, mutex *sync.Mutex, conn *web
 		mutex.Unlock()
 		return
 	}
-	fileSize := int(fileInfo.Size())
+	fileSize := fileInfo.Size()
 	uniqueFileName := database.GenerateUniqueFileName(inputFile.OriginalFileName + ".mp4")
 	outputMd5sum, err := md5sum(outputFilePath)
 	if err != nil {

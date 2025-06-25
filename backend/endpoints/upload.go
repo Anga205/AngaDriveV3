@@ -148,7 +148,7 @@ func finalizeUpload(c *gin.Context) {
 		c.String(500, "Failed to get final file stats")
 		return
 	}
-	fileSize := int(fileInfo.Size())
+	fileSize := fileInfo.Size()
 
 	uniqueFileName := database.GenerateUniqueFileName(originalFileName)
 	// Insert file metadata into database

@@ -25,6 +25,7 @@ func SetupWebsocket(r *gin.Engine, upload_dir string) {
 	info.InitializeSysInfo()
 	initializeUserCount()
 	initFileCount()
+	go initSpaceUsedPulser()
 	go sysinfoPulse()
 	r.GET("/ws", func(c *gin.Context) {
 		conn, err := upgradeToWebSocket(c)
@@ -118,7 +119,7 @@ func reader(conn *websocket.Conn, done chan bool) {
 			ActiveWebsockets[conn] = data
 			ActiveWebsocketsMutex.Unlock()
 			x_axis, y_axis := info.GetLast7DaysCounts()
-			graphData := GraphData{
+			siteActivityData := GraphData{
 				XAxis:       x_axis,
 				YAxis:       y_axis,
 				Label:       "Site Activity",
@@ -128,7 +129,16 @@ func reader(conn *websocket.Conn, done chan bool) {
 			ActiveWebsockets[conn].Mutex.Lock()
 			conn.WriteJSON(map[string]interface{}{
 				"type": "graph_data",
-				"data": graphData,
+				"data": siteActivityData,
+			})
+			conn.WriteJSON(map[string]interface{}{
+				"type": "graph_data",
+				"data": GraphData{
+					XAxis:       Last7Days[:],
+					YAxis:       SpaceUsedArr[:],
+					Label:       "Space Used",
+					BeginAtZero: false,
+				},
 			})
 			conn.WriteJSON(map[string]interface{}{
 				"type": "user_count",
@@ -142,6 +152,7 @@ func reader(conn *websocket.Conn, done chan bool) {
 				"type": "system_information",
 				"data": sysinfo,
 			})
+
 			if err != nil {
 				fmt.Printf("Error writing to websocket: %v\n", err)
 				ActiveWebsocketsMutex.Lock()

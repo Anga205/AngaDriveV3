@@ -3,6 +3,7 @@ package main
 import (
 	"service/database"
 	"service/endpoints"
+	"service/info"
 	"service/socketHandler"
 
 	"github.com/gin-contrib/cors"
@@ -27,7 +28,7 @@ func main() {
 		panic(err)
 	}
 	database.InitializeDatabase(UPLOAD_DIR)
-
+	info.GetSpaceUsedGraph()
 	socketHandler.SetupWebsocket(r, UPLOAD_DIR)
 	endpoints.InitEndpoints(r, UPLOAD_DIR)
 

@@ -58,7 +58,7 @@ type FileData struct {
 	OriginalFileName string `json:"original_file_name"`
 	FileDirectory    string `gorm:"primaryKey" json:"file_directory"`
 	AccountToken     string `json:"account_token"`
-	FileSize         int    `json:"file_size"`
+	FileSize         int64  `json:"file_size"`
 	Timestamp        int64  `json:"timestamp"`
 	Md5sum           string `json:"-"`
 }
