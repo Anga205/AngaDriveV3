@@ -24,6 +24,7 @@ func SetupWebsocket(r *gin.Engine, upload_dir string) {
 	UPLOAD_DIR = upload_dir
 	info.InitializeSysInfo()
 	initializeUserCount()
+	initFileCount()
 	go sysinfoPulse()
 	r.GET("/ws", func(c *gin.Context) {
 		conn, err := upgradeToWebSocket(c)
@@ -132,6 +133,10 @@ func reader(conn *websocket.Conn, done chan bool) {
 			conn.WriteJSON(map[string]interface{}{
 				"type": "user_count",
 				"data": userCount,
+			})
+			conn.WriteJSON(map[string]interface{}{
+				"type": "files_hosted_count",
+				"data": fileCount,
 			})
 			err := conn.WriteJSON(map[string]interface{}{
 				"type": "system_information",

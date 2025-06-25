@@ -1,7 +1,6 @@
 package socketHandler
 
 import (
-	"fmt"
 	"service/accounts"
 	"service/database"
 
@@ -9,7 +8,7 @@ import (
 )
 
 func UserFilesPulse(file FileUpdate) {
-	fmt.Println("UserFilesPulse called with file:", file)
+	go FileCountPulse()
 	for conn, connData := range ActiveWebsockets {
 		go func(conn *websocket.Conn, connData *WebsocketData) {
 			connData.Mutex.Lock()
