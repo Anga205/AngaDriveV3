@@ -179,3 +179,13 @@ func GetCumulativeUserCount() (int64, error) {
 	}
 	return count + fileCount + collectionCount, nil
 }
+
+func CountFiles() (int64, error) {
+	db := GetDB()
+	var count int64
+	err := db.Model(&FileData{}).Count(&count).Error
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
