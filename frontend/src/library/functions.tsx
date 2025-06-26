@@ -1,6 +1,6 @@
 import SparkMD5 from 'spark-md5';
 import toast from 'solid-toast';
-import { AppContextType, FileData } from './types';
+import type { AppContextType, FileData } from './types';
 
 async function getFileMD5(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -59,16 +59,16 @@ const getFileType = (filePath: string) => {
 const UniversalMessageHandler = (message: MessageEvent, ctx: AppContextType) => {
   const data = JSON.parse(message.data);
   if (data.type === "get_user_files_response") {
-      if (data.error) {
-          toast.error(`Error fetching files: ${data.error}`);
+      if (data.data.error) {
+          toast.error(`Error fetching files: ${data.data.error}`);
       } else {
           ctx.setFiles(data.data.sort((a: FileData, b: FileData) => b.timestamp - a.timestamp) || []);
       }
   } else if (data.type === "file_update") {
       if (data.data.toggle === true) {
-          ctx.setFiles(prev => [data.data.File, ...prev]);
+          ctx.setFiles((prev: FileData[]) => [data.data.File, ...prev]);
       } else if (data.data.toggle === false) {
-          ctx.setFiles(prev => prev.filter(file => file.file_directory !== data.data.File.file_directory));
+          ctx.setFiles((prev: FileData[]) => prev.filter((file: FileData) => file.file_directory !== data.data.File.file_directory));
       }
   }
 }

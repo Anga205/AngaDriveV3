@@ -7,8 +7,7 @@ import { useWebSocket } from "../Websockets";
 import { FileData } from "../library/types";
 import Dialog from "@corvu/dialog";
 import FileCard from "../components/FileCard";
-import { Toaster } from 'solid-toast';
-import toast from "solid-toast";
+import { Toaster, toast } from 'solid-toast';
 import { AppContext } from "../Context";
 import { formatFileSize, getFileMD5, truncateFileName } from "../library/functions";
 

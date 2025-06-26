@@ -38,4 +38,9 @@ interface FileData {
     timestamp: number;
 }
 
-export type {RAMData, CPUData, SysInfo, GraphData, IncomingData, SocketStatus, Pages, FileData};
+type AppContextType = {
+  files: () => Array<FileData>;
+  setFiles: (value: Array<FileData> | ((prev: Array<FileData>) => Array<FileData>)) => void;
+};
+
+export type {RAMData, CPUData, SysInfo, GraphData, IncomingData, SocketStatus, Pages, FileData, AppContextType};
