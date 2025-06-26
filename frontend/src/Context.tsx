@@ -1,5 +1,5 @@
 import { createContext, ParentComponent, createSignal } from 'solid-js';
-import { AppContextType, FileData } from './library/types';
+import type { AppContextType, FileData } from './library/types';
 
 const AppContext = createContext<AppContextType>()
 
