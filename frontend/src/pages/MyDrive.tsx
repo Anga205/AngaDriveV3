@@ -555,19 +555,7 @@ const MyDrive: Component = () => {
 
     const messageHandler = (event: MessageEvent) => {
         const data = JSON.parse(event.data);
-        if (data.type === "get_user_files_response") {
-            if (data.error) {
-                toast.error(`Error fetching files: ${data.error}`);
-            } else {
-                ctx.setFiles(data.data.sort((a: FileData, b: FileData) => b.timestamp - a.timestamp) || []);
-            }
-        } else if (data.type === "file_update") {
-            if (data.data.toggle === true) {
-                ctx.setFiles(prev => [data.data.File, ...prev]);
-            } else if (data.data.toggle === false) {
-                ctx.setFiles(prev => prev.filter(file => file.file_directory !== data.data.File.file_directory));
-            }
-        } else if (data.type === "convert_video_response") {
+        if (data.type === "convert_video_response") {
             if (data.data.error) {
                 toast.error(`Error converting video: ${data.data.error}`);
             } else {

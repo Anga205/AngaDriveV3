@@ -1,12 +1,5 @@
 import { createContext, ParentComponent, createSignal } from 'solid-js';
-import { FileData } from './library/types';
-
-
-
-type AppContextType = {
-  files: () => Array<FileData>;
-  setFiles: (value: Array<FileData> | ((prev: Array<FileData>) => Array<FileData>)) => void;
-};
+import { AppContextType, FileData } from './library/types';
 
 const AppContext = createContext<AppContextType>()
 
