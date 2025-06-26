@@ -62,30 +62,18 @@ const WebSocketProvider: ParentComponent = (props) => {
             password: userPassword
           }
         }))
-        let firstPing = false;
+        let logoutPing = false;
         ws.onmessage = (event) => {
-          if(!firstPing){
-            try {
-              const message = JSON.parse(event.data);
-              interface WebSocketMessage {
-                type: string;
-                data: any;
+          if(!logoutPing){
+            const message = JSON.parse(event.data);
+            if (message.type === "login_response"){
+              logoutPing = true;
+              if (message.data.error !== undefined) {
+                console.error("Login failed:", message.data.error);
+                localStorage.removeItem("email");
+                localStorage.removeItem("password");
+                localStorage.removeItem("display_name");
               }
-
-              const typedMessage = message as WebSocketMessage;
-              if (typedMessage.type === "login_response"){
-                firstPing = true;
-                if (typedMessage.data.error !== undefined) {
-                  console.error("Login failed:", typedMessage.data.error);
-                  localStorage.removeItem("email");
-                  localStorage.removeItem("password");
-                  localStorage.removeItem("display_name");
-                  localStorage.removeItem("token");
-                }
-              }
-
-            } catch (_) {
-              // do nothing
             }
           }
         };
