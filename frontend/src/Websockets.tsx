@@ -1,7 +1,12 @@
 import { createContext, onCleanup, useContext, createSignal, ParentComponent, Accessor } from 'solid-js';
 import { SocketStatus } from './library/types';
+import { fetchFiles, generateClientToken } from './library/functions';
 
 const RECONNECT_DELAY = 300;
+const host = window.location.host;
+const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+const isViteDev = import.meta.env.DEV;
+const wsUrl = isViteDev ? "ws://localhost:8080/ws" : `${protocol}://${host}/ws`;
 
 type WebSocketContextType = {
   socket: Accessor<WebSocket | undefined>;
@@ -36,16 +41,15 @@ const WebSocketProvider: ParentComponent = (props) => {
     }
     
     setStatus("connecting");
-    const host = window.location.host;
-    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-    const isViteDev = import.meta.env.DEV;
-    const wsUrl = isViteDev ? "ws://localhost:8080/ws" : `${protocol}://${host}/ws`;
-    
+
     const ws = new WebSocket(wsUrl);
-    
     ws.onopen = () => {
       setStatus("connected");
       console.log("Websockets.tsx: WebSocket connected");
+      if (reconnectTimeoutId) { // Clear any pending reconnect if we successfully connected
+        clearTimeout(reconnectTimeoutId);
+        reconnectTimeoutId = undefined;
+      }
       const userEmail = localStorage.getItem("email") || "";
       const userPassword = localStorage.getItem("password") || "";
       if (userEmail || userPassword) {
@@ -53,34 +57,34 @@ const WebSocketProvider: ParentComponent = (props) => {
           localStorage.removeItem("email");
           localStorage.removeItem("password");
           localStorage.removeItem("display_name")
-          return;
-        }
-        ws.send(JSON.stringify({
-          type: "login",
-          data: {
-            email: userEmail,
-            password: userPassword
-          }
-        }))
-        let logoutPing = false;
-        ws.onmessage = (event) => {
-          if(!logoutPing){
+          fetchFiles(ws);
+        } else {
+          ws.onmessage = (event) => {
             const message = JSON.parse(event.data);
             if (message.type === "login_response"){
-              logoutPing = true;
               if (message.data.error !== undefined) {
                 console.error("Login failed:", message.data.error);
                 localStorage.removeItem("email");
                 localStorage.removeItem("password");
                 localStorage.removeItem("display_name");
+                localStorage.setItem("token", generateClientToken());
+              } else {
+                localStorage.removeItem("token");
               }
+              fetchFiles(ws);
+              ws.onmessage = () => {} // Clear the message handler after login to prevent further processing
             }
-          }
-        };
-      }
-      if (reconnectTimeoutId) { // Clear any pending reconnect if we successfully connected
-        clearTimeout(reconnectTimeoutId);
-        reconnectTimeoutId = undefined;
+          };
+          ws.send(JSON.stringify({
+            type: "login",
+            data: {
+              email: userEmail,
+              password: userPassword
+            }
+          }))
+        }
+      } else {
+        fetchFiles(ws);
       }
     };
     
@@ -96,12 +100,9 @@ const WebSocketProvider: ParentComponent = (props) => {
     };
     
     ws.onerror = (error) => {
-      // Only act if this instance was the one we intended to be active
-      if (webSocketInstance() === ws) {
+      if (webSocketInstance() === ws) {   // Only handle errors for the current instance
         setStatus("error");
         console.error("WebSocket error:", error);
-        // Most browsers will fire 'onclose' after 'onerror'.
-        // If not, you might need to explicitly call ws.close() here to trigger the onclose logic.
       }
     };
     
