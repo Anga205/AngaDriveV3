@@ -9,7 +9,7 @@ import Dialog from "@corvu/dialog";
 import FileCard from "../components/FileCard";
 import { Toaster, toast } from 'solid-toast';
 import { AppContext } from "../Context";
-import { formatFileSize, getFileMD5, truncateFileName } from "../library/functions";
+import { formatFileSize, getFileMD5, truncateFileName, generateClientToken } from "../library/functions";
 
 const FilesError: Component = () => {
     const baseClass = "flex items-center p-[1vh] rounded-[1vh] w-full";
@@ -158,21 +158,6 @@ const FileUploadPreview: Component<{
 
 const CHUNK_SIZE = 7 * 1024 * 1024; // 7MB chunk size
 const MAX_CONCURRENT_UPLOADS = 3;
-
-function generateClientToken(): string {
-    const chars = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM1234567890";
-    const randomChoice = (arr: string, k: number): string => {
-        let result = "";
-        for (let i = 0; i < k; i++) {
-            result += arr[Math.floor(Math.random() * arr.length)];
-        }
-        return result;
-    };
-    const part1 = randomChoice(chars, 10);
-    const part2 = randomChoice(chars, 20);
-    const part3 = String(Math.round(Date.now() / 1000));
-    return `${part1}.${part2}.${part3}`;
-}
 
 interface AuthDetails {
     token?: string;
@@ -556,7 +541,7 @@ const MyDrive: Component = () => {
         const data = JSON.parse(event.data);
         if (data.type === "convert_video_response") {
             if (data.data.error) {
-                toast.error(`Error converting video: ${data.data.error}`);
+                toast.error(`${data.data.error}`);
             } else {
                 toast.success(`Video converted successfully: ${data.data.file.original_file_name}`);
             }
@@ -569,48 +554,13 @@ const MyDrive: Component = () => {
         }
     }
 
-    const sendFilesRequest = (socket: WebSocket) => {
-        if (socket.readyState === WebSocket.OPEN) {
-            if (!localStorage.getItem("token") && (!localStorage.getItem("email") || !localStorage.getItem("password"))) {
-                localStorage.setItem("token", generateClientToken());
-                localStorage.removeItem("email");
-                localStorage.removeItem("password");
-            }
-            socket.send(JSON.stringify({
-                type: "get_user_files",
-                data: {
-                    email: localStorage.getItem("email") || "",
-                    password: localStorage.getItem("password") || "",
-                    token: localStorage.getItem("token") || ""
-                }
-            }));
-        }
-    }
 
     createEffect(() => {
         const socket = getSocket();
         if (!socket) return;
-
-        let hasRun = false;
-
-        const runOnce = () => {
-            if (!hasRun) {
-                console.log("MyDrive.tsx: Sending request to get user files");
-                sendFilesRequest(socket);
-                hasRun = true;
-            }
-        };
-
         socket.addEventListener("message", messageHandler);
-        socket.addEventListener("open", runOnce);
-
-        if (socket.readyState === WebSocket.OPEN) {
-            runOnce();
-        }
-
         onCleanup(() => {
             socket.removeEventListener("message", messageHandler);
-            socket.removeEventListener("open", runOnce);
         });
     })
 

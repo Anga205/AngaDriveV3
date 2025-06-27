@@ -73,4 +73,33 @@ const UniversalMessageHandler = (message: MessageEvent, ctx: AppContextType) => 
   }
 }
 
-export {getFileMD5, formatFileSize, truncateFileName, getFileType, UniversalMessageHandler};
+function generateClientToken(): string {
+    const chars = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM1234567890";
+    const randomChoice = (arr: string, k: number): string => {
+        let result = "";
+        for (let i = 0; i < k; i++) {
+            result += arr[Math.floor(Math.random() * arr.length)];
+        }
+        return result;
+    };
+    const part1 = randomChoice(chars, 10);
+    const part2 = randomChoice(chars, 20);
+    const part3 = String(Math.round(Date.now() / 1000));
+    return `${part1}.${part2}.${part3}`;
+}
+
+const fetchFiles = (ws: WebSocket) => {
+  if (!localStorage.getItem("token") && !localStorage.getItem("email") && !localStorage.getItem("password")) {
+    localStorage.setItem("token", generateClientToken());
+  }
+  ws.send(JSON.stringify({
+    type: "get_user_files",
+    data: {
+      token: localStorage.getItem("token") || "",
+      email: localStorage.getItem("email") || "",
+      password: localStorage.getItem("password") || ""
+    }
+  }));
+}
+
+export {getFileMD5, formatFileSize, truncateFileName, getFileType, UniversalMessageHandler, generateClientToken, fetchFiles};

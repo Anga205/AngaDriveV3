@@ -1,9 +1,11 @@
-import { Accessor, Component, createEffect, createSignal, onMount } from "solid-js";
+import { Accessor, Component, createEffect, createSignal, onMount, useContext } from "solid-js";
 import Dialog from '@corvu/dialog';
 import { toast, Toaster } from "solid-toast";
 import { useWebSocket } from "../Websockets";
 import bcrypt from "bcryptjs";
 import { DesktopTemplate } from "../components/Template";
+import { AppContext } from "../Context";
+import { fetchFiles, formatFileSize, generateClientToken } from "../library/functions";
 
 const isEmailValid = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -71,10 +73,10 @@ const LoginCard: Component<{ onSignUpClick: () => void; onLoginSuccess: () => vo
                         localStorage.setItem("email", email());
                         localStorage.setItem("password", password());
                         localStorage.setItem("display_name", response.data.display_name);
+                        localStorage.removeItem("token");
                         props.onLoginSuccess(); // Call the callback on successful login
                         // TODO: Setup user migration
                         // for now, just remove the previous token
-                        localStorage.removeItem("token");
                     } else {
                         toast.error(
                             response.data.error === "record not found"
@@ -728,9 +730,8 @@ const AccountManager: Component<{logout: () => void}> = (props) => {
 
     const [email, setEmail] = createSignal(localStorage.getItem("email") || "{email}");
     const [displayName, setDisplayName] = createSignal(localStorage.getItem("display_name") || "{display_name}");
-    const [spaceUsed] = createSignal("10 GB");
-    const [filesHosted] = createSignal("100");
     const [collections] = createSignal("5");
+    const ctx = useContext(AppContext)!;
 
     return (
         <DesktopTemplate CurrentPage="Account">
@@ -739,8 +740,8 @@ const AccountManager: Component<{logout: () => void}> = (props) => {
                     <AccountDetails email={email} setEmail={setEmail} displayName={displayName} setDisplayName={setDisplayName}/>
                 </div>
                 <div class="min-w-[20%] grid grid-cols-2 grid-rows-2 gap-[1vh]">
-                    <UserStat title="Space&nbsp;Used" value={spaceUsed()} class="col-span-2"/>
-                    <UserStat title="Files&nbsp;Hosted" value={filesHosted()}/>
+                    <UserStat title="Space&nbsp;Used" value={formatFileSize(ctx.files().reduce((sum, file) => sum + file.file_size, 0))} class="col-span-2"/>
+                    <UserStat title="Files&nbsp;Hosted" value={ctx.files().length.toString()} />
                     <UserStat title="Collections" value={collections()}/>
                     <DangerZone logout={props.logout} class="col-span-2"/>
                 </div>
@@ -751,15 +752,22 @@ const AccountManager: Component<{logout: () => void}> = (props) => {
 
 const Account: Component = () => {
     const [isLoggedIn, setIsLoggedIn] = createSignal(false);
+    const ctx = useContext(AppContext)!;
+
+    const currentSocket = useWebSocket();
 
     const handleLoginSuccess = () => {
         setIsLoggedIn(true);
+        fetchFiles(currentSocket.socket()!);
     };
+
 
     const handleLogout = () => {
         localStorage.removeItem("email");
         localStorage.removeItem("password");
         localStorage.removeItem("display_name");
+        localStorage.setItem("token", generateClientToken());
+        ctx.setFiles([]);
         setIsLoggedIn(false);
         toast('Logged out successfully!', {
             icon: '↩️'
