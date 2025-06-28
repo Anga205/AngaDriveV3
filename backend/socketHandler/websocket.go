@@ -33,7 +33,6 @@ func SetupWebsocket(r *gin.Engine, upload_dir string) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upgrade to websocket"})
 			return
 		}
-		go SiteActivityPulse()
 		defer conn.Close()
 
 		ActiveWebsocketsMutex.Lock()
