@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"service/socketHandler"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -64,14 +65,22 @@ func setupRoutes(r *gin.Engine, distPath string) {
 	}
 
 	r.GET("/", func(c *gin.Context) {
+		go socketHandler.SiteActivityPulse()
 		c.Data(http.StatusOK, "text/html", fileCache["/index.html"])
 	})
 
 	r.GET("/my_drive", func(c *gin.Context) {
+		go socketHandler.SiteActivityPulse()
 		c.Data(http.StatusOK, "text/html", fileCache["/index.html"])
 	})
 
 	r.GET("/my_collections", func(c *gin.Context) {
+		go socketHandler.SiteActivityPulse()
+		c.Data(http.StatusOK, "text/html", fileCache["/index.html"])
+	})
+
+	r.GET("/account", func(c *gin.Context) {
+		go socketHandler.SiteActivityPulse()
 		c.Data(http.StatusOK, "text/html", fileCache["/index.html"])
 	})
 
