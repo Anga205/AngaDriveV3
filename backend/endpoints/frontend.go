@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"service/socketHandler"
+	"service/vars"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -65,33 +66,54 @@ func setupRoutes(r *gin.Engine, distPath string) {
 	}
 
 	r.GET("/", func(c *gin.Context) {
-		go socketHandler.SiteActivityPulse()
-		c.Data(http.StatusOK, "text/html", fileCache["/index.html"])
+		fmt.Println(c.Request.Host)
+		if c.Request.Host == vars.FrontendURL {
+			go socketHandler.SiteActivityPulse()
+			c.Data(http.StatusOK, "text/html", fileCache["/index.html"])
+		} else {
+			c.AbortWithStatus(http.StatusNotFound)
+		}
 	})
 
 	r.GET("/my_drive", func(c *gin.Context) {
-		go socketHandler.SiteActivityPulse()
-		c.Data(http.StatusOK, "text/html", fileCache["/index.html"])
+		if c.Request.Host == vars.FrontendURL {
+			go socketHandler.SiteActivityPulse()
+			c.Data(http.StatusOK, "text/html", fileCache["/index.html"])
+		} else {
+			c.AbortWithStatus(http.StatusNotFound)
+		}
 	})
 
 	r.GET("/my_collections", func(c *gin.Context) {
-		go socketHandler.SiteActivityPulse()
-		c.Data(http.StatusOK, "text/html", fileCache["/index.html"])
+		if c.Request.Host == vars.FrontendURL {
+			go socketHandler.SiteActivityPulse()
+			c.Data(http.StatusOK, "text/html", fileCache["/index.html"])
+		} else {
+			c.AbortWithStatus(http.StatusNotFound)
+		}
 	})
 
 	r.GET("/account", func(c *gin.Context) {
-		go socketHandler.SiteActivityPulse()
-		c.Data(http.StatusOK, "text/html", fileCache["/index.html"])
+		if c.Request.Host == vars.FrontendURL {
+			go socketHandler.SiteActivityPulse()
+			c.Data(http.StatusOK, "text/html", fileCache["/index.html"])
+		} else {
+			c.AbortWithStatus(http.StatusNotFound)
+		}
 	})
 
-	for relPath := range fileCache {
-		if relPath != "/index.html" {
+	for relPath := range fileCache { // register all files in the dist directory
+		if relPath != "/index.html" { // since index.html is handled separately, we dont want to register it again
 			r.GET(relPath, func(c *gin.Context) {
-				c.Data(
-					http.StatusOK,
-					getContentType(relPath),
-					fileCache[relPath],
-				)
+				if c.Request.Host == vars.FrontendURL {
+					c.Data(
+						http.StatusOK,
+						getContentType(relPath),
+						fileCache[relPath],
+					)
+				} else {
+					c.AbortWithStatus(http.StatusNotFound)
+				}
 			})
 		}
 	}

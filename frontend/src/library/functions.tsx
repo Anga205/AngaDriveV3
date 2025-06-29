@@ -62,7 +62,12 @@ const UniversalMessageHandler = (message: MessageEvent, ctx: AppContextType) => 
       if (data.data.error) {
           toast.error(`Error fetching files: ${data.data.error}`);
       } else {
-          ctx.setFiles(data.data.sort((a: FileData, b: FileData) => b.timestamp - a.timestamp) || []);
+            ctx.setFiles(data.data.sort((a: FileData, b: FileData) => {
+              if (b.timestamp === a.timestamp) {
+                return a.file_directory.localeCompare(b.file_directory);
+              }
+              return b.timestamp - a.timestamp;
+            }) || []);
       }
   } else if (data.type === "file_update") {
       if (data.data.toggle === true) {
