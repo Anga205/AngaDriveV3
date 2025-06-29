@@ -7,6 +7,7 @@ import (
 	"service/accounts"
 	"service/database"
 	"service/info"
+	"service/vars"
 	"sync"
 	"time"
 
@@ -28,6 +29,10 @@ func SetupWebsocket(r *gin.Engine, upload_dir string) {
 	go initSpaceUsedPulser()
 	go sysinfoPulse()
 	r.GET("/ws", func(c *gin.Context) {
+		if c.Request.Host != vars.BackendURL {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Websocket connection not allowed from this host"})
+			return
+		}
 		conn, err := upgradeToWebSocket(c)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upgrade to websocket"})

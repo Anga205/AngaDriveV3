@@ -1,11 +1,26 @@
 package endpoints
 
-import "github.com/gin-gonic/gin"
+import (
+	"service/vars"
+
+	"github.com/gin-gonic/gin"
+)
 
 func InitEndpoints(r *gin.Engine, UPLOAD_DIR string) {
 	setupUploaderRoutes(r, UPLOAD_DIR)
-	r.POST("/user/files", getUserFilesHTTP)
-	r.GET("/i/:file_directory", returnFile)
-	r.GET("/i/:file_directory/:original_name", returnNamedFile)
-	r.GET("/preview/:file_directory", returnFilePreview)
+	r.GET("/i/:file_directory", func(c *gin.Context) {
+		if c.Request.Host == vars.BackendURL {
+			returnFile(c)
+		}
+	})
+	r.GET("/i/:file_directory/:original_name", func(c *gin.Context) {
+		if c.Request.Host == vars.BackendURL {
+			returnNamedFile(c)
+		}
+	})
+	r.GET("/preview/:file_directory", func(c *gin.Context) {
+		if c.Request.Host == vars.BackendURL {
+			returnFilePreview(c)
+		}
+	})
 }
