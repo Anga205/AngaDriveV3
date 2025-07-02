@@ -298,7 +298,7 @@ func reader(conn *websocket.Conn, done chan bool) {
 				ActiveWebsockets[conn].Mutex.Unlock()
 			}
 		} else if message.Type == "get_user_files" {
-			var req AuthRequest
+			var req AuthInfo
 			dataBytes, _ := json.Marshal(message.Data)
 			err := json.Unmarshal(dataBytes, &req)
 			if err != nil {
@@ -371,21 +371,7 @@ func reader(conn *websocket.Conn, done chan bool) {
 					ActiveWebsockets[conn].Mutex.Unlock()
 					continue
 				}
-				user, err := database.FindUserByEmail(req.Auth.Email)
-				if err != nil {
-					now := time.Now()
-					timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
-					fmt.Printf("[%s] Error fetching user by email: %v\n", timestamp, err)
-					ActiveWebsockets[conn].Mutex.Lock()
-					conn.WriteJSON(OutgoingResponse{
-						Type: "convert_video_response",
-						Data: map[string]interface{}{
-							"error": err.Error(),
-						},
-					})
-					ActiveWebsockets[conn].Mutex.Unlock()
-					continue
-				}
+				user, _ := database.FindUserByEmail(req.Auth.Email)
 				req.Auth.Token = user.Token
 			}
 			fileDirectory := req.FileDirectory
@@ -460,6 +446,32 @@ func reader(conn *websocket.Conn, done chan bool) {
 				},
 			})
 			ActiveWebsockets[conn].Mutex.Unlock()
+		} else if message.Type == "new_collection" {
+			var req CreateCollectionRequest
+			dataBytes, _ := json.Marshal(message.Data)
+			err := json.Unmarshal(dataBytes, &req)
+			if err != nil {
+				ActiveWebsockets[conn].Mutex.Lock()
+				conn.WriteJSON(OutgoingResponse{
+					Type: "new_collection_response",
+					Data: map[string]interface{}{"error": "invalid request data"},
+				})
+				ActiveWebsockets[conn].Mutex.Unlock()
+			}
+			err = CreateNewCollection(req)
+			if err != nil {
+				now := time.Now()
+				timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
+				fmt.Printf("[%s] Error creating collection: %v\n", timestamp, err)
+				ActiveWebsockets[conn].Mutex.Lock()
+				conn.WriteJSON(OutgoingResponse{
+					Type: "new_collection_response",
+					Data: map[string]interface{}{
+						"error": err.Error(),
+					},
+				})
+				ActiveWebsockets[conn].Mutex.Unlock()
+			}
 		} else {
 			fmt.Printf("Unknown message type: %s\n", message.Type)
 			continue

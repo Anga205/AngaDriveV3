@@ -3,6 +3,8 @@ import { DesktopTemplate } from '../components/Template';
 import Navbar from '../components/Navbar';
 import { BinSVG, CopySVG, EyeSVG } from '../assets/SvgFiles';
 import Dialog from '@corvu/dialog';
+import { useWebSocket } from '../Websockets';
+import toast, { Toaster } from 'solid-toast';
 
 
 const CollectionCard = () => {
@@ -49,6 +51,27 @@ const Popup = () => {
             setModifying(null);
         }
     })
+    const { socket: getSocket, status } = useWebSocket();
+    const onSubmit = () => {
+        if (status() !== "connected") {
+            toast.error("Could not secure a connection to the server. Please try again later.");
+            return;
+        }
+        const socket = getSocket()!;
+        if (modifying() === "New") {
+            socket.send(JSON.stringify({
+                type: "new_collection",
+                data: {
+                    collection_name: newCollectionName(),
+                    auth: {
+                        token: localStorage.getItem('token') || '',
+                        email: localStorage.getItem('email') || '',
+                        password: localStorage.getItem('password') || ''
+                    }
+                }
+            }))
+        }
+    }
     return (
         <Dialog onOpenChange={() => {}}>
             <Dialog.Trigger class="cursor-pointer hover:text-gray-300 text-white flex justify-center items-center bg-green-600 hover:bg-green-800 p-[0.2vh] px-[1vh] rounded-[1vh] font-bold translate-y-[4vh]">
@@ -72,7 +95,7 @@ const Popup = () => {
                         <input type="text" disabled={true} placeholder="Import a GitHub Repository" class="cursor-not-allowed w-full p-2 rounded-lg bg-neutral-700 text-white focus:outline-none focus:ring-2 focus:ring-green-500"/>
                     )}
                     {(modifying() === "New" || modifying() === "Github") && (
-                        <button class="bg-green-700 text-white p-2 rounded-lg font-semibold w-full hover:bg-green-800 transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed">
+                        <button onClick={onSubmit} class="bg-green-700 text-white p-2 rounded-lg font-semibold w-full hover:bg-green-800 transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed">
                             Submit
                         </button>
                     )}
@@ -124,6 +147,20 @@ const MyCollections = () => {
         <>
             <title>My Files | DriveV3</title>
             {isMobile() ? <MobileCollections/> : <DesktopCollections/>}
+            <Toaster
+            position="bottom-right"
+            gutter={8}
+            containerClassName=""
+            containerStyle={{}}
+            toastOptions={{
+                className: '',
+                duration: 2000,
+                style: {
+                background: '#363636',
+                color: '#fff',
+                },
+            }}
+            />
         </>
     )
 }

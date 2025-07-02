@@ -6,7 +6,7 @@ import (
 	"service/database"
 )
 
-func GetUserFiles(req AuthRequest) ([]database.FileData, error) {
+func GetUserFiles(req AuthInfo) ([]database.FileData, error) {
 
 	if req.Token == "" && (req.Email == "" || req.Password == "") {
 		return nil, errors.New("missing authentication credentials")
