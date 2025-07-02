@@ -50,7 +50,7 @@ func RegisterUser(RequestInfo RegisterRequest) (database.Account, error) {
 		Email:          RequestInfo.Email,
 		HashedPassword: RequestInfo.HashedPassword,
 	}
-	err = database.InsertNewUser(NewUser)
+	err = NewUser.Insert()
 	if err != nil {
 		return database.Account{}, fmt.Errorf("failed to insert new user: %v", err)
 	}

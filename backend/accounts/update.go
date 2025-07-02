@@ -15,7 +15,7 @@ func updateUserWithAuth(email, password string, updateFunc func(*database.Accoun
 	}
 	newUserInfo := oldUserInfo
 	updateFunc(&newUserInfo)
-	err = database.UpdateUser(oldUserInfo, newUserInfo)
+	err = oldUserInfo.Update(newUserInfo)
 	if err != nil {
 		return database.Account{}, err
 	}

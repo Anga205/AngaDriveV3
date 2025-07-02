@@ -6,34 +6,71 @@ import (
 	"time"
 )
 
-func PushTimeStamp(timestamp int64) {
-	TimeStampsMutex.Lock()
-	TimeStamps = append(TimeStamps, timestamp)
-	TimeStampsMutex.Unlock()
+func (collection Collection) Insert() error {
+	db := GetDB()
+	if err := db.Create(&collection).Error; err != nil {
+		return err
+	}
+	go func() {
+		CollectionCacheLock.Lock()
+		defer CollectionCacheLock.Unlock()
+		CollectionCache[collection.ID] = collection
+	}()
+	go func() {
+		editors := collection.GetEditors()
+		UserCollectionsMutex.Lock()
+		defer UserCollectionsMutex.Unlock()
+		for _, editor := range editors {
+			if _, ok := UserCollections[editor]; ok {
+				UserCollections[editor].Add(collection.ID)
+			}
+		}
+	}()
+	return nil
+}
 
+func (user Account) Insert() error {
+	db := GetDB()
+	if err := db.Create(&user).Error; err != nil {
+		return err
+	}
+	go func() {
+		UserAccountsByEmailMutex.Lock()
+		defer UserAccountsByEmailMutex.Unlock()
+		UserAccountsByEmail[user.Email] = user
+	}()
+
+	go func() {
+		UserAccountsByTokenMutex.Lock()
+		defer UserAccountsByTokenMutex.Unlock()
+		UserAccountsByToken[user.Token] = user
+	}()
+	return nil
+}
+
+func PushTimeStamp(timestamp int64) {
+	go func() {
+		TimeStampsMutex.Lock()
+		defer TimeStampsMutex.Unlock()
+		TimeStamps = append(TimeStamps, timestamp)
+	}()
 	GetDB().Model(&Activity{}).Create(&Activity{Timestamps: timestamp})
 }
 
-func InsertNewUser(user Account) error {
-	UserAccountsByEmailMutex.Lock()
-	UserAccountsByEmail[user.Email] = user
-	UserAccountsByEmailMutex.Unlock()
+const allowed_filename_characters = "qwertyuiopasdfghjklzxcvbnm1234567890"
 
-	UserAccountsByTokenMutex.Lock()
-	UserAccountsByToken[user.Token] = user
-	UserAccountsByTokenMutex.Unlock()
+func isFileNamePresent(filename string) bool {
 
-	db := GetDB()
-	return db.Create(&user).Error
+	file, _ := GetFile(filename)
+
+	return file.FileDirectory == filename
 }
-
-const allowed_values = "qwertyuiopasdfghjklzxcvbnm1234567890"
 
 func GenerateUniqueFileName(filename string) string {
 	var generated_name string
 	for {
 		generated_name = generateFileName(filename)
-		if !IsFileNamePresent(generated_name) {
+		if !isFileNamePresent(generated_name) {
 			break
 		}
 	}
@@ -44,8 +81,8 @@ func generateFileName(filename string) string {
 	random := rand.New(rand.NewSource(time.Now().UnixNano()))
 	var sb strings.Builder
 	for range [12]int{} {
-		randomIndex := random.Intn(len(allowed_values))
-		sb.WriteString(string(allowed_values[randomIndex]))
+		randomIndex := random.Intn(len(allowed_filename_characters))
+		sb.WriteString(string(allowed_filename_characters[randomIndex]))
 	}
 	generated_name := sb.String()
 
@@ -55,32 +92,9 @@ func generateFileName(filename string) string {
 	return generated_name
 }
 
-func IsFileNamePresent(filename string) bool {
-	// Check in database
+func (file FileData) Insert() error {
 	db := GetDB()
-	var fileData FileData
-	result := db.Where("filename = ?", filename).First(&fileData)
-	if result.Error == nil {
-		return true // Filename exists in the database
-	}
-
-	// Check in UserFiles cache
-	UserFilesMutex.Lock()
-	defer UserFilesMutex.Unlock()
-	for _, fileSet := range UserFiles {
-		for file := range fileSet.data {
-			if file == filename {
-				return true // Filename exists in the cache
-			}
-		}
-	}
-
-	return false
-}
-
-func InsertNewFile(fileData FileData) error {
-	db := GetDB()
-	if err := db.Create(&fileData).Error; err != nil {
+	if err := db.Create(&file).Error; err != nil {
 		return err
 	}
 
@@ -88,16 +102,51 @@ func InsertNewFile(fileData FileData) error {
 		UserFilesMutex.Lock()
 		defer UserFilesMutex.Unlock()
 
-		if _, ok := UserFiles[fileData.AccountToken]; ok {
-			UserFiles[fileData.AccountToken].Add(fileData.FileDirectory)
+		if _, ok := UserFiles[file.AccountToken]; ok {
+			UserFiles[file.AccountToken].Add(file.FileDirectory)
 		}
 	}()
 
 	go func() {
 		FileCacheLock.Lock()
 		defer FileCacheLock.Unlock()
-		FileCache[fileData.FileDirectory] = fileData
+		FileCache[file.FileDirectory] = file
 	}()
 
 	return nil
+}
+
+func generateRandomCollectionID() string {
+	random := rand.New(rand.NewSource(time.Now().UnixNano()))
+	allowed_characters := "1234567890qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM"
+	var sb strings.Builder
+	for range [15]int{} {
+		randomIndex := random.Intn(len(allowed_characters))
+		sb.WriteString(string(allowed_characters[randomIndex]))
+	}
+	return sb.String()
+}
+
+func generateNewCollectionID() string {
+	var collectionID string
+	for {
+		collectionID = generateRandomCollectionID()
+		fetchCollection, _ := GetCollection(collectionID)
+		if fetchCollection.ID == "" {
+			break
+		}
+	}
+	return collectionID
+}
+
+func InsertNewCollection(collection Collection) (Collection, error) {
+
+	collection.ID = generateNewCollectionID()
+
+	if err := collection.Insert(); err != nil {
+		return Collection{}, err
+	}
+
+	return collection, nil
+
 }

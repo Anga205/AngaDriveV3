@@ -34,13 +34,7 @@ func DeleteFile(req DeleteFileRequest) error {
 			fmt.Printf("[%s] Authentication failed for delete_file request\n", timestamp)
 			return fmt.Errorf("authentication failed")
 		}
-		user, err := database.FindUserByEmail(req.Auth.Email)
-		if err != nil {
-			now := time.Now()
-			timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
-			fmt.Printf("[%s] Error fetching user by email: %v\n", timestamp, err)
-			return fmt.Errorf("no user found: %v", err)
-		}
+		user, _ := database.FindUserByEmail(req.Auth.Email)
 		req.Auth.Token = user.Token
 	}
 	fileToDelete, err := database.GetFile(req.FileDirectory)

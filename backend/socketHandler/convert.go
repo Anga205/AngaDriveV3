@@ -218,7 +218,7 @@ func performConversion(inputFile database.FileData, mutex *sync.Mutex, conn *web
 		Md5sum:           outputMd5sum + ".mp4",
 	}
 
-	database.InsertNewFile(fileData)
+	fileData.Insert()
 	go UserFilesPulse(
 		FileUpdate{
 			Toggle: true,

@@ -41,23 +41,28 @@ type FileUpdate struct {
 	File   database.FileData
 }
 
-type AuthRequest struct {
+type AuthInfo struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 	Token    string `json:"token"`
 }
 
 type ConvertVideoRequest struct {
-	FileDirectory string      `json:"file_directory"`
-	Auth          AuthRequest `json:"auth"`
+	FileDirectory string   `json:"file_directory"`
+	Auth          AuthInfo `json:"auth"`
 }
 
 type DeleteFileRequest struct {
-	FileDirectory string      `json:"file_directory"`
-	Auth          AuthRequest `json:"auth"`
+	FileDirectory string   `json:"file_directory"`
+	Auth          AuthInfo `json:"auth"`
 }
 
 type connInfo struct {
 	conn *websocket.Conn
 	data WebsocketData
+}
+
+type CreateCollectionRequest struct {
+	CollectionName string   `json:"collection_name"`
+	Auth           AuthInfo `json:"auth"`
 }

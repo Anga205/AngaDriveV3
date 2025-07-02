@@ -161,7 +161,7 @@ func finalizeUpload(c *gin.Context) {
 		Md5sum:           md5sum + filepath.Ext(originalFileName),
 	}
 
-	if err := database.InsertNewFile(fileData); err != nil {
+	if err := fileData.Insert(); err != nil {
 		os.Remove(finalFilePath) // Clean up if DB insert fails
 		c.String(500, fmt.Sprintf("Failed to insert file metadata: %v", err))
 		return

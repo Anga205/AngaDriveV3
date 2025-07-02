@@ -1,6 +1,8 @@
 package database
 
 import (
+	"strings"
+
 	"gorm.io/gorm"
 )
 
@@ -211,4 +213,28 @@ func GetAllFileSizesAndTimes() ([]SizeAndTime, error) {
 		})
 	}
 	return fileSizesAndTimes, nil
+}
+
+func (s Collection) GetCollections() []string {
+	collections := strings.Split(s.Collections, ",")
+	for i := range collections {
+		collections[i] = strings.TrimSpace(collections[i])
+	}
+	return collections
+}
+
+func (s Collection) GetFiles() []string {
+	files := strings.Split(s.Files, ",")
+	for i := range files {
+		files[i] = strings.TrimSpace(files[i])
+	}
+	return files
+}
+
+func (s Collection) GetEditors() []string {
+	editors := strings.Split(s.Editors, ",")
+	for i := range editors {
+		editors[i] = strings.TrimSpace(editors[i])
+	}
+	return editors
 }
