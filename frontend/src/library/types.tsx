@@ -39,17 +39,19 @@ interface FileData {
 }
 
 interface CollectionCardData {
+    id: string;
     name: string;
     size: number;
-    files: Array<FileData>;
+    file_count: number;
     folder_count: number;
     editor_count: number;
-    timestamp: number;
 }
 
 type AppContextType = {
   files: () => Array<FileData>;
   setFiles: (value: Array<FileData> | ((prev: Array<FileData>) => Array<FileData>)) => void;
+  userCollections: () => Array<CollectionCardData>;
+  setUserCollections: (value: Array<CollectionCardData> | ((prev: Array<CollectionCardData>) => Array<CollectionCardData>)) => void;
 };
 
 export type {RAMData, CPUData, SysInfo, GraphData, IncomingData, SocketStatus, Pages, FileData, CollectionCardData, AppContextType};

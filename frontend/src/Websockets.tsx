@@ -1,6 +1,6 @@
 import { createContext, onCleanup, useContext, createSignal, ParentComponent, Accessor } from 'solid-js';
 import { SocketStatus } from './library/types';
-import { fetchFiles, generateClientToken } from './library/functions';
+import { fetchFilesAndCollections, generateClientToken } from './library/functions';
 
 const RECONNECT_DELAY = 300;
 const host = window.location.host;
@@ -57,7 +57,7 @@ const WebSocketProvider: ParentComponent = (props) => {
           localStorage.removeItem("email");
           localStorage.removeItem("password");
           localStorage.removeItem("display_name")
-          fetchFiles(ws);
+          fetchFilesAndCollections(ws);
         } else {
           ws.onmessage = (event) => {
             const message = JSON.parse(event.data);
@@ -71,7 +71,7 @@ const WebSocketProvider: ParentComponent = (props) => {
               } else {
                 localStorage.removeItem("token");
               }
-              fetchFiles(ws);
+              fetchFilesAndCollections(ws);
               ws.onmessage = () => {} // Clear the message handler after login to prevent further processing
             }
           };
@@ -84,7 +84,7 @@ const WebSocketProvider: ParentComponent = (props) => {
           }))
         }
       } else {
-        fetchFiles(ws);
+        fetchFilesAndCollections(ws);
       }
     };
     

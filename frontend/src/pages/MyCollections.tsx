@@ -1,16 +1,20 @@
-import { createEffect, createSignal } from 'solid-js';
+import { Component, createEffect, createSignal, useContext } from 'solid-js';
 import { DesktopTemplate } from '../components/Template';
 import Navbar from '../components/Navbar';
 import { BinSVG, CopySVG, EyeSVG } from '../assets/SvgFiles';
 import Dialog from '@corvu/dialog';
 import { useWebSocket } from '../Websockets';
 import toast, { Toaster } from 'solid-toast';
+import { CollectionCardData } from '../library/types';
+import { formatFileSize } from '../library/functions';
+import { For } from 'solid-js';
+import { AppContext } from '../Context';
 
 
-const CollectionCard = () => {
+const CollectionCard: Component<{ collection: CollectionCardData }> = (props) => {
     return (
         <div class="flex flex-col w-64 h-60 bg-neutral-800 rounded-lg px-4 py-2 pb-3">
-            <p class="text-white font-bold text-2xl text-center w-full p-2">Collection Name</p>
+            <p class="text-white font-bold text-2xl text-center w-full p-2">{props.collection.name}</p>
             <hr class="border-neutral-600"/>
             <div class="flex w-full items-center justify-center h-full my-2">
                 <div class="flex flex-col items-start justify-between h-full">
@@ -20,10 +24,10 @@ const CollectionCard = () => {
                     <p class="text-gray-400 text-sm">Editors:</p>
                 </div>
                 <div class="flex flex-col items-start justify-between h-full ml-4">
-                    <p class="text-white text-sm">10 GB</p>
-                    <p class="text-white text-sm">100</p>
-                    <p class="text-white text-sm">5</p>
-                    <p class="text-white text-sm text-start">4</p>
+                    <p class="text-white text-sm">{formatFileSize(props.collection.size)}</p>
+                    <p class="text-white text-sm">{props.collection.file_count}</p>
+                    <p class="text-white text-sm">{props.collection.folder_count}</p>
+                    <p class="text-white text-sm text-start">{props.collection.editor_count}</p>
                 </div>
             </div>
             <div class="flex w-full justify-between px-5">
@@ -106,6 +110,8 @@ const Popup = () => {
 }
 
 const DesktopCollections = () => {
+    const ctx = useContext(AppContext)!;
+    const { userCollections } = ctx;
     return (
         <DesktopTemplate CurrentPage='Collections'>
             <div class="flex flex-col w-full h-full px-[2vh] p-[1vh] space-y-10">
@@ -114,13 +120,11 @@ const DesktopCollections = () => {
                     <Popup/>
                 </div>
                 <div class="flex flex-wrap space-x-4 space-y-4 justify-center pt-3 overflow-y-scroll">
-                    <CollectionCard/>
-                    <CollectionCard/>
-                    <CollectionCard/>
-                    <CollectionCard/>
-                    <CollectionCard/>
-                    <CollectionCard/>
-                    <CollectionCard/>
+                    <For each={userCollections()} fallback={<p class="text-white">No collections found.</p>}>
+                        {(collection) => (
+                            <CollectionCard collection={collection} />
+                        )}
+                    </For>
                 </div>
             </div>
         </DesktopTemplate>

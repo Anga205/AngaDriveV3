@@ -5,7 +5,7 @@ import { useWebSocket } from "../Websockets";
 import bcrypt from "bcryptjs";
 import { DesktopTemplate } from "../components/Template";
 import { AppContext } from "../Context";
-import { fetchFiles, formatFileSize, generateClientToken } from "../library/functions";
+import { fetchFilesAndCollections, formatFileSize, generateClientToken } from "../library/functions";
 
 const isEmailValid = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -758,7 +758,7 @@ const Account: Component = () => {
 
     const handleLoginSuccess = () => {
         setIsLoggedIn(true);
-        fetchFiles(currentSocket.socket()!);
+        fetchFilesAndCollections(currentSocket.socket()!);
     };
 
 

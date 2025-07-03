@@ -75,6 +75,12 @@ const UniversalMessageHandler = (message: MessageEvent, ctx: AppContextType) => 
       } else if (data.data.toggle === false) {
           ctx.setFiles((prev: FileData[]) => prev.filter((file: FileData) => file.file_directory !== data.data.File.file_directory));
       }
+  } else if (data.type === "get_user_collections_response") {
+      if (data.data.error) {
+          toast.error(`Error fetching collections: ${data.data.error}`);
+      } else {
+          ctx.setUserCollections(data.data || []);
+      }
   }
 }
 
@@ -93,7 +99,7 @@ function generateClientToken(): string {
     return `${part1}.${part2}.${part3}`;
 }
 
-const fetchFiles = (ws: WebSocket) => {
+const fetchFilesAndCollections = (ws: WebSocket) => {
   if (!localStorage.getItem("token") && !localStorage.getItem("email") && !localStorage.getItem("password")) {
     localStorage.setItem("token", generateClientToken());
   }
@@ -105,6 +111,14 @@ const fetchFiles = (ws: WebSocket) => {
       password: localStorage.getItem("password") || ""
     }
   }));
+  ws.send(JSON.stringify({
+    type: "get_user_collections",
+    data: {
+      token: localStorage.getItem("token") || "",
+      email: localStorage.getItem("email") || "",
+      password: localStorage.getItem("password") || ""
+    }
+  }));
 }
 
-export {getFileMD5, formatFileSize, truncateFileName, getFileType, UniversalMessageHandler, generateClientToken, fetchFiles};
+export {getFileMD5, formatFileSize, truncateFileName, getFileType, UniversalMessageHandler, generateClientToken, fetchFilesAndCollections};
