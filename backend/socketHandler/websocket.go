@@ -93,6 +93,7 @@ func reader(conn *websocket.Conn, done chan bool) {
 					Data: map[string]interface{}{"error": "invalid request data"},
 				})
 				ActiveWebsockets[conn].Mutex.Unlock()
+				continue
 			}
 			responseInfo, err := accounts.RegisterUser(req)
 			if err != nil {
@@ -107,6 +108,7 @@ func reader(conn *websocket.Conn, done chan bool) {
 					},
 				})
 				ActiveWebsockets[conn].Mutex.Unlock()
+				continue
 			} else {
 				go UpdateUserCount()
 				ActiveWebsockets[conn].Mutex.Lock()
@@ -176,6 +178,7 @@ func reader(conn *websocket.Conn, done chan bool) {
 					Data: map[string]interface{}{"error": "invalid request data"},
 				})
 				ActiveWebsockets[conn].Mutex.Unlock()
+				continue
 			}
 			responseInfo, err := accounts.LoginUser(req)
 			if err != nil {
@@ -190,6 +193,7 @@ func reader(conn *websocket.Conn, done chan bool) {
 					},
 				})
 				ActiveWebsockets[conn].Mutex.Unlock()
+				continue
 			} else {
 				ActiveWebsockets[conn].Mutex.Lock()
 				conn.WriteJSON(OutgoingResponse{
@@ -209,6 +213,7 @@ func reader(conn *websocket.Conn, done chan bool) {
 					Data: map[string]interface{}{"error": "invalid request data"},
 				})
 				ActiveWebsockets[conn].Mutex.Unlock()
+				continue
 			}
 			responseInfo, err := accounts.ChangeUserPassword(req)
 			if err != nil {
@@ -223,6 +228,7 @@ func reader(conn *websocket.Conn, done chan bool) {
 					},
 				})
 				ActiveWebsockets[conn].Mutex.Unlock()
+				continue
 			} else {
 				ActiveWebsockets[conn].Mutex.Lock()
 				conn.WriteJSON(OutgoingResponse{
@@ -242,6 +248,7 @@ func reader(conn *websocket.Conn, done chan bool) {
 					Data: map[string]interface{}{"error": "invalid request data"},
 				})
 				ActiveWebsockets[conn].Mutex.Unlock()
+				continue
 			}
 			responseInfo, err := accounts.ChangeUserEmail(req)
 			if err != nil {
@@ -256,6 +263,7 @@ func reader(conn *websocket.Conn, done chan bool) {
 					},
 				})
 				ActiveWebsockets[conn].Mutex.Unlock()
+				continue
 			} else {
 				ActiveWebsockets[conn].Mutex.Lock()
 				conn.WriteJSON(OutgoingResponse{
@@ -275,6 +283,7 @@ func reader(conn *websocket.Conn, done chan bool) {
 					Data: map[string]interface{}{"error": "invalid request data"},
 				})
 				ActiveWebsockets[conn].Mutex.Unlock()
+				continue
 			}
 			responseInfo, err := accounts.ChangeUserDisplayName(req)
 			if err != nil {
@@ -289,6 +298,7 @@ func reader(conn *websocket.Conn, done chan bool) {
 					},
 				})
 				ActiveWebsockets[conn].Mutex.Unlock()
+				continue
 			} else {
 				ActiveWebsockets[conn].Mutex.Lock()
 				conn.WriteJSON(OutgoingResponse{
@@ -308,6 +318,7 @@ func reader(conn *websocket.Conn, done chan bool) {
 					Data: map[string]interface{}{"error": "invalid request data"},
 				})
 				ActiveWebsockets[conn].Mutex.Unlock()
+				continue
 			}
 			files, err := GetUserFiles(req)
 			if err != nil {
@@ -322,12 +333,9 @@ func reader(conn *websocket.Conn, done chan bool) {
 					},
 				})
 				ActiveWebsockets[conn].Mutex.Unlock()
+				continue
 			} else {
 				ActiveWebsockets[conn].Mutex.Lock()
-				conn.WriteJSON(OutgoingResponse{
-					Type: "get_user_files_response",
-					Data: files,
-				})
 				if req.Email != "" && req.Password != "" && accounts.Authenticate(req.Email, req.Password) {
 					accountInfo, _ := database.FindUserByEmail(req.Email)
 					data := ActiveWebsockets[conn]
@@ -342,6 +350,10 @@ func reader(conn *websocket.Conn, done chan bool) {
 					data.UserInfo.HashedPassword = ""
 					ActiveWebsockets[conn] = data
 				}
+				conn.WriteJSON(OutgoingResponse{
+					Type: "get_user_files_response",
+					Data: files,
+				})
 				ActiveWebsockets[conn].Mutex.Unlock()
 			}
 		} else if message.Type == "convert_video" {
@@ -416,6 +428,7 @@ func reader(conn *websocket.Conn, done chan bool) {
 					Data: map[string]interface{}{"error": "invalid request data"},
 				})
 				ActiveWebsockets[conn].Mutex.Unlock()
+				continue
 			}
 			fileToDelete, _ := database.GetFile(req.FileDirectory)
 			err = DeleteFile(req)
@@ -457,6 +470,7 @@ func reader(conn *websocket.Conn, done chan bool) {
 					Data: map[string]interface{}{"error": "invalid request data"},
 				})
 				ActiveWebsockets[conn].Mutex.Unlock()
+				continue
 			}
 			err = CreateNewCollection(req)
 			if err != nil {
@@ -471,7 +485,56 @@ func reader(conn *websocket.Conn, done chan bool) {
 					},
 				})
 				ActiveWebsockets[conn].Mutex.Unlock()
+				continue
 			}
+		} else if message.Type == "get_user_collections" {
+			var req AuthInfo
+			dataBytes, _ := json.Marshal(message.Data)
+			err := json.Unmarshal(dataBytes, &req)
+			if err != nil {
+				ActiveWebsockets[conn].Mutex.Lock()
+				conn.WriteJSON(OutgoingResponse{
+					Type: "error",
+					Data: map[string]interface{}{"error": "invalid request data"},
+				})
+				ActiveWebsockets[conn].Mutex.Unlock()
+				continue
+			}
+			collections, err := GetUserCollections(req)
+			if err != nil {
+				now := time.Now()
+				timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
+				fmt.Printf("[%s] Error getting user collections: %v\n", timestamp, err)
+				ActiveWebsockets[conn].Mutex.Lock()
+				conn.WriteJSON(OutgoingResponse{
+					Type: "error",
+					Data: map[string]interface{}{
+						"error": err.Error(),
+					},
+				})
+				ActiveWebsockets[conn].Mutex.Unlock()
+				continue
+			}
+			ActiveWebsockets[conn].Mutex.Lock()
+			if req.Email != "" && req.Password != "" && accounts.Authenticate(req.Email, req.Password) {
+				accountInfo, _ := database.FindUserByEmail(req.Email)
+				data := ActiveWebsockets[conn]
+				data.UserInfo.Token = ""
+				data.UserInfo.Email = accountInfo.Email
+				data.UserInfo.HashedPassword = accountInfo.HashedPassword
+				ActiveWebsockets[conn] = data
+			} else {
+				data := ActiveWebsockets[conn]
+				data.UserInfo.Token = req.Token
+				data.UserInfo.Email = ""
+				data.UserInfo.HashedPassword = ""
+				ActiveWebsockets[conn] = data
+			}
+			conn.WriteJSON(OutgoingResponse{
+				Type: "get_user_collections_response",
+				Data: collections,
+			})
+			ActiveWebsockets[conn].Mutex.Unlock()
 		} else {
 			fmt.Printf("Unknown message type: %s\n", message.Type)
 			continue

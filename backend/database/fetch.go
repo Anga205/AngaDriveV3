@@ -216,6 +216,9 @@ func GetAllFileSizesAndTimes() ([]SizeAndTime, error) {
 }
 
 func (s Collection) GetCollections() []string {
+	if s.Collections == "" {
+		return []string{}
+	}
 	collections := strings.Split(s.Collections, ",")
 	for i := range collections {
 		collections[i] = strings.TrimSpace(collections[i])
@@ -224,6 +227,9 @@ func (s Collection) GetCollections() []string {
 }
 
 func (s Collection) GetFiles() []string {
+	if s.Files == "" {
+		return []string{}
+	}
 	files := strings.Split(s.Files, ",")
 	for i := range files {
 		files[i] = strings.TrimSpace(files[i])
@@ -237,4 +243,28 @@ func (s Collection) GetEditors() []string {
 		editors[i] = strings.TrimSpace(editors[i])
 	}
 	return editors
+}
+
+func (user Account) GetCollections() ([]Collection, error) {
+	UserCollectionsMutex.RLock()
+	collections, found := UserCollections[user.Token]
+	UserCollectionsMutex.RUnlock()
+	if found {
+		return collections.Array(), nil
+	}
+	db := GetDB()
+	var dbCollections []Collection
+	err := db.Where("editors LIKE ?", "%"+user.Token+"%").Find(&dbCollections).Error
+	if err != nil {
+		return nil, err
+	}
+	go func() {
+		UserCollectionsMutex.Lock()
+		defer UserCollectionsMutex.Unlock()
+		if _, ok := UserCollections[user.Token]; !ok {
+			UserCollections[user.Token] = NewCollectionSet()
+		}
+		UserCollections[user.Token].Set(dbCollections)
+	}()
+	return dbCollections, nil
 }
