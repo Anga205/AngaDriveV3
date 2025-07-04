@@ -9,43 +9,53 @@ import (
 )
 
 func CreateNewCollection(req CreateCollectionRequest) error {
-	if req.Auth.Token == "" {
-		if !accounts.Authenticate(req.Auth.Email, req.Auth.Password) {
-			return fmt.Errorf("authentication failed")
-		}
-		user, _ := database.FindUserByEmail(req.Auth.Email)
-		req.Auth.Token = user.Token
+	userToken, err := req.Auth.GetToken()
+	if err != nil {
+		return fmt.Errorf("authentication failed: %v", err)
 	}
 	collection := database.Collection{
 		Name:        req.CollectionName,
-		Editors:     req.Auth.Token,
+		Editors:     userToken,
 		Files:       "",
 		Collections: "",
 		Size:        0,
 		Dependant:   "",
 	}
-	collection, err := database.InsertNewCollection(collection)
-	fmt.Println("New collection created:", collection.Name)
+	collection, err = database.InsertNewCollection(collection)
 	go CollectionPulse(true, collection)
 	if err != nil {
 		return fmt.Errorf("failed to create collection: %v", err)
 	}
-	// TODO: Add new collection Pulser
+	return nil
+}
+
+func DeleteCollection(req DeleteCollectionRequest) error {
+	userToken, err := req.Auth.GetToken()
+	if err != nil {
+		return fmt.Errorf("authentication failed: %v", err)
+	}
+	collection, err := database.GetCollection(req.CollectionID)
+	if err != nil {
+		return fmt.Errorf("failed to get collection: %v", err)
+	}
+	if !collection.IsEditor(userToken) {
+		return fmt.Errorf("user is not an editor of the collection")
+	}
+	err = collection.Delete()
+	if err != nil {
+		return fmt.Errorf("failed to delete collection: %v", err)
+	}
+	go CollectionPulse(false, collection)
 	return nil
 }
 
 func GetUserCollections(req AuthInfo) ([]CollectionCardData, error) {
 	var user database.Account
-	if req.Token == "" {
-		if !accounts.Authenticate(req.Email, req.Password) {
-			return nil, fmt.Errorf("authentication failed")
-		}
-		user, _ = database.FindUserByEmail(req.Email)
-	} else {
-		user = database.Account{
-			Token: req.Token,
-		}
+	token, err := req.GetToken()
+	if err != nil {
+		return nil, fmt.Errorf("authentication failed: %v", err)
 	}
+	user, _ = database.FindUserByToken(token)
 	collections, err := user.GetCollections()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get collections: %v", err)
@@ -83,7 +93,6 @@ func CollectionPulse(toggle bool, collection database.Collection) {
 			Timestamp:      collection.Timestamp,
 		},
 	}
-	fmt.Println("Collection pulse triggered for collection:", collection.Name)
 	var connectionsToUpdate []connInfo
 	ActiveWebsocketsMutex.RLock()
 	for conn, connData := range ActiveWebsockets {
@@ -92,25 +101,20 @@ func CollectionPulse(toggle bool, collection database.Collection) {
 		}
 	}
 	ActiveWebsocketsMutex.RUnlock()
-	fmt.Println("Found", len(connectionsToUpdate), "websocket connections to update for collection pulse")
 	for _, ci := range connectionsToUpdate {
 		go func(conn *websocket.Conn, connData *WebsocketData, newCollection database.Collection, update CollectionCardUpdate) {
-			fmt.Println("Sending collection update to websocket")
 			connData.Mutex.Lock()
 			defer connData.Mutex.Unlock()
 			if connData.UserInfo.Email != "" || connData.UserInfo.HashedPassword != "" {
 				if !accounts.AuthenticateHashed(connData.UserInfo.Email, connData.UserInfo.HashedPassword) {
-					fmt.Println("Authentication failed for websocket connection, skipping collection update")
 					return
 				}
 				accountInfo, _ := database.FindUserByEmail(connData.UserInfo.Email)
 				if !newCollection.IsEditor(accountInfo.Token) {
-					fmt.Println("User is not an editor of the collection, skipping collection update")
 					return
 				}
 			} else {
 				if !newCollection.IsEditor(connData.UserInfo.Token) {
-					fmt.Println("User is not an editor of the collection, skipping collection update")
 					return
 				}
 			}

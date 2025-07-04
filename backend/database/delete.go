@@ -24,6 +24,52 @@ func removeFile(fileList string, file string) string {
 	return strings.Join(filtered, ",")
 }
 
+func (collection Collection) Delete() error {
+	db := GetDB()
+	result := db.Delete(&Collection{}, collection)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return nil
+	}
+
+	go func(dependantID string) {
+		var dependantCollections []Collection
+		db.Where("dependant = ?", dependantID).Find(&dependantCollections)
+
+		for _, dependantCollection := range dependantCollections {
+			dependantCollection.Delete()
+		}
+	}(collection.ID)
+
+	go func() {
+		CollectionCacheLock.Lock()
+		defer CollectionCacheLock.Unlock()
+		delete(CollectionCache, collection.ID)
+	}()
+
+	go func() {
+		UserCollectionsMutex.Lock()
+		defer UserCollectionsMutex.Unlock()
+		delete(UserCollections, collection.ID)
+	}()
+
+	go func() {
+		CollectionFilesMutex.Lock()
+		defer CollectionFilesMutex.Unlock()
+		delete(CollectionFiles, collection.ID)
+	}()
+
+	go func() {
+		CollectionFoldersMutex.Lock()
+		defer CollectionFoldersMutex.Unlock()
+		delete(CollectionFolders, collection.ID)
+	}()
+
+	return nil
+}
+
 func DeleteFile(file FileData) error {
 
 	go func() { // Remove from UserFiles Cache
