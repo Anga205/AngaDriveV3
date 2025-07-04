@@ -1,6 +1,8 @@
 package socketHandler
 
 import (
+	"fmt"
+	"service/accounts"
 	"service/database"
 	"sync"
 
@@ -62,6 +64,26 @@ type AuthInfo struct {
 	Token    string `json:"token"`
 }
 
+func (a AuthInfo) GetToken() (string, error) {
+	if (a.Email == "" || a.Password == "") && a.Token == "" {
+		return "", fmt.Errorf("no authentication information provided")
+	}
+	if a.Email != "" && a.Password != "" {
+		if !accounts.Authenticate(a.Email, a.Password) {
+			return "", fmt.Errorf("authentication failed")
+		}
+		account, err := database.FindUserByEmail(a.Email)
+		if err != nil {
+			return "", fmt.Errorf("failed to find user by email: %v", err)
+		}
+		return account.Token, nil
+	} else if a.Token != "" {
+		return a.Token, nil
+	} else {
+		return "", fmt.Errorf("invalid authentication information provided")
+	}
+}
+
 type ConvertVideoRequest struct {
 	FileDirectory string   `json:"file_directory"`
 	Auth          AuthInfo `json:"auth"`
@@ -80,4 +102,9 @@ type connInfo struct {
 type CreateCollectionRequest struct {
 	CollectionName string   `json:"collection_name"`
 	Auth           AuthInfo `json:"auth"`
+}
+
+type DeleteCollectionRequest struct {
+	CollectionID string   `json:"collection_id"`
+	Auth         AuthInfo `json:"auth"`
 }

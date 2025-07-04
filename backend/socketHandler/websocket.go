@@ -46,8 +46,6 @@ func SetupWebsocket(r *gin.Engine, upload_dir string) {
 
 		defer func() {
 			ActiveWebsocketsMutex.Lock()
-			fmt.Println("Closing websocket connection")
-			fmt.Println(len(ActiveWebsockets), "active websockets")
 			delete(ActiveWebsockets, conn)
 			ActiveWebsocketsMutex.Unlock()
 		}()
@@ -482,6 +480,34 @@ func reader(conn *websocket.Conn, done chan bool) {
 				ActiveWebsockets[conn].Mutex.Lock()
 				conn.WriteJSON(OutgoingResponse{
 					Type: "new_collection_response",
+					Data: map[string]interface{}{
+						"error": err.Error(),
+					},
+				})
+				ActiveWebsockets[conn].Mutex.Unlock()
+				continue
+			}
+		} else if message.Type == "delete_collection" {
+			var req DeleteCollectionRequest
+			dataBytes, _ := json.Marshal(message.Data)
+			err := json.Unmarshal(dataBytes, &req)
+			if err != nil {
+				ActiveWebsockets[conn].Mutex.Lock()
+				conn.WriteJSON(OutgoingResponse{
+					Type: "delete_collection_response",
+					Data: map[string]interface{}{"error": "invalid request data"},
+				})
+				ActiveWebsockets[conn].Mutex.Unlock()
+				continue
+			}
+			err = DeleteCollection(req)
+			if err != nil {
+				now := time.Now()
+				timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
+				fmt.Printf("[%s] Error deleting collection: %v\n", timestamp, err)
+				ActiveWebsockets[conn].Mutex.Lock()
+				conn.WriteJSON(OutgoingResponse{
+					Type: "delete_collection_response",
 					Data: map[string]interface{}{
 						"error": err.Error(),
 					},

@@ -12,6 +12,26 @@ import { AppContext } from '../Context';
 
 
 const CollectionCard: Component<{ collection: CollectionCardData }> = (props) => {
+    const {socket, status} = useWebSocket();
+    const handleDelete = () => {
+        if (status() !== "connected") {
+            toast.error("Could not secure a connection to the server. Please try again later.");
+            return;
+        }
+        const ws = socket();
+        if (!ws) return;
+        ws.send(JSON.stringify({
+            type: "delete_collection",
+            data: {
+                collection_id: props.collection.id,
+                auth: {
+                    token: localStorage.getItem('token') || '',
+                    email: localStorage.getItem('email') || '',
+                    password: localStorage.getItem('password') || ''
+                }
+            }
+        }));
+    }
     return (
         <div class="flex flex-col w-64 h-60 bg-neutral-800 rounded-lg px-4 py-2 pb-3">
             <p class="text-white font-bold text-2xl text-center w-full p-2">{props.collection.name}</p>
@@ -37,7 +57,7 @@ const CollectionCard: Component<{ collection: CollectionCardData }> = (props) =>
                 <a class="flex items-center justify-center p-2 bg-lime-700/30 hover:bg-lime-700/20 rounded-xl text-lime-600">
                     <CopySVG />
                 </a>
-                <a class="flex items-center justify-center p-2 bg-red-700/30 hover:bg-red-700/20 rounded-xl text-red-600">
+                <a onClick={handleDelete} class="flex items-center justify-center p-2 bg-red-700/30 hover:bg-red-700/20 rounded-xl text-red-600">
                     <BinSVG />
                 </a>
             </div>

@@ -1,7 +1,6 @@
 package socketHandler
 
 import (
-	"fmt"
 	"service/accounts"
 	"service/database"
 
@@ -12,14 +11,12 @@ func UserFilesPulse(file FileUpdate) {
 	go FileCountPulse()
 	var connectionsToUpdate []connInfo
 	ActiveWebsocketsMutex.RLock()
-	fmt.Println("UserFilesPulse: ActiveWebsockets count:", len(ActiveWebsockets))
 	for conn, connData := range ActiveWebsockets {
 		if !(connData.UserInfo.Email == "" || connData.UserInfo.HashedPassword == "") && (connData.UserInfo.Token == "") {
 			connectionsToUpdate = append(connectionsToUpdate, connInfo{conn: conn, data: connData})
 		}
 	}
 	ActiveWebsocketsMutex.RUnlock()
-	fmt.Println("UserFilesPulse: Found", len(connectionsToUpdate), "websocket connections to update for file pulse")
 	for _, ci := range connectionsToUpdate {
 		go func(conn *websocket.Conn, connData *WebsocketData) {
 			connData.Mutex.Lock()
