@@ -245,6 +245,16 @@ func (s Collection) GetEditors() []string {
 	return editors
 }
 
+func (s Collection) IsEditor(token string) bool {
+	editors := s.GetEditors()
+	for _, editor := range editors {
+		if editor == token {
+			return true
+		}
+	}
+	return false
+}
+
 func (user Account) GetCollections() ([]Collection, error) {
 	UserCollectionsMutex.RLock()
 	collections, found := UserCollections[user.Token]

@@ -1,6 +1,6 @@
 import SparkMD5 from 'spark-md5';
 import toast from 'solid-toast';
-import type { AppContextType, FileData } from './types';
+import type { AppContextType, CollectionCardData, FileData } from './types';
 
 async function getFileMD5(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -79,7 +79,19 @@ const UniversalMessageHandler = (message: MessageEvent, ctx: AppContextType) => 
       if (data.data.error) {
           toast.error(`Error fetching collections: ${data.data.error}`);
       } else {
-          ctx.setUserCollections(data.data || []);
+            ctx.setUserCollections(data.data.sort((a: CollectionCardData, b: CollectionCardData) => {
+              if (b.timestamp - a.timestamp === a.timestamp - b.timestamp) {
+                return a.id.localeCompare(b.id);
+              }
+              return b.timestamp - a.timestamp;
+            }) || []);
+      }
+  } else if (data.type === "collection_update") {
+      if (data.data.toggle === true) {
+          console.log("Collection added:", data.data.collection);
+          ctx.setUserCollections((prev: CollectionCardData[]) => [data.data.collection, ...prev]);
+      } else if (data.data.toggle === false) {
+          ctx.setUserCollections((prev: CollectionCardData[]) => prev.filter((collection: CollectionCardData) => collection.id !== data.data.collection.id));
       }
   }
 }

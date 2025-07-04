@@ -45,6 +45,7 @@ interface CollectionCardData {
     file_count: number;
     folder_count: number;
     editor_count: number;
+    timestamp: number;
 }
 
 type AppContextType = {

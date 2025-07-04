@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"service/accounts"
 	"service/database"
+
+	"github.com/gorilla/websocket"
 )
 
 func CreateNewCollection(req CreateCollectionRequest) error {
@@ -20,23 +22,16 @@ func CreateNewCollection(req CreateCollectionRequest) error {
 		Files:       "",
 		Collections: "",
 		Size:        0,
-		Hidden:      false,
+		Dependant:   "",
 	}
-	_, err := database.InsertNewCollection(collection)
+	collection, err := database.InsertNewCollection(collection)
+	fmt.Println("New collection created:", collection.Name)
+	go CollectionPulse(true, collection)
 	if err != nil {
 		return fmt.Errorf("failed to create collection: %v", err)
 	}
 	// TODO: Add new collection Pulser
 	return nil
-}
-
-type CollectionCardData struct {
-	CollectionID   string `json:"id"`
-	CollectionName string `json:"name"`
-	Size           int64  `json:"size"`
-	FileCount      int    `json:"file_count"`
-	FolderCount    int    `json:"folder_count"`
-	EditorCount    int    `json:"editor_count"`
 }
 
 func GetUserCollections(req AuthInfo) ([]CollectionCardData, error) {
@@ -57,18 +52,79 @@ func GetUserCollections(req AuthInfo) ([]CollectionCardData, error) {
 	}
 	var collectionCards []CollectionCardData
 	for _, collection := range collections {
-		if collection.Hidden {
+		if collection.Dependant != "" {
 			continue
 		} else {
 			card := CollectionCardData{
+				CollectionID:   collection.ID,
 				CollectionName: collection.Name,
 				Size:           int64(collection.Size),
 				FileCount:      len(collection.GetFiles()),
 				FolderCount:    len(collection.GetCollections()),
 				EditorCount:    len(collection.GetEditors()),
+				Timestamp:      collection.Timestamp,
 			}
 			collectionCards = append(collectionCards, card)
 		}
 	}
 	return collectionCards, nil
+}
+
+func CollectionPulse(toggle bool, collection database.Collection) {
+	collectionCard := CollectionCardUpdate{
+		Toggle: toggle,
+		Collection: CollectionCardData{
+			CollectionID:   collection.ID,
+			CollectionName: collection.Name,
+			Size:           int64(collection.Size),
+			FileCount:      len(collection.GetFiles()),
+			FolderCount:    len(collection.GetCollections()),
+			EditorCount:    len(collection.GetEditors()),
+			Timestamp:      collection.Timestamp,
+		},
+	}
+	fmt.Println("Collection pulse triggered for collection:", collection.Name)
+	var connectionsToUpdate []connInfo
+	ActiveWebsocketsMutex.RLock()
+	for conn, connData := range ActiveWebsockets {
+		if !(connData.UserInfo.Email == "" || connData.UserInfo.HashedPassword == "") && (connData.UserInfo.Token == "") {
+			connectionsToUpdate = append(connectionsToUpdate, connInfo{conn: conn, data: connData})
+		}
+	}
+	ActiveWebsocketsMutex.RUnlock()
+	fmt.Println("Found", len(connectionsToUpdate), "websocket connections to update for collection pulse")
+	for _, ci := range connectionsToUpdate {
+		go func(conn *websocket.Conn, connData *WebsocketData, newCollection database.Collection, update CollectionCardUpdate) {
+			fmt.Println("Sending collection update to websocket")
+			connData.Mutex.Lock()
+			defer connData.Mutex.Unlock()
+			if connData.UserInfo.Email != "" || connData.UserInfo.HashedPassword != "" {
+				if !accounts.AuthenticateHashed(connData.UserInfo.Email, connData.UserInfo.HashedPassword) {
+					fmt.Println("Authentication failed for websocket connection, skipping collection update")
+					return
+				}
+				accountInfo, _ := database.FindUserByEmail(connData.UserInfo.Email)
+				if !newCollection.IsEditor(accountInfo.Token) {
+					fmt.Println("User is not an editor of the collection, skipping collection update")
+					return
+				}
+			} else {
+				if !newCollection.IsEditor(connData.UserInfo.Token) {
+					fmt.Println("User is not an editor of the collection, skipping collection update")
+					return
+				}
+			}
+			err := conn.WriteJSON(map[string]interface{}{
+				"type": "collection_update",
+				"data": update,
+			})
+			if err != nil {
+				ActiveWebsocketsMutex.Lock()
+				delete(ActiveWebsockets, conn)
+				ActiveWebsocketsMutex.Unlock()
+				conn.Close()
+				return
+			}
+		}(ci.conn, &ci.data, collection, collectionCard)
+	}
 }

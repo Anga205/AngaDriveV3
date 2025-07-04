@@ -46,6 +46,8 @@ func SetupWebsocket(r *gin.Engine, upload_dir string) {
 
 		defer func() {
 			ActiveWebsocketsMutex.Lock()
+			fmt.Println("Closing websocket connection")
+			fmt.Println(len(ActiveWebsockets), "active websockets")
 			delete(ActiveWebsockets, conn)
 			ActiveWebsocketsMutex.Unlock()
 		}()

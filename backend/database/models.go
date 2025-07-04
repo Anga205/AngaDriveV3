@@ -25,7 +25,8 @@ type Collection struct {
 	Size        int
 	Collections string // Comma separated list of Collection ID's
 	Files       string // Comma separated list of FileDirectory's
-	Hidden      bool   `gorm:"default:false"`
+	Dependant   string // This is for collections birthed from cloning a github repo, if the github repo collection is deleted, this collection will be deleted too
+	Timestamp   int64
 }
 
 type FileData struct {
