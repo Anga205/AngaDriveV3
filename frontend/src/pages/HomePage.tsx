@@ -69,7 +69,7 @@ const DesktopHome: Component<{ ramdata: RAMData; cpudata: CPUData; siteActivity:
                                 <ContactMe />
                             </div>
                             <div class="justify-center items-center flex flex-col w-full h-[30%] rounded-[1.5vh] bg-[#242424] pt-[2.5vh] p-[2vh]" style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
-                                <p class="text-white font-semibold text-[2vh]">Space Used</p>
+                                <p class="text-white font-semibold text-[2vh]">Space Used (GB)</p>
                                 <GraphComponent GraphData={props.spaceUsed}/>
                             </div>
                         </div>

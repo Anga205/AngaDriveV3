@@ -41,6 +41,21 @@ type FileUpdate struct {
 	File   database.FileData
 }
 
+type CollectionCardData struct {
+	CollectionID   string `json:"id"`
+	CollectionName string `json:"name"`
+	Size           int64  `json:"size"`
+	FileCount      int    `json:"file_count"`
+	FolderCount    int    `json:"folder_count"`
+	EditorCount    int    `json:"editor_count"`
+	Timestamp      int64  `json:"timestamp"`
+}
+
+type CollectionCardUpdate struct {
+	Toggle     bool               `json:"toggle"` // same functionality as FileUpdate
+	Collection CollectionCardData `json:"collection"`
+}
+
 type AuthInfo struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`

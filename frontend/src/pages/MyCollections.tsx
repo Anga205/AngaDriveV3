@@ -63,10 +63,12 @@ const Popup = () => {
         }
         const socket = getSocket()!;
         if (modifying() === "New") {
+            let name = newCollectionName().trim();
+            setNewCollectionName('');
             socket.send(JSON.stringify({
                 type: "new_collection",
                 data: {
-                    collection_name: newCollectionName(),
+                    collection_name: name,
                     auth: {
                         token: localStorage.getItem('token') || '',
                         email: localStorage.getItem('email') || '',
@@ -99,9 +101,9 @@ const Popup = () => {
                         <input type="text" disabled={true} placeholder="Import a GitHub Repository" class="cursor-not-allowed w-full p-2 rounded-lg bg-neutral-700 text-white focus:outline-none focus:ring-2 focus:ring-green-500"/>
                     )}
                     {(modifying() === "New" || modifying() === "Github") && (
-                        <button onClick={onSubmit} class="bg-green-700 text-white p-2 rounded-lg font-semibold w-full hover:bg-green-800 transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed">
+                        <Dialog.Close onClick={onSubmit} class="bg-green-700 text-white p-2 rounded-lg font-semibold w-full hover:bg-green-800 transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed">
                             Submit
-                        </button>
+                        </Dialog.Close>
                     )}
                 </Dialog.Content>
             </Dialog.Portal>

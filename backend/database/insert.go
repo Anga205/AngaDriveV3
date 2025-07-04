@@ -142,6 +142,7 @@ func generateNewCollectionID() string {
 func InsertNewCollection(collection Collection) (Collection, error) {
 
 	collection.ID = generateNewCollectionID()
+	collection.Timestamp = time.Now().Unix()
 
 	if err := collection.Insert(); err != nil {
 		return Collection{}, err
