@@ -29,7 +29,7 @@ interface IncomingData {
 
 type SocketStatus = "connecting" | "connected" | "disconnected" | "error" | "reconnecting";
 
-type Pages = "Home" | "Files" | "Collections" | "Account";
+type Pages = "Home" | "Files" | "Collections" | "Account" | "Collection";
 
 interface FileData {
     original_file_name: string;
@@ -48,11 +48,24 @@ interface CollectionCardData {
     timestamp: number;
 }
 
+interface CollectionData {
+    name: string;
+    files: Array<FileData>;
+    folders: Array<CollectionCardData>
+    isOwned: boolean;
+}
+
+type KnownCollections = {
+    [id: string]: CollectionData;
+}
+
 type AppContextType = {
-  files: () => Array<FileData>;
-  setFiles: (value: Array<FileData> | ((prev: Array<FileData>) => Array<FileData>)) => void;
-  userCollections: () => Array<CollectionCardData>;
-  setUserCollections: (value: Array<CollectionCardData> | ((prev: Array<CollectionCardData>) => Array<CollectionCardData>)) => void;
+    files: () => Array<FileData>;
+    setFiles: (value: Array<FileData> | ((prev: Array<FileData>) => Array<FileData>)) => void;
+    userCollections: () => Array<CollectionCardData>;
+    setUserCollections: (value: Array<CollectionCardData> | ((prev: Array<CollectionCardData>) => Array<CollectionCardData>)) => void;
+    knownCollections: () => KnownCollections;
+    setKnownCollections: (value: KnownCollections | ((prev: KnownCollections) => KnownCollections)) => void;
 };
 
-export type {RAMData, CPUData, SysInfo, GraphData, IncomingData, SocketStatus, Pages, FileData, CollectionCardData, AppContextType};
+export type {RAMData, CPUData, SysInfo, GraphData, IncomingData, SocketStatus, Pages, FileData, CollectionCardData, AppContextType, KnownCollections};

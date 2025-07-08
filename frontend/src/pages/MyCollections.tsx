@@ -1,69 +1,13 @@
 import { Component, createEffect, createSignal, useContext } from 'solid-js';
 import { DesktopTemplate } from '../components/Template';
 import Navbar from '../components/Navbar';
-import { BinSVG, CopySVG, EyeSVG } from '../assets/SvgFiles';
 import Dialog from '@corvu/dialog';
 import { useWebSocket } from '../Websockets';
 import toast, { Toaster } from 'solid-toast';
-import { CollectionCardData } from '../library/types';
-import { formatFileSize } from '../library/functions';
 import { For } from 'solid-js';
 import { AppContext } from '../Context';
-
-
-const CollectionCard: Component<{ collection: CollectionCardData }> = (props) => {
-    const {socket, status} = useWebSocket();
-    const handleDelete = () => {
-        if (status() !== "connected") {
-            toast.error("Could not secure a connection to the server. Please try again later.");
-            return;
-        }
-        const ws = socket();
-        if (!ws) return;
-        ws.send(JSON.stringify({
-            type: "delete_collection",
-            data: {
-                collection_id: props.collection.id,
-                auth: {
-                    token: localStorage.getItem('token') || '',
-                    email: localStorage.getItem('email') || '',
-                    password: localStorage.getItem('password') || ''
-                }
-            }
-        }));
-    }
-    return (
-        <div class="flex flex-col w-64 h-60 bg-neutral-800 rounded-lg px-4 py-2 pb-3">
-            <p class="text-white font-bold text-2xl text-center w-full p-2">{props.collection.name}</p>
-            <hr class="border-neutral-600"/>
-            <div class="flex w-full items-center justify-center h-full my-2">
-                <div class="flex flex-col items-start justify-between h-full">
-                    <p class="text-gray-400 text-sm">Size:</p>
-                    <p class="text-gray-400 text-sm">File Count:</p>
-                    <p class="text-gray-400 text-sm">Folder Count:</p>
-                    <p class="text-gray-400 text-sm">Editors:</p>
-                </div>
-                <div class="flex flex-col items-start justify-between h-full ml-4">
-                    <p class="text-white text-sm">{formatFileSize(props.collection.size)}</p>
-                    <p class="text-white text-sm">{props.collection.file_count}</p>
-                    <p class="text-white text-sm">{props.collection.folder_count}</p>
-                    <p class="text-white text-sm text-start">{props.collection.editor_count}</p>
-                </div>
-            </div>
-            <div class="flex w-full justify-between px-5">
-                <a class="flex items-center justify-center p-2 bg-yellow-700/30 hover:bg-yellow-700/20 rounded-xl text-yellow-600">
-                    <EyeSVG />
-                </a>
-                <a class="flex items-center justify-center p-2 bg-lime-700/30 hover:bg-lime-700/20 rounded-xl text-lime-600">
-                    <CopySVG />
-                </a>
-                <a onClick={handleDelete} class="flex items-center justify-center p-2 bg-red-700/30 hover:bg-red-700/20 rounded-xl text-red-600">
-                    <BinSVG />
-                </a>
-            </div>
-        </div>
-    )
-}
+import { ErrorSVG, InfoSVG } from '../assets/SvgFiles';
+import CollectionCard from '../components/CollectionCard';
 
 const Popup = () => {
     const [newCollectionName, setNewCollectionName] = createSignal<string>('');
@@ -131,6 +75,50 @@ const Popup = () => {
     )
 }
 
+const CollectionsError: Component = () => {
+    const baseClass = "flex items-center p-[1vh] rounded-[1vh] w-full";
+    const textClass = "text-[0.75vw]";
+    const containerClass = "md:max-w-1/3 flex flex-col items-center space-y-[2vh]";
+    const {status} = useWebSocket();
+
+    return (
+        <div class="w-full h-full flex justify-center items-center px-10 md:px-0">
+            <div class={containerClass}>
+                {((status() === "connecting") || (status() === "reconnecting") ) && (
+                    <div class={`${baseClass} border-l-[0.2vw] bg-yellow-600/30 border-yellow-400`}>
+                        <div class="pr-[0.75vw] text-yellow-600 w-[3vw]">
+                            <InfoSVG />
+                        </div>
+                        <div>
+                            <p class={`${textClass} text-yellow-400`}>Connecting to backend, please wait...</p>
+                        </div>
+                    </div>
+                )}
+                {status() === "connected" && (
+                    <div class={`${baseClass} border-l-[0.2vw] bg-blue-600/30 border-blue-400`}>
+                        <div class="pr-[0.75vw] text-blue-600 w-[3vw]">
+                            <InfoSVG />
+                        </div>
+                        <div>
+                            <p class={`${textClass} text-blue-400`}>Any collections you create will show up here, click on the 'Create new collection' button to start.</p>
+                        </div>
+                    </div>
+                )}
+                {(status() === "error" || status() === "disconnected") && (
+                    <div class={`${baseClass} border-1 bg-red-600/30 border-red-400`}>
+                        <div class="pr-[0.75vw] text-red-600 w-[3vw]">
+                            <ErrorSVG />
+                        </div>
+                        <div>
+                            <p class={`${textClass} text-red-400`}>Failed to connect to server</p>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    )
+}
+
 const DesktopCollections = () => {
     const ctx = useContext(AppContext)!;
     const { userCollections } = ctx;
@@ -141,8 +129,8 @@ const DesktopCollections = () => {
                     <p class="text-white font-black text-[4vh]">My Collections</p>
                     <Popup/>
                 </div>
-                <div class="flex flex-wrap space-x-4 space-y-4 justify-center pt-3 overflow-y-scroll">
-                    <For each={userCollections()} fallback={<p class="text-white">No collections found.</p>}>
+                <div class="w-full h-full flex justify-center flex-wrap space-x-8 space-y-8 overflow-y-auto pt-10 custom-scrollbar">
+                    <For each={userCollections()} fallback={<CollectionsError />}>
                         {(collection) => (
                             <CollectionCard collection={collection} />
                         )}
@@ -171,7 +159,7 @@ const MyCollections = () => {
 
     return (
         <>
-            <title>My Files | DriveV3</title>
+            <title>My Collections | DriveV3</title>
             {isMobile() ? <MobileCollections/> : <DesktopCollections/>}
             <Toaster
             position="bottom-right"

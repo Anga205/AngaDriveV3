@@ -108,3 +108,16 @@ type DeleteCollectionRequest struct {
 	CollectionID string   `json:"collection_id"`
 	Auth         AuthInfo `json:"auth"`
 }
+
+type GetCollectionRequest struct {
+	CollectionID string   `json:"id"`
+	Auth         AuthInfo `json:"auth"`
+}
+
+type GetCollectionResponse struct {
+	CollectionID   string               `json:"collection_id"`
+	CollectionName string               `json:"collection_name"`
+	IsOwner        bool                 `json:"is_owner"`
+	Files          []database.FileData  `json:"files"`
+	Folders        []CollectionCardData `json:"folders"`
+}

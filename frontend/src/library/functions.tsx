@@ -93,6 +93,18 @@ const UniversalMessageHandler = (message: MessageEvent, ctx: AppContextType) => 
       } else if (data.data.toggle === false) {
           ctx.setUserCollections((prev: CollectionCardData[]) => prev.filter((collection: CollectionCardData) => collection.id !== data.data.collection.id));
       }
+  } else if (data.type === "error") {
+      toast.error(`Error: ${data.data.error}`);
+  } else if (data.type === "get_collection_response") {
+    ctx.setKnownCollections(prev=>({
+      ...prev,
+      [data.data.collection_id]: {
+        name: data.data.collection_name,
+        files: data.data.files,
+        folders: data.data.folders,
+        isOwned: data.data.is_owner
+      }
+    }))
   }
 }
 
