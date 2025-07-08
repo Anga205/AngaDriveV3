@@ -7,6 +7,7 @@ import Account from "./pages/Account";
 import { AppContext, ContextProvider } from "./Context";
 import { createEffect, useContext } from "solid-js";
 import { UniversalMessageHandler } from "./library/functions";
+import CollectionPage from "./pages/Collection";
 
 
 const UncontextedApp = () => {
@@ -25,6 +26,7 @@ const UncontextedApp = () => {
       <Route path="/my_drive" component={MyDrive}/>
       <Route path="/my_collections" component={MyCollections}/>
       <Route path="/account" component={Account}/>
+      <Route path="/collection/*" component={CollectionPage} />
     </Router>
   )
 }

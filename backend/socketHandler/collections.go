@@ -21,11 +21,8 @@ func CreateNewCollection(req CreateCollectionRequest) error {
 		Size:        0,
 		Dependant:   "",
 	}
-	collection, err = database.InsertNewCollection(collection)
+	collection, _ = database.InsertNewCollection(collection)
 	go CollectionPulse(true, collection)
-	if err != nil {
-		return fmt.Errorf("failed to create collection: %v", err)
-	}
 	return nil
 }
 
@@ -50,13 +47,11 @@ func DeleteCollection(req DeleteCollectionRequest) error {
 }
 
 func GetUserCollections(req AuthInfo) ([]CollectionCardData, error) {
-	var user database.Account
 	token, err := req.GetToken()
 	if err != nil {
 		return nil, fmt.Errorf("authentication failed: %v", err)
 	}
-	user, _ = database.FindUserByToken(token)
-	collections, err := user.GetCollections()
+	collections, err := database.Account{Token: token}.GetCollections()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get collections: %v", err)
 	}
@@ -96,7 +91,7 @@ func CollectionPulse(toggle bool, collection database.Collection) {
 	var connectionsToUpdate []connInfo
 	ActiveWebsocketsMutex.RLock()
 	for conn, connData := range ActiveWebsockets {
-		if !(connData.UserInfo.Email == "" || connData.UserInfo.HashedPassword == "") && (connData.UserInfo.Token == "") {
+		if (connData.UserInfo.Email != "" && connData.UserInfo.HashedPassword != "") || (connData.UserInfo.Token != "") {
 			connectionsToUpdate = append(connectionsToUpdate, connInfo{conn: conn, data: connData})
 		}
 	}
@@ -131,4 +126,49 @@ func CollectionPulse(toggle bool, collection database.Collection) {
 			}
 		}(ci.conn, &ci.data, collection, collectionCard)
 	}
+}
+
+func GetCollection(req GetCollectionRequest) (GetCollectionResponse, error) {
+	var resp GetCollectionResponse
+	collection, err := database.GetCollection(req.CollectionID)
+	if err != nil {
+		return resp, fmt.Errorf("failed to get collection: %v", err)
+	}
+	if req.Auth.Email != "" || req.Auth.Password != "" {
+		if !accounts.Authenticate(req.Auth.Email, req.Auth.Password) {
+			resp.IsOwner = false
+		} else {
+			token, _ := req.Auth.GetToken()
+			resp.IsOwner = collection.IsEditor(token)
+		}
+	} else if req.Auth.Token != "" {
+		resp.IsOwner = collection.IsEditor(req.Auth.Token)
+	} else {
+		resp.IsOwner = false
+	}
+	resp.CollectionID = collection.ID
+	resp.CollectionName = collection.Name
+	fileList := collection.GetFiles()
+	var fileArray []database.FileData = []database.FileData{}
+	for _, file := range fileList {
+		file, _ := database.GetFile(file)
+		fileArray = append(fileArray, file)
+	}
+	resp.Files = fileArray
+	collectionList := collection.GetCollections()
+	var collectionArray []CollectionCardData = []CollectionCardData{}
+	for _, coll := range collectionList {
+		collData, _ := database.GetCollection(coll)
+		collectionArray = append(collectionArray, CollectionCardData{
+			CollectionID:   collData.ID,
+			CollectionName: collData.Name,
+			Size:           int64(collData.Size),
+			FileCount:      len(collData.GetFiles()),
+			FolderCount:    len(collData.GetCollections()),
+			EditorCount:    len(collData.GetEditors()),
+			Timestamp:      collData.Timestamp,
+		})
+	}
+	resp.Folders = collectionArray
+	return resp, nil
 }

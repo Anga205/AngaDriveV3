@@ -424,7 +424,7 @@ func reader(conn *websocket.Conn, done chan bool) {
 			if err != nil {
 				ActiveWebsockets[conn].Mutex.Lock()
 				conn.WriteJSON(OutgoingResponse{
-					Type: "delete_file_response",
+					Type: "error",
 					Data: map[string]interface{}{"error": "invalid request data"},
 				})
 				ActiveWebsockets[conn].Mutex.Unlock()
@@ -438,7 +438,7 @@ func reader(conn *websocket.Conn, done chan bool) {
 				fmt.Printf("[%s] Error deleting file: %v\n", timestamp, err)
 				ActiveWebsockets[conn].Mutex.Lock()
 				conn.WriteJSON(OutgoingResponse{
-					Type: "delete_file_response",
+					Type: "error",
 					Data: map[string]interface{}{
 						"error": err.Error(),
 					},
@@ -466,7 +466,7 @@ func reader(conn *websocket.Conn, done chan bool) {
 			if err != nil {
 				ActiveWebsockets[conn].Mutex.Lock()
 				conn.WriteJSON(OutgoingResponse{
-					Type: "new_collection_response",
+					Type: "error",
 					Data: map[string]interface{}{"error": "invalid request data"},
 				})
 				ActiveWebsockets[conn].Mutex.Unlock()
@@ -479,7 +479,7 @@ func reader(conn *websocket.Conn, done chan bool) {
 				fmt.Printf("[%s] Error creating collection: %v\n", timestamp, err)
 				ActiveWebsockets[conn].Mutex.Lock()
 				conn.WriteJSON(OutgoingResponse{
-					Type: "new_collection_response",
+					Type: "error",
 					Data: map[string]interface{}{
 						"error": err.Error(),
 					},
@@ -494,7 +494,7 @@ func reader(conn *websocket.Conn, done chan bool) {
 			if err != nil {
 				ActiveWebsockets[conn].Mutex.Lock()
 				conn.WriteJSON(OutgoingResponse{
-					Type: "delete_collection_response",
+					Type: "error",
 					Data: map[string]interface{}{"error": "invalid request data"},
 				})
 				ActiveWebsockets[conn].Mutex.Unlock()
@@ -507,7 +507,7 @@ func reader(conn *websocket.Conn, done chan bool) {
 				fmt.Printf("[%s] Error deleting collection: %v\n", timestamp, err)
 				ActiveWebsockets[conn].Mutex.Lock()
 				conn.WriteJSON(OutgoingResponse{
-					Type: "delete_collection_response",
+					Type: "error",
 					Data: map[string]interface{}{
 						"error": err.Error(),
 					},
@@ -558,9 +558,46 @@ func reader(conn *websocket.Conn, done chan bool) {
 				data.UserInfo.HashedPassword = ""
 				ActiveWebsockets[conn] = data
 			}
+			if collections == nil {
+				collections = []CollectionCardData{} // not doing this will cause the frontend to crash, as nil evaluates to null in JSON
+			}
 			conn.WriteJSON(OutgoingResponse{
 				Type: "get_user_collections_response",
 				Data: collections,
+			})
+			ActiveWebsockets[conn].Mutex.Unlock()
+		} else if message.Type == "get_collection" {
+			var req GetCollectionRequest
+			dataBytes, _ := json.Marshal(message.Data)
+			err := json.Unmarshal(dataBytes, &req)
+			if err != nil {
+				ActiveWebsockets[conn].Mutex.Lock()
+				conn.WriteJSON(OutgoingResponse{
+					Type: "error",
+					Data: map[string]interface{}{"error": "invalid request data"},
+				})
+				ActiveWebsockets[conn].Mutex.Unlock()
+				continue
+			}
+			response, err := GetCollection(req)
+			if err != nil {
+				now := time.Now()
+				timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
+				fmt.Printf("[%s] Error getting collection: %v\n", timestamp, err)
+				ActiveWebsockets[conn].Mutex.Lock()
+				conn.WriteJSON(OutgoingResponse{
+					Type: "error",
+					Data: map[string]interface{}{
+						"error": err.Error(),
+					},
+				})
+				ActiveWebsockets[conn].Mutex.Unlock()
+				continue
+			}
+			ActiveWebsockets[conn].Mutex.Lock()
+			conn.WriteJSON(OutgoingResponse{
+				Type: "get_collection_response",
+				Data: response,
 			})
 			ActiveWebsockets[conn].Mutex.Unlock()
 		} else {

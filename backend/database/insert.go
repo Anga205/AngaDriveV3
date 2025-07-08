@@ -18,8 +18,6 @@ func (collection Collection) Insert() error {
 	}()
 	go func() {
 		editors := collection.GetEditors()
-		UserCollectionsMutex.Lock()
-		defer UserCollectionsMutex.Unlock()
 		for _, editor := range editors {
 			if _, ok := UserCollections[editor]; ok {
 				UserCollections[editor].Add(collection.ID)
