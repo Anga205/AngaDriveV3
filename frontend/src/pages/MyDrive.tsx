@@ -542,7 +542,7 @@ const MyDrive: Component = () => {
         if (data.type === "convert_video_response") {
             if (data.data.error) {
                 toast.error(`${data.data.error}`);
-            } else {
+            } else if (data.data.file) {
                 toast.success(`Video converted successfully: ${data.data.file.original_file_name}`);
             }
         } else if (data.type === "delete_file_response") {

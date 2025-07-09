@@ -12,7 +12,7 @@ func UserFilesPulse(file FileUpdate) {
 	var connectionsToUpdate []connInfo
 	ActiveWebsocketsMutex.RLock()
 	for conn, connData := range ActiveWebsockets {
-		if !(connData.UserInfo.Email == "" || connData.UserInfo.HashedPassword == "") && (connData.UserInfo.Token == "") {
+		if (connData.UserInfo.Email != "" && connData.UserInfo.HashedPassword != "") || (connData.UserInfo.Token != "") {
 			connectionsToUpdate = append(connectionsToUpdate, connInfo{conn: conn, data: connData})
 		}
 	}

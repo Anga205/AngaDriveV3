@@ -201,21 +201,21 @@ func performConversion(inputFile database.FileData) {
 	})
 }
 
-func HandleConversionRequest(req ConvertVideoRequest) error {
+func HandleConversionRequest(req ConvertVideoRequest) (string, error) {
 	var err error
 	if req.Auth.Token == "" {
 		req.Auth.Token, err = req.Auth.GetToken()
 		if err != nil {
-			return fmt.Errorf("failed to get token: %v", err)
+			return "", fmt.Errorf("failed to get token: %v", err)
 		}
 	}
 	fileToConvert, err := database.GetFile(req.FileDirectory)
 	if err != nil {
-		return fmt.Errorf("failed to get file: %v", err)
+		return "", fmt.Errorf("failed to get file: %v", err)
 	}
 	if fileToConvert.AccountToken != req.Auth.Token {
-		return fmt.Errorf("file %s does not belong to account %s", fileToConvert.FileDirectory, req.Auth.Token)
+		return "", fmt.Errorf("file %s does not belong to account %s", fileToConvert.FileDirectory, req.Auth.Token)
 	}
 	go ConvertToMP4(fileToConvert)
-	return nil
+	return fileToConvert.FileDirectory, nil
 }
