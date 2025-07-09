@@ -1,4 +1,4 @@
-import { Component } from "solid-js";
+import { Component, onMount } from "solid-js";
 import { BinSVG, CopySVG, EyeSVG } from "../assets/SvgFiles";
 import { CollectionCardData } from "../library/types";
 import { formatFileSize } from "../library/functions";
@@ -55,6 +55,28 @@ const CollectionCard: Component<{ collection: CollectionCardData }> = (props) =>
                 toast.error("Failed to copy collection URL.");
             })
     }
+    const getCollectionInfo = () => {
+        if (status() !== "connected") {
+            setInterval(getCollectionInfo, 1000);
+            return;
+        } else {
+            const ws = socket()!;
+            ws.send(JSON.stringify({
+                type: "get_collection",
+                data: {
+                    id: props.collection.id,
+                    auth: {
+                        token: localStorage.getItem("token") || "",
+                        email: localStorage.getItem("email") || "",
+                        password: localStorage.getItem("password") || ""
+                    }
+                }
+            }))
+        }
+    }
+    onMount(() => {
+        getCollectionInfo();
+    })
     return (
         <div class="flex flex-col w-64 h-60 bg-neutral-800 rounded-lg px-4 py-2 pb-3">
             <p class="text-white font-bold text-2xl text-center w-full p-2">{props.collection.name}</p>

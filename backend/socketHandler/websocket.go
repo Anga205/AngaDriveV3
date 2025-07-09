@@ -21,6 +21,33 @@ var (
 	UPLOAD_DIR            string
 )
 
+func genericUserPulse(token string, message map[string]interface{}) {
+	var connectionsToUpdate []connInfo
+	ActiveWebsocketsMutex.RLock()
+	for conn, connData := range ActiveWebsockets {
+		connectionsToUpdate = append(connectionsToUpdate, connInfo{conn: conn, data: connData})
+	}
+	ActiveWebsocketsMutex.RUnlock()
+	for _, ci := range connectionsToUpdate {
+		go func(ci connInfo, token string) {
+			if ci.data.UserInfo.Token == token {
+				ci.data.Mutex.Lock()
+				ci.conn.WriteJSON(message)
+				ci.data.Mutex.Unlock()
+			} else if ci.data.UserInfo.Email != "" && ci.data.UserInfo.HashedPassword != "" {
+				if accounts.AuthenticateHashed(ci.data.UserInfo.Email, ci.data.UserInfo.HashedPassword) {
+					user, _ := database.FindUserByEmail(ci.data.UserInfo.Email)
+					if user.Token == token {
+						ci.data.Mutex.Lock()
+						ci.conn.WriteJSON(message)
+						ci.data.Mutex.Unlock()
+					}
+				}
+			}
+		}(ci, token)
+	}
+}
+
 func SetupWebsocket(r *gin.Engine, upload_dir string) {
 	UPLOAD_DIR = upload_dir
 	info.InitializeSysInfo()
@@ -187,7 +214,7 @@ func reader(conn *websocket.Conn, done chan bool) {
 				fmt.Printf("[%s] Error logging in user: %v\n", timestamp, err)
 				ActiveWebsockets[conn].Mutex.Lock()
 				conn.WriteJSON(OutgoingResponse{
-					Type: "login_response",
+					Type: "error",
 					Data: map[string]interface{}{
 						"error": err.Error(),
 					},
@@ -222,7 +249,7 @@ func reader(conn *websocket.Conn, done chan bool) {
 				fmt.Printf("[%s] Error changing password: %v\n", timestamp, err)
 				ActiveWebsockets[conn].Mutex.Lock()
 				conn.WriteJSON(OutgoingResponse{
-					Type: "change_password_response",
+					Type: "error",
 					Data: map[string]interface{}{
 						"error": err.Error(),
 					},
@@ -257,7 +284,7 @@ func reader(conn *websocket.Conn, done chan bool) {
 				fmt.Printf("[%s] Error changing email: %v\n", timestamp, err)
 				ActiveWebsockets[conn].Mutex.Lock()
 				conn.WriteJSON(OutgoingResponse{
-					Type: "change_email_response",
+					Type: "error",
 					Data: map[string]interface{}{
 						"error": err.Error(),
 					},
@@ -292,7 +319,7 @@ func reader(conn *websocket.Conn, done chan bool) {
 				fmt.Printf("[%s] Error changing display name: %v\n", timestamp, err)
 				ActiveWebsockets[conn].Mutex.Lock()
 				conn.WriteJSON(OutgoingResponse{
-					Type: "change_display_name_response",
+					Type: "error",
 					Data: map[string]interface{}{
 						"error": err.Error(),
 					},
@@ -356,45 +383,27 @@ func reader(conn *websocket.Conn, done chan bool) {
 				})
 				ActiveWebsockets[conn].Mutex.Unlock()
 			}
-		} else if message.Type == "convert_video" {
-			var req ConvertVideoRequest
+		} else if message.Type == "get_user_collections" {
+			var req AuthInfo
 			dataBytes, _ := json.Marshal(message.Data)
 			err := json.Unmarshal(dataBytes, &req)
 			if err != nil {
 				ActiveWebsockets[conn].Mutex.Lock()
 				conn.WriteJSON(OutgoingResponse{
-					Type: "convert_video_response",
+					Type: "error",
 					Data: map[string]interface{}{"error": "invalid request data"},
 				})
 				ActiveWebsockets[conn].Mutex.Unlock()
+				continue
 			}
-			if req.Auth.Token == "" {
-				if !accounts.Authenticate(req.Auth.Email, req.Auth.Password) {
-					now := time.Now()
-					timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
-					fmt.Printf("[%s] Authentication failed for convert_video request\n", timestamp)
-					ActiveWebsockets[conn].Mutex.Lock()
-					conn.WriteJSON(OutgoingResponse{
-						Type: "convert_video_response",
-						Data: map[string]interface{}{
-							"error": "authentication failed",
-						},
-					})
-					ActiveWebsockets[conn].Mutex.Unlock()
-					continue
-				}
-				user, _ := database.FindUserByEmail(req.Auth.Email)
-				req.Auth.Token = user.Token
-			}
-			fileDirectory := req.FileDirectory
-			fileToConvert, err := database.GetFile(fileDirectory)
+			collections, err := GetUserCollections(req)
 			if err != nil {
 				now := time.Now()
 				timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
-				fmt.Printf("[%s] Error fetching file: %v\n", timestamp, err)
+				fmt.Printf("[%s] Error getting user collections: %v\n", timestamp, err)
 				ActiveWebsockets[conn].Mutex.Lock()
 				conn.WriteJSON(OutgoingResponse{
-					Type: "convert_video_response",
+					Type: "error",
 					Data: map[string]interface{}{
 						"error": err.Error(),
 					},
@@ -402,21 +411,53 @@ func reader(conn *websocket.Conn, done chan bool) {
 				ActiveWebsockets[conn].Mutex.Unlock()
 				continue
 			}
-			if fileToConvert.AccountToken != req.Auth.Token {
-				now := time.Now()
-				timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
-				fmt.Printf("[%s] Authentication failed for convert_video request: file %s does not belong to user %s\n", timestamp, fileToConvert.OriginalFileName, req.Auth.Email)
+			ActiveWebsockets[conn].Mutex.Lock()
+			if req.Email != "" && req.Password != "" && accounts.Authenticate(req.Email, req.Password) {
+				accountInfo, _ := database.FindUserByEmail(req.Email)
+				data := ActiveWebsockets[conn]
+				data.UserInfo.Token = ""
+				data.UserInfo.Email = accountInfo.Email
+				data.UserInfo.HashedPassword = accountInfo.HashedPassword
+				ActiveWebsockets[conn] = data
+			} else {
+				data := ActiveWebsockets[conn]
+				data.UserInfo.Token = req.Token
+				data.UserInfo.Email = ""
+				data.UserInfo.HashedPassword = ""
+				ActiveWebsockets[conn] = data
+			}
+			conn.WriteJSON(OutgoingResponse{
+				Type: "get_user_collections_response",
+				Data: collections,
+			})
+			ActiveWebsockets[conn].Mutex.Unlock()
+		} else if message.Type == "convert_video" {
+			var req ConvertVideoRequest
+			dataBytes, _ := json.Marshal(message.Data)
+			err := json.Unmarshal(dataBytes, &req)
+			if err != nil {
 				ActiveWebsockets[conn].Mutex.Lock()
 				conn.WriteJSON(OutgoingResponse{
-					Type: "convert_video_response",
+					Type: "error",
+					Data: map[string]interface{}{"error": "invalid request data"},
+				})
+				ActiveWebsockets[conn].Mutex.Unlock()
+			}
+			err = HandleConversionRequest(req)
+			if err != nil {
+				now := time.Now()
+				timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
+				fmt.Printf("[%s] Error converting video: %v\n", timestamp, err)
+				ActiveWebsockets[conn].Mutex.Lock()
+				conn.WriteJSON(OutgoingResponse{
+					Type: "error",
 					Data: map[string]interface{}{
-						"error": "authentication failed: file does not belong to user",
+						"error": err.Error(),
 					},
 				})
 				ActiveWebsockets[conn].Mutex.Unlock()
 				continue
 			}
-			go ConvertToMP4(fileToConvert, ActiveWebsockets[conn].Mutex, conn)
 		} else if message.Type == "delete_file" {
 			var req DeleteFileRequest
 			dataBytes, _ := json.Marshal(message.Data)
@@ -515,57 +556,6 @@ func reader(conn *websocket.Conn, done chan bool) {
 				ActiveWebsockets[conn].Mutex.Unlock()
 				continue
 			}
-		} else if message.Type == "get_user_collections" {
-			var req AuthInfo
-			dataBytes, _ := json.Marshal(message.Data)
-			err := json.Unmarshal(dataBytes, &req)
-			if err != nil {
-				ActiveWebsockets[conn].Mutex.Lock()
-				conn.WriteJSON(OutgoingResponse{
-					Type: "error",
-					Data: map[string]interface{}{"error": "invalid request data"},
-				})
-				ActiveWebsockets[conn].Mutex.Unlock()
-				continue
-			}
-			collections, err := GetUserCollections(req)
-			if err != nil {
-				now := time.Now()
-				timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
-				fmt.Printf("[%s] Error getting user collections: %v\n", timestamp, err)
-				ActiveWebsockets[conn].Mutex.Lock()
-				conn.WriteJSON(OutgoingResponse{
-					Type: "error",
-					Data: map[string]interface{}{
-						"error": err.Error(),
-					},
-				})
-				ActiveWebsockets[conn].Mutex.Unlock()
-				continue
-			}
-			ActiveWebsockets[conn].Mutex.Lock()
-			if req.Email != "" && req.Password != "" && accounts.Authenticate(req.Email, req.Password) {
-				accountInfo, _ := database.FindUserByEmail(req.Email)
-				data := ActiveWebsockets[conn]
-				data.UserInfo.Token = ""
-				data.UserInfo.Email = accountInfo.Email
-				data.UserInfo.HashedPassword = accountInfo.HashedPassword
-				ActiveWebsockets[conn] = data
-			} else {
-				data := ActiveWebsockets[conn]
-				data.UserInfo.Token = req.Token
-				data.UserInfo.Email = ""
-				data.UserInfo.HashedPassword = ""
-				ActiveWebsockets[conn] = data
-			}
-			if collections == nil {
-				collections = []CollectionCardData{} // not doing this will cause the frontend to crash, as nil evaluates to null in JSON
-			}
-			conn.WriteJSON(OutgoingResponse{
-				Type: "get_user_collections_response",
-				Data: collections,
-			})
-			ActiveWebsockets[conn].Mutex.Unlock()
 		} else if message.Type == "get_collection" {
 			var req GetCollectionRequest
 			dataBytes, _ := json.Marshal(message.Data)

@@ -55,7 +55,7 @@ func GetUserCollections(req AuthInfo) ([]CollectionCardData, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get collections: %v", err)
 	}
-	var collectionCards []CollectionCardData
+	var collectionCards []CollectionCardData = []CollectionCardData{}
 	for _, collection := range collections {
 		if collection.Dependant != "" {
 			continue
