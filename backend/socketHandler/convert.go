@@ -10,8 +10,6 @@ import (
 	"service/database"
 	"sync"
 	"time"
-
-	"github.com/gorilla/websocket"
 )
 
 func removeExtension(filename string) string {
@@ -44,8 +42,6 @@ const conversionQueueSize = 100
 // conversionJob holds the data needed for a conversion task.
 type conversionJob struct {
 	inputFile database.FileData
-	mutex     *sync.Mutex
-	conn      *websocket.Conn
 }
 
 var (
@@ -77,32 +73,22 @@ func startConversionWorker() {
 			// When the goroutine finishes, release the slot.
 			defer func() { <-concurrencyLimiter }()
 			// Perform the actual conversion.
-			performConversion(j.inputFile, j.mutex, j.conn)
+			performConversion(j.inputFile)
 		}(job)
 	}
 }
 
 // ConvertToMP4 adds a video conversion job to the queue.
 // It checks for duplicates in the queue or in progress.
-func ConvertToMP4(inputFile database.FileData, mutex *sync.Mutex, conn *websocket.Conn) error {
+func ConvertToMP4(inputFile database.FileData) error {
 	// Atomically check if the file is already being processed and mark it as such.
 	_, loaded := conversionTasks.LoadOrStore(inputFile.Md5sum, true)
 	if loaded {
-		mutex.Lock()
-		conn.WriteJSON(OutgoingResponse{
-			Type: "convert_video_response",
-			Data: map[string]interface{}{
-				"error": fmt.Sprintf("file %s already being converted or is in queue", inputFile.OriginalFileName),
-			},
-		})
-		mutex.Unlock()
 		return fmt.Errorf("file %s already being converted or is in queue", inputFile.OriginalFileName)
 	}
 
 	job := conversionJob{
 		inputFile: inputFile,
-		mutex:     mutex,
-		conn:      conn,
 	}
 
 	// Try to add the job to the queue.
@@ -114,35 +100,25 @@ func ConvertToMP4(inputFile database.FileData, mutex *sync.Mutex, conn *websocke
 		// The queue is full, so we couldn't add it.
 		// Remove it from our tracking map to allow it to be re-queued later.
 		conversionTasks.Delete(inputFile.Md5sum)
-		mutex.Lock()
-		conn.WriteJSON(OutgoingResponse{
-			Type: "convert_video_response",
-			Data: map[string]interface{}{
-				"error": "conversion queue is full, please try again later",
-			},
-		})
-		mutex.Unlock()
 		return fmt.Errorf("conversion queue is full")
 	}
 }
 
 // performConversion contains the core logic for converting a single video file.
 // It is run in a goroutine by the worker.
-func performConversion(inputFile database.FileData, mutex *sync.Mutex, conn *websocket.Conn) {
+func performConversion(inputFile database.FileData) {
 	// Ensure the file is removed from the tasks map when the conversion is done.
 	defer conversionTasks.Delete(inputFile.Md5sum)
 
 	inputFilePath := UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + inputFile.Md5sum
 	outputFilePath := UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + removeExtension(inputFile.Md5sum) + ".mp4"
 	if _, err := os.Stat(inputFilePath); os.IsNotExist(err) {
-		mutex.Lock()
-		conn.WriteJSON(OutgoingResponse{
-			Type: "convert_video_response",
-			Data: map[string]interface{}{
+		go genericUserPulse(inputFile.AccountToken, map[string]interface{}{
+			"type": "error",
+			"data": map[string]interface{}{
 				"error": "input file not found: " + inputFile.OriginalFileName,
 			},
 		})
-		mutex.Unlock()
 		return
 	}
 	cmd := exec.Command("ffmpeg",
@@ -161,52 +137,44 @@ func performConversion(inputFile database.FileData, mutex *sync.Mutex, conn *web
 
 	if err := cmd.Run(); err != nil {
 		go os.Remove(outputFilePath)
-		mutex.Lock()
-		conn.WriteJSON(OutgoingResponse{
-			Type: "convert_video_response",
-			Data: map[string]interface{}{
+		go genericUserPulse(inputFile.AccountToken, map[string]interface{}{
+			"type": "error",
+			"data": map[string]interface{}{
 				"error": fmt.Sprintf("failed to convert video: %v. FFMpeg output: %s", err, stderr.String()),
 			},
 		})
-		mutex.Unlock()
 		return
 	}
 	fileInfo, err := os.Stat(outputFilePath)
 	if err != nil {
-		mutex.Lock()
-		conn.WriteJSON(OutgoingResponse{
-			Type: "convert_video_response",
-			Data: map[string]interface{}{
+		go genericUserPulse(inputFile.AccountToken, map[string]interface{}{
+			"type": "error",
+			"data": map[string]interface{}{
 				"error": "failed to get output file stats: " + err.Error(),
 			},
 		})
-		mutex.Unlock()
 		return
 	}
 	fileSize := fileInfo.Size()
 	uniqueFileName := database.GenerateUniqueFileName(inputFile.OriginalFileName + ".mp4")
 	outputMd5sum, err := md5sum(outputFilePath)
 	if err != nil {
-		mutex.Lock()
-		conn.WriteJSON(OutgoingResponse{
-			Type: "convert_video_response",
-			Data: map[string]interface{}{
+		go genericUserPulse(inputFile.AccountToken, map[string]interface{}{
+			"type": "error",
+			"data": map[string]interface{}{
 				"error": "failed to calculate MD5 checksum: " + err.Error(),
 			},
 		})
-		mutex.Unlock()
 		return
 	}
 	err = os.Rename(outputFilePath, UPLOAD_DIR+string(os.PathSeparator)+"i"+string(os.PathSeparator)+outputMd5sum+".mp4")
 	if err != nil {
-		mutex.Lock()
-		conn.WriteJSON(OutgoingResponse{
-			Type: "convert_video_response",
-			Data: map[string]interface{}{
+		go genericUserPulse(inputFile.AccountToken, map[string]interface{}{
+			"type": "error",
+			"data": map[string]interface{}{
 				"error": "failed to rename output file: " + err.Error(),
 			},
 		})
-		mutex.Unlock()
 		return
 	}
 	fileData := database.FileData{
@@ -225,12 +193,29 @@ func performConversion(inputFile database.FileData, mutex *sync.Mutex, conn *web
 			File:   fileData,
 		},
 	)
-	mutex.Lock()
-	conn.WriteJSON(OutgoingResponse{
-		Type: "convert_video_response",
-		Data: map[string]interface{}{
+	go genericUserPulse(inputFile.AccountToken, map[string]interface{}{
+		"type": "convert_video_response",
+		"data": map[string]interface{}{
 			"file": fileData,
 		},
 	})
-	mutex.Unlock()
+}
+
+func HandleConversionRequest(req ConvertVideoRequest) error {
+	var err error
+	if req.Auth.Token == "" {
+		req.Auth.Token, err = req.Auth.GetToken()
+		if err != nil {
+			return fmt.Errorf("failed to get token: %v", err)
+		}
+	}
+	fileToConvert, err := database.GetFile(req.FileDirectory)
+	if err != nil {
+		return fmt.Errorf("failed to get file: %v", err)
+	}
+	if fileToConvert.AccountToken != req.Auth.Token {
+		return fmt.Errorf("file %s does not belong to account %s", fileToConvert.FileDirectory, req.Auth.Token)
+	}
+	go ConvertToMP4(fileToConvert)
+	return nil
 }
