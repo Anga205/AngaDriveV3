@@ -8,10 +8,10 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func CreateNewCollection(req CreateCollectionRequest) error {
+func CreateNewCollection(req CreateCollectionRequest) (string, error) {
 	userToken, err := req.Auth.GetToken()
 	if err != nil {
-		return fmt.Errorf("authentication failed: %v", err)
+		return "", fmt.Errorf("authentication failed: %v", err)
 	}
 	collection := database.Collection{
 		Name:        req.CollectionName,
@@ -23,27 +23,27 @@ func CreateNewCollection(req CreateCollectionRequest) error {
 	}
 	collection, _ = database.InsertNewCollection(collection)
 	go CollectionPulse(true, collection)
-	return nil
+	return collection.ID, nil
 }
 
-func DeleteCollection(req DeleteCollectionRequest) error {
+func DeleteCollection(req DeleteCollectionRequest) (string, error) {
 	userToken, err := req.Auth.GetToken()
 	if err != nil {
-		return fmt.Errorf("authentication failed: %v", err)
+		return "", fmt.Errorf("authentication failed: %v", err)
 	}
 	collection, err := database.GetCollection(req.CollectionID)
 	if err != nil {
-		return fmt.Errorf("failed to get collection: %v", err)
+		return "", fmt.Errorf("failed to get collection: %v", err)
 	}
 	if !collection.IsEditor(userToken) {
-		return fmt.Errorf("user is not an editor of the collection")
+		return "", fmt.Errorf("user is not an editor of the collection")
 	}
 	err = collection.Delete()
 	if err != nil {
-		return fmt.Errorf("failed to delete collection: %v", err)
+		return "", fmt.Errorf("failed to delete collection: %v", err)
 	}
 	go CollectionPulse(false, collection)
-	return nil
+	return collection.ID, nil
 }
 
 func GetUserCollections(req AuthInfo) ([]CollectionCardData, error) {
