@@ -121,3 +121,15 @@ type GetCollectionResponse struct {
 	Files          []database.FileData  `json:"files"`
 	Folders        []CollectionCardData `json:"folders"`
 }
+
+type AddFolderToCollectionRequest struct {
+	FolderName   string   `json:"folder_name"`
+	CollectionID string   `json:"collection_id"`
+	Auth         AuthInfo `json:"auth"`
+}
+
+type CreateFolderInCollectionRequest struct {
+	FolderName   string   `json:"folder_name"`
+	CollectionID string   `json:"collection_id"`
+	Auth         AuthInfo `json:"auth"`
+}

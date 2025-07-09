@@ -8,7 +8,7 @@ const DesktopNavbar: Component<{ CurrentPage: Pages }> = (props) => {
     const navigate = useNavigate();
 
     return (
-        <div class="bg-[#161717] h-screen w-[4.5vw] flex flex-col items-center">
+        <div class="bg-[#161717] h-screen w-[103px] flex flex-col items-center">
             <div class="p-[20%] h-[11vh]" onClick={() => {navigate("/")}}>
                 <div class="w-full h-auto">
                     <Anga />
@@ -17,19 +17,19 @@ const DesktopNavbar: Component<{ CurrentPage: Pages }> = (props) => {
 
             <div class="w-full flex flex-col items-end space-y-[0.5vh]">
                 <button 
-                    class={`w-5/6 ${props.CurrentPage === "Home" ? "bg-black" : "bg-[#161717] hover:bg-black"} pl-[0.7vw] pr-[1.7vw] py-[1.5vh] rounded-l-[1.6vh]`}
+                    class={`w-5/6 ${props.CurrentPage === "Home" ? "bg-black" : "bg-[#161717] hover:bg-black"} pl-[17px] pr-[41px] py-[1.5vh] rounded-l-[1.6vh]`}
                     onClick={() => {navigate("/")}}
                 >
                     <HomeSVG />
                 </button>
                 <button 
-                    class={`w-5/6 ${props.CurrentPage === "Files" ? "bg-black" : "bg-[#161717] hover:bg-black"} pl-[0.7vw] pr-[1.7vw] py-[1.5vh] rounded-l-[1.6vh]`}
+                    class={`w-5/6 ${props.CurrentPage === "Files" ? "bg-black" : "bg-[#161717] hover:bg-black"} pl-[17px] pr-[41px] py-[1.5vh] rounded-l-[1.6vh]`}
                     onClick={() => {navigate("/my_drive")}}
                 >
                     <FileSVG />
                 </button>
                 <button 
-                    class={`w-5/6 ${props.CurrentPage === "Collections" ? "bg-black" : "bg-[#161717] hover:bg-black"} pl-[0.7vw] pr-[1.7vw] py-[1.5vh] rounded-l-[1.6vh]`}
+                    class={`w-5/6 ${props.CurrentPage === "Collections" ? "bg-black" : "bg-[#161717] hover:bg-black"} pl-[17px] pr-[41px] py-[1.5vh] rounded-l-[1.6vh]`}
                     onClick={() => {navigate("/my_collections")}}
                 >
                     <CollectionSVG />
@@ -37,7 +37,7 @@ const DesktopNavbar: Component<{ CurrentPage: Pages }> = (props) => {
                 <a 
                     href="https://github.com/Anga205/AngaDriveV3"
                     target="_blank"
-                    class="w-5/6 bg-[#161717] hover:bg-black pl-[0.7vw] pr-[1.7vw] py-[1.5vh] rounded-l-[1.6vh]"
+                    class="w-5/6 bg-[#161717] hover:bg-black pl-[17px] pr-[41px] py-[1.5vh] rounded-l-[1.6vh]"
                 >
                     <GitHubSVG />
                 </a>
