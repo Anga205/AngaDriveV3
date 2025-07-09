@@ -6,7 +6,9 @@ const DesktopTemplate: Component<{ CurrentPage: Pages; children: any }> = (props
     return (
         <div class="max-h-screen w-screen h-screen flex items-start bg-black overflow-hidden">
             <Navbar CurrentPage={props.CurrentPage} Type="desktop"/>
-            {props.children}
+            <div class="w-[calc(100vw-103px)] h-full">
+                {props.children}
+            </div>
         </div>
     );
 }
