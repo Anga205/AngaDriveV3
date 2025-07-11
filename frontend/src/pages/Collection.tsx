@@ -9,6 +9,7 @@ import Dialog from "@corvu/dialog";
 import Dropdown from "../components/Dropdown";
 import { createEffect } from "solid-js";
 import { getCollection } from "../library/functions";
+import { Toaster } from "solid-toast";
 
 const Popup: Component<{collectionId: string}> = (props) => {
     const ctx = useContext(AppContext)!;
@@ -55,7 +56,7 @@ const Popup: Component<{collectionId: string}> = (props) => {
                     selected={selectedFolders()}
                     onChange={setSelectedFolders}
                 />
-                <Dialog.Close>
+                <Dialog.Close class="w-full">
                     <button 
                         onClick={() => handleAddFolders(() => {})} 
                         class="bg-green-700 text-white p-2 rounded-lg font-semibold w-full hover:bg-green-800 transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed"
@@ -70,7 +71,7 @@ const Popup: Component<{collectionId: string}> = (props) => {
     );
 }
 
-const CollectionPage: Component = () => {
+const CollectionPageDesktop: Component = () => {
     const ctx = useContext(AppContext)!;
     const {socket, status} = useWebSocket();
 
@@ -107,6 +108,28 @@ const CollectionPage: Component = () => {
             </For>
             </div>
         </DesktopTemplate>
+    );
+}
+
+const CollectionPage: Component = () => {
+    return (
+        <>
+            <CollectionPageDesktop />
+            <Toaster
+            position="bottom-right"
+            gutter={8}
+            containerClassName=""
+            containerStyle={{}}
+            toastOptions={{
+                className: '',
+                duration: 2000,
+                style: {
+                background: '#363636',
+                color: '#fff',
+                },
+            }}
+            />
+        </>
     );
 }
 
