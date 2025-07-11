@@ -40,9 +40,13 @@ func processRequest[T any, R any](conn *websocket.Conn, data json.RawMessage, ha
 		now := time.Now()
 		timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
 		fmt.Printf("[%s] Error handling %s: %v\n", timestamp, responseType, err)
+		errorType := "error"
+		if responseType == "login_response" {
+			errorType = "login_response"
+		}
 		sendJSON(conn, OutgoingResponse{
-			Type: "error",
-			Data: map[string]string{"error": err.Error()},
+			Type: errorType,
+			Data: err.Error(),
 		})
 		return
 	}
@@ -96,6 +100,12 @@ var messageHandlers = map[string]MessageHandler{
 		processRequest(conn, data, GetCollection, "get_collection_response")
 	}),
 	"enable_homepage_updates": HandlerFunc(handleEnableHomepageUpdates),
+	"add_folder_to_collection": HandlerFunc(func(conn *websocket.Conn, data json.RawMessage) {
+		processRequest(conn, data, AddFolder, "get_collection_response")
+	}),
+	"remove_folder_from_collection": HandlerFunc(func(conn *websocket.Conn, data json.RawMessage) {
+		processRequest(conn, data, RemoveFolder, "get_collection_response")
+	}),
 }
 
 func handleEnableHomepageUpdates(conn *websocket.Conn, data json.RawMessage) {

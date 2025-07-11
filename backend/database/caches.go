@@ -1,6 +1,8 @@
 package database
 
-import "sync"
+import (
+	"sync"
+)
 
 type FileSet struct {
 	mu   sync.RWMutex
