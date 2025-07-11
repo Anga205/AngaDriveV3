@@ -134,41 +134,41 @@ func GetCollection(req GetCollectionRequest) (GetCollectionResponse, error) {
 	if err != nil {
 		return resp, fmt.Errorf("failed to get collection: %v", err)
 	}
-	if req.Auth.Email != "" || req.Auth.Password != "" {
-		if !accounts.Authenticate(req.Auth.Email, req.Auth.Password) {
-			resp.IsOwner = false
-		} else {
-			token, _ := req.Auth.GetToken()
-			resp.IsOwner = collection.IsEditor(token)
+	req.Auth.Token, err = req.Auth.GetToken()
+	if err != nil {
+		return resp, fmt.Errorf("authentication failed: %v", err)
+	}
+	return Collection(collection).getCollectionResponse(req.Auth.Token), nil
+}
+
+func updateCollectionFolders(collectionID, folderID string, auth AuthInfo, add bool) (GetCollectionResponse, error) {
+	token, err := auth.GetToken()
+	if err != nil {
+		return GetCollectionResponse{}, fmt.Errorf("authentication failed: %v", err)
+	}
+	collection, err := database.GetCollection(collectionID)
+	if err != nil {
+		return GetCollectionResponse{}, fmt.Errorf("failed to get collection: %v", err)
+	}
+	if !collection.IsEditor(token) {
+		return GetCollectionResponse{}, fmt.Errorf("user is not an editor of the collection")
+	}
+	if add {
+		folder, err := database.GetCollection(folderID)
+		if err != nil {
+			return GetCollectionResponse{}, fmt.Errorf("failed to get folder: %v", err)
 		}
-	} else if req.Auth.Token != "" {
-		resp.IsOwner = collection.IsEditor(req.Auth.Token)
+		collection.AddFolder(folder.ID)
 	} else {
-		resp.IsOwner = false
+		collection.RemoveFolder(folderID)
 	}
-	resp.CollectionID = collection.ID
-	resp.CollectionName = collection.Name
-	fileList := collection.GetFiles()
-	var fileArray []database.FileData = []database.FileData{}
-	for _, file := range fileList {
-		file, _ := database.GetFile(file)
-		fileArray = append(fileArray, file)
-	}
-	resp.Files = fileArray
-	collectionList := collection.GetCollections()
-	var collectionArray []CollectionCardData = []CollectionCardData{}
-	for _, coll := range collectionList {
-		collData, _ := database.GetCollection(coll)
-		collectionArray = append(collectionArray, CollectionCardData{
-			CollectionID:   collData.ID,
-			CollectionName: collData.Name,
-			Size:           int64(collData.Size),
-			FileCount:      len(collData.GetFiles()),
-			FolderCount:    len(collData.GetCollections()),
-			EditorCount:    len(collData.GetEditors()),
-			Timestamp:      collData.Timestamp,
-		})
-	}
-	resp.Folders = collectionArray
-	return resp, nil
+	return Collection(collection).getCollectionResponse(token), nil
+}
+
+func AddFolder(req AddFolderToCollectionRequest) (GetCollectionResponse, error) {
+	return updateCollectionFolders(req.CollectionID, req.FolderID, req.Auth, true)
+}
+
+func RemoveFolder(req RemoveFolderFromCollectionRequest) (GetCollectionResponse, error) {
+	return updateCollectionFolders(req.CollectionID, req.FolderID, req.Auth, false)
 }

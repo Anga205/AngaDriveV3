@@ -1,10 +1,11 @@
-import { Component, onMount } from "solid-js";
+import { Component, onMount, useContext } from "solid-js";
 import { BinSVG, CopySVG, EyeSVG } from "../assets/SvgFiles";
 import { CollectionCardData } from "../library/types";
-import { formatFileSize } from "../library/functions";
+import { formatFileSize, getCollection } from "../library/functions";
 import { useWebSocket } from "../Websockets";
 import toast from "solid-toast";
 import { useNavigate } from "@solidjs/router";
+import { AppContext } from "../Context";
 
 const CollectionCard: Component<{ collection: CollectionCardData }> = (props) => {
     const {socket, status} = useWebSocket();
@@ -55,27 +56,9 @@ const CollectionCard: Component<{ collection: CollectionCardData }> = (props) =>
                 toast.error("Failed to copy collection URL.");
             })
     }
-    const getCollectionInfo = () => {
-        if (status() !== "connected") {
-            setInterval(getCollectionInfo, 1000);
-            return;
-        } else {
-            const ws = socket()!;
-            ws.send(JSON.stringify({
-                type: "get_collection",
-                data: {
-                    id: props.collection.id,
-                    auth: {
-                        token: localStorage.getItem("token") || "",
-                        email: localStorage.getItem("email") || "",
-                        password: localStorage.getItem("password") || ""
-                    }
-                }
-            }))
-        }
-    }
+    const ctx = useContext(AppContext)!;
     onMount(() => {
-        getCollectionInfo();
+        getCollection(props.collection.id, status, socket, ctx);
     })
     return (
         <div class="flex flex-col w-64 h-60 bg-neutral-800 rounded-lg px-4 py-2 pb-3">

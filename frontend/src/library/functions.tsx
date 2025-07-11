@@ -1,6 +1,7 @@
 import SparkMD5 from 'spark-md5';
 import toast from 'solid-toast';
-import type { AppContextType, CollectionCardData, FileData } from './types';
+import type { AppContextType, CollectionCardData, FileData, SocketStatus } from './types';
+import { Accessor } from 'solid-js';
 
 async function getFileMD5(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -92,6 +93,11 @@ const UniversalMessageHandler = (message: MessageEvent, ctx: AppContextType) => 
           ctx.setUserCollections((prev: CollectionCardData[]) => [data.data.collection, ...prev]);
       } else if (data.data.toggle === false) {
           ctx.setUserCollections((prev: CollectionCardData[]) => prev.filter((collection: CollectionCardData) => collection.id !== data.data.collection.id));
+          ctx.setKnownCollections(prev => {
+            const newCollections = { ...prev };
+            delete newCollections[data.data.collection.id];
+            return newCollections;
+          });
       }
   } else if (data.type === "error") {
       toast.error(`Error: ${data.data.error}`);
@@ -145,4 +151,23 @@ const fetchFilesAndCollections = (ws: WebSocket) => {
   }));
 }
 
-export {getFileMD5, formatFileSize, truncateFileName, getFileType, UniversalMessageHandler, generateClientToken, fetchFilesAndCollections};
+const getCollection = (id: string, status: Accessor<SocketStatus>, socket: Accessor<WebSocket | undefined>, ctx: AppContextType) => {
+    if (ctx.knownCollections()[id]) return;
+    if (status() !== "connected") {
+        setTimeout(() => getCollection(id, status, socket, ctx), 10);
+    } else {
+        socket()?.send(JSON.stringify({
+            type: "get_collection",
+            data: {
+                id: id,
+                auth: {
+                    token: localStorage.getItem("token") || "",
+                    email: localStorage.getItem("email") || "",
+                    password: localStorage.getItem("password") || ""
+                }
+            }
+        }));
+    }
+}
+
+export {getFileMD5, formatFileSize, truncateFileName, getFileType, UniversalMessageHandler, generateClientToken, fetchFilesAndCollections, getCollection};

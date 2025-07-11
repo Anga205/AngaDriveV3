@@ -122,14 +122,41 @@ type GetCollectionResponse struct {
 	Folders        []CollectionCardData `json:"folders"`
 }
 
+type Collection database.Collection
+
+func (collection Collection) getCollectionResponse(userToken string) GetCollectionResponse {
+	resp := GetCollectionResponse{
+		CollectionID:   collection.ID,
+		CollectionName: collection.Name,
+		IsOwner:        database.Collection(collection).IsEditor(userToken),
+		Files:          []database.FileData{},
+		Folders:        []CollectionCardData{},
+	}
+	fileList := database.Collection(collection).GetFiles()
+	for _, fileID := range fileList {
+		file, _ := database.GetFile(fileID)
+		resp.Files = append(resp.Files, file)
+	}
+	folderList := database.Collection(collection).GetCollections()
+	for _, folderID := range folderList {
+		folder, _ := database.GetCollection(folderID)
+		resp.Folders = append(resp.Folders, CollectionCardData{
+			CollectionID:   folder.ID,
+			CollectionName: folder.Name,
+			Size:           int64(folder.Size),
+			FileCount:      len(folder.GetFiles()),
+			FolderCount:    len(folder.GetCollections()),
+			EditorCount:    len(folder.GetEditors()),
+			Timestamp:      folder.Timestamp,
+		})
+	}
+	return resp
+}
+
 type AddFolderToCollectionRequest struct {
-	FolderName   string   `json:"folder_name"`
+	FolderID     string   `json:"folder_id"`
 	CollectionID string   `json:"collection_id"`
 	Auth         AuthInfo `json:"auth"`
 }
 
-type CreateFolderInCollectionRequest struct {
-	FolderName   string   `json:"folder_name"`
-	CollectionID string   `json:"collection_id"`
-	Auth         AuthInfo `json:"auth"`
-}
+type RemoveFolderFromCollectionRequest AddFolderToCollectionRequest

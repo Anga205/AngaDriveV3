@@ -95,12 +95,12 @@ const CollectionsError: Component = () => {
                     </div>
                 )}
                 {status() === "connected" && (
-                    <div class={`${baseClass} border-l-[0.2vw] bg-blue-600/30 border-blue-400`}>
-                        <div class="pr-[0.75vw] text-blue-600 w-[3vw]">
+                    <div class={`${baseClass} border-l-[0.2vw] bg-green-600/30 border-green-400`}>
+                        <div class="pr-[0.75vw] text-green-600 w-[3vw]">
                             <InfoSVG />
                         </div>
                         <div>
-                            <p class={`${textClass} text-blue-400`}>Any collections you create will show up here, click on the 'Create new collection' button to start.</p>
+                            <p class={`${textClass} text-green-400`}>Any collections you create will show up here, click on the 'Create new collection' button to start.</p>
                         </div>
                     </div>
                 )}

@@ -93,6 +93,15 @@ func setupRoutes(r *gin.Engine, distPath string) {
 		}
 	})
 
+	r.GET("/collection", func(c *gin.Context) {
+		if c.Request.Host == vars.FrontendURL {
+			go socketHandler.SiteActivityPulse()
+			c.Data(http.StatusOK, "text/html", fileCache["/index.html"])
+		} else {
+			c.AbortWithStatus(http.StatusNotFound)
+		}
+	})
+
 	r.GET("/account", func(c *gin.Context) {
 		if c.Request.Host == vars.FrontendURL {
 			go socketHandler.SiteActivityPulse()
