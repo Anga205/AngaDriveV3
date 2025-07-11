@@ -100,7 +100,12 @@ const UniversalMessageHandler = (message: MessageEvent, ctx: AppContextType) => 
           });
       }
   } else if (data.type === "error") {
-      toast.error(`Error: ${data.data.error}`);
+      toast.error(`Error: ${data.data.error}`, {
+        style: {
+          "background-color": "#2a2a2a",
+          "color": "#ffffff"
+        }
+      });
   } else if (data.type === "get_collection_response") {
     ctx.setKnownCollections(prev=>({
       ...prev,
