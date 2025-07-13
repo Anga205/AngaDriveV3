@@ -44,8 +44,8 @@ const Popup = () => {
     }
     return (
         <Dialog onOpenChange={() => {}}>
-            <Dialog.Trigger class="cursor-pointer hover:text-gray-300 text-white flex justify-center items-center bg-green-600 hover:bg-green-800 p-[0.2vh] px-[1vh] rounded-[1vh] font-bold translate-y-[4vh]">
-                <span class="text-4xl text-center">+</span>&nbsp;Create new collection
+            <Dialog.Trigger class="cursor-pointer hover:text-gray-300 text-white flex justify-center items-center bg-green-600 hover:bg-green-800 md:p-[0.2vh] px-[1vh] rounded-[1vh] font-bold md:translate-y-[4vh]">
+                <span class="text-4xl text-center">+</span>&nbsp;Create&nbsp;Collection
             </Dialog.Trigger>
             <Dialog.Portal>
                 <Dialog.Overlay class="fixed inset-0 z-50 bg-black/50 data-open:animate-in data-open:fade-in-0% data-closed:animate-out data-closed:fade-out-0%"/>
@@ -77,7 +77,7 @@ const Popup = () => {
 
 const CollectionsError: Component = () => {
     const baseClass = "flex items-center p-[1vh] rounded-[1vh] w-full";
-    const textClass = "text-[0.75vw]";
+    const textClass = "text-sm";
     const containerClass = "md:max-w-1/3 flex flex-col items-center space-y-[2vh]";
     const {status} = useWebSocket();
 
@@ -86,7 +86,7 @@ const CollectionsError: Component = () => {
             <div class={containerClass}>
                 {((status() === "connecting") || (status() === "reconnecting") ) && (
                     <div class={`${baseClass} border-l-[0.2vw] bg-yellow-600/30 border-yellow-400`}>
-                        <div class="pr-[0.75vw] text-yellow-600 w-[3vw]">
+                        <div class="pr-[0.75vw] text-yellow-600 w-16 md:w-[3vw]">
                             <InfoSVG />
                         </div>
                         <div>
@@ -96,7 +96,7 @@ const CollectionsError: Component = () => {
                 )}
                 {status() === "connected" && (
                     <div class={`${baseClass} border-l-[0.2vw] bg-green-600/30 border-green-400`}>
-                        <div class="pr-[0.75vw] text-green-600 w-[3vw]">
+                        <div class="pr-[0.75vw] text-green-600 w-16 md:w-[3vw]">
                             <InfoSVG />
                         </div>
                         <div>
@@ -106,7 +106,7 @@ const CollectionsError: Component = () => {
                 )}
                 {(status() === "error" || status() === "disconnected") && (
                     <div class={`${baseClass} border-1 bg-red-600/30 border-red-400`}>
-                        <div class="pr-[0.75vw] text-red-600 w-[3vw]">
+                        <div class="pr-[0.75vw] text-red-600 w-16 md:w-[3vw]">
                             <ErrorSVG />
                         </div>
                         <div>
@@ -142,12 +142,28 @@ const DesktopCollections = () => {
 }
 
 const MobileCollections = () => {
+    const ctx = useContext(AppContext)!;
+    const { userCollections } = ctx;
     return (
-        <div class="flex flex-col w-full min-h-screen h-screen bg-black">
+        <div class="flex flex-col w-full max-h-screen h-screen bg-black">
             <Navbar CurrentPage="Collections" Type="mobile"/>
+            <div class="h-[6vh]"/>
+            <p class="text-white font-black text-[4vh] px-3">My&nbsp;Collections</p>
+            <div class="flex justify-end px-3">
+                <Popup/>
+            </div>
+            <div class="w-full px-4 mt-4 max-h-full h-full flex flex-wrap space-y-4 space-x-4 justify-center overflow-y-auto">
+                <For each={userCollections()} fallback={<CollectionsError />}>
+                    {(collection) => (
+                        <CollectionCard collection={collection} />
+                    )}
+                </For>
+                <div class="w-full h-[2vh]"/>
+            </div>
         </div>
     )
 }
+
 
 const MyCollections = () => {
     const [isMobile, setIsMobile] = createSignal(window.innerWidth <= 768);
