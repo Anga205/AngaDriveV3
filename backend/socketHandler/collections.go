@@ -200,3 +200,31 @@ func CreateFolderInCollection(req CreateFolderInCollectionRequest) (GetCollectio
 	go CollectionPulse(true, folder)
 	return Collection(collection).getCollectionResponse(token), nil
 }
+
+func updateCollectionFiles(collectionID, fileDirectory string, auth AuthInfo, add bool) (GetCollectionResponse, error) {
+	token, err := auth.GetToken()
+	if err != nil {
+		return GetCollectionResponse{}, fmt.Errorf("authentication failed: %v", err)
+	}
+	collection, err := database.GetCollection(collectionID)
+	if err != nil {
+		return GetCollectionResponse{}, fmt.Errorf("failed to get collection: %v", err)
+	}
+	if !collection.IsEditor(token) {
+		return GetCollectionResponse{}, fmt.Errorf("user is not an editor of the collection")
+	}
+	if add {
+		collection.AddFile(fileDirectory)
+	} else {
+		collection.RemoveFile(fileDirectory)
+	}
+	return Collection(collection).getCollectionResponse(token), nil
+}
+
+func AddFileToCollection(req AddFileToCollectionRequest) (GetCollectionResponse, error) {
+	return updateCollectionFiles(req.CollectionID, req.FileDirectory, req.Auth, true)
+}
+
+func RemoveFileFromCollection(req RemoveFileFromCollectionRequest) (GetCollectionResponse, error) {
+	return updateCollectionFiles(req.CollectionID, req.FileDirectory, req.Auth, false)
+}

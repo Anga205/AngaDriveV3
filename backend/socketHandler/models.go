@@ -166,3 +166,11 @@ type CreateFolderInCollectionRequest struct {
 	FolderName   string   `json:"folder_name"`
 	Auth         AuthInfo `json:"auth"`
 }
+
+type AddFileToCollectionRequest struct {
+	FileDirectory string   `json:"file_directory"`
+	CollectionID  string   `json:"collection_id"`
+	Auth          AuthInfo `json:"auth"`
+}
+
+type RemoveFileFromCollectionRequest AddFileToCollectionRequest
