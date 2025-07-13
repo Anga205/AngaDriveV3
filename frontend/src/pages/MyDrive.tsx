@@ -13,7 +13,7 @@ import { formatFileSize, getFileMD5, truncateFileName, generateClientToken } fro
 
 const FilesError: Component = () => {
     const baseClass = "flex items-center p-[1vh] rounded-[1vh] w-full";
-    const textClass = "text-[0.75vw]";
+    const textClass = "text-sm";
     const containerClass = "md:max-w-1/3 flex flex-col items-center space-y-[2vh]";
     const {status} = useWebSocket();
 
@@ -22,7 +22,7 @@ const FilesError: Component = () => {
             <div class={containerClass}>
                 {((status() === "connecting") || (status() === "reconnecting") ) && (
                     <div class={`${baseClass} border-l-[0.2vw] bg-yellow-600/30 border-yellow-400`}>
-                        <div class="pr-[0.75vw] text-yellow-600 w-[3vw]">
+                        <div class="pr-[0.75vw] text-yellow-600 w-16 md:w-[3vw]">
                             <InfoSVG />
                         </div>
                         <div>
@@ -32,7 +32,7 @@ const FilesError: Component = () => {
                 )}
                 {status() === "connected" && (
                     <div class={`${baseClass} border-l-[0.2vw] bg-blue-600/30 border-blue-400`}>
-                        <div class="pr-[0.75vw] text-blue-600 w-[3vw]">
+                        <div class="pr-[0.75vw] text-blue-600 w-16 md:w-[3vw]">
                             <InfoSVG />
                         </div>
                         <div>
@@ -42,7 +42,7 @@ const FilesError: Component = () => {
                 )}
                 {(status() === "error" || status() === "disconnected") && (
                     <div class={`${baseClass} border-1 bg-red-600/30 border-red-400`}>
-                        <div class="pr-[0.75vw] text-red-600 w-[3vw]">
+                        <div class="pr-[0.75vw] text-red-600 w-16 md:w-[3vw]">
                             <ErrorSVG />
                         </div>
                         <div>
@@ -259,7 +259,7 @@ async function uploadFileInChunks(
 }
 
 
-const DesktopPopUp: Component = () => {
+const UploadPopup: Component = () => {
     const [selectedFiles, setSelectedFiles] = createSignal<SelectableFile[]>([]);
     const [uploadProgressMap, setUploadProgressMap] = createSignal<Record<string, FileUploadProgressData>>({});
     const [isUploading, setIsUploading] = createSignal(false);
@@ -449,7 +449,10 @@ const DesktopPopUp: Component = () => {
 
     return (
         <Dialog onOpenChange={handleDialogStateChange}>
-            <Dialog.Trigger class="cursor-pointer hover:text-gray-300 text-white flex justify-center items-center bg-blue-600 hover:bg-blue-800 p-[1vh] rounded-[1vh] font-bold translate-y-[4vh]"><UploadSVG />Upload</Dialog.Trigger>
+            <Dialog.Trigger class="cursor-pointer hover:text-gray-300 text-white flex justify-center items-center bg-blue-600 hover:bg-blue-800 p-[1vh] rounded-[1vh] font-bold md:translate-y-[4vh]">
+                <UploadSVG />
+                <span>&nbsp;Upload</span>
+            </Dialog.Trigger>
             <Dialog.Portal>
                 <Dialog.Overlay class="fixed inset-0 z-50 bg-black/50 data-open:animate-in data-open:fade-in-0% data-closed:animate-out data-closed:fade-out-0%" />
                 <Dialog.Content class="bg-[#0f0f0f] text-white fixed left-1/2 top-1/2 z-50 min-w-[clamp(320px,80vw,600px)] w-auto max-w-[90vw] -translate-x-1/2 -translate-y-1/2 rounded-lg border-2 border-gray-900 bg-corvu-100 px-6 py-5 data-open:animate-in data-open:fade-in-0% data-open:zoom-in-95% data-open:slide-in-from-top-10% data-closed:animate-out data-closed:fade-out-0% data-closed:zoom-out-95% data-closed:slide-out-to-top-10%">
@@ -498,7 +501,7 @@ const DesktopDrive: Component<{Files: Accessor<Array<FileData>>}> = (props) => {
             <div class="flex flex-col w-full h-full px-[2vh] p-[1vh] space-y-10">
                 <div class="w-full flex justify-between items-center">
                     <p class="text-white font-black text-[4vh]">My Files</p>
-                    <DesktopPopUp />
+                    <UploadPopup />
                 </div>
                 {props.Files().length === 0 ? <FilesError /> : <DriveBody Files={props.Files} />}
             </div>
@@ -507,18 +510,21 @@ const DesktopDrive: Component<{Files: Accessor<Array<FileData>>}> = (props) => {
 }
 
 const MobileDrive: Component<{Files: Accessor<Array<FileData>>}> = (props) => {
-    // Note: Mobile upload button is not yet wired with this new logic.
-    // It would require a similar PopUp or a different UI flow.
     return (
-        <div class="flex flex-col w-full min-h-screen bg-black">
+        <div class="flex flex-col w-full max-h-screen h-screen bg-black">
             <Navbar CurrentPage="Files" Type="mobile"/>
-            <div class="h-[5vh]"/>
-            <div class="w-full flex justify-between items-center px-[3vw]">
-                <p class="text-white font-black text-[4vh]">My Files</p>
-                <button class="cursor-pointer hover:text-gray-300 text-white flex justify-center items-center bg-blue-600 hover:bg-blue-800 p-[1vh] rounded-[1vh] font-bold translate-y-[4vh]"><UploadSVG/>Upload</button>
+            <div class="h-[6vh]"/>
+            <p class="text-white font-black text-[4vh] px-3">My&nbsp;Files</p>
+            <div class="flex justify-end px-3">
+                <UploadPopup/>
             </div>
-            <div class="w-full h-full flex justify-center items-center">
-                {props.Files().length === 0 ? <FilesError /> : <DriveBody Files={props.Files} />}
+            <div class="w-full px-4 mt-4 max-h-full h-full flex flex-wrap items-center space-y-4 space-x-4 justify-center overflow-y-auto">
+                <For each={props.Files()} fallback={<FilesError />}>
+                    {(file) => (
+                        <FileCard File={file} />
+                    )}
+                </For>
+                <div class="w-full h-[2vh]"/>
             </div>
         </div>
     )
