@@ -10,6 +10,71 @@ import Dropdown from "../components/Dropdown";
 import { getCollection } from "../library/functions";
 import { Toaster } from "solid-toast";
 
+const AddFilePopup: Component<{collectionId: string}> = (props) => {
+    const ctx = useContext(AppContext)!;
+    const { socket } = useWebSocket();
+    const [selectedFiles, setSelectedFiles] = createSignal<string[]>([]);
+
+    const handleSubmit = (close: () => void) => {
+        if (socket()) {
+            for (const fileDirectory of selectedFiles()) {
+                socket()?.send(JSON.stringify({
+                    type: "add_file_to_collection",
+                    data: {
+                        collection_id: props.collectionId,
+                        file_directory: fileDirectory,
+                        auth: {
+                            token: localStorage.getItem("token") || "",
+                            email: localStorage.getItem("email") || "",
+                            password: localStorage.getItem("password") || ""
+                        }
+                    }
+                }));
+            }
+        }
+        setSelectedFiles([]);
+        close();
+    };
+
+    const availableFiles = () => {
+        const currentFiles = ctx.knownCollections()[props.collectionId]?.files.map(f => f.file_directory) || [];
+        return ctx.files().filter(f => !currentFiles.includes(f.file_directory)).map(f => ({id: f.file_directory, name: f.original_file_name}));
+    }
+
+    return (
+        <Dialog onOpenChange={(open) => {
+            if (!open) {
+                setSelectedFiles([]);
+            }
+        }}>
+            <Dialog.Trigger class="cursor-pointer hover:text-gray-300 text-white flex justify-center items-center bg-blue-600 hover:bg-blue-800 p-[0.2vh] px-[1vh] rounded-[1vh] font-bold translate-y-[4vh]">
+                <span class="text-4xl text-center">+</span>&nbsp;Add File
+            </Dialog.Trigger>
+            <Dialog.Portal>
+            <Dialog.Overlay class="fixed inset-0 z-50 bg-black/50 data-open:animate-in data-open:fade-in-0% data-closed:animate-out data-closed:fade-out-0%"/>
+            <Dialog.Content class="fixed z-50 top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] w-[90vw] max-w-md bg-neutral-800 rounded-lg p-6 space-y-4">
+                <p class="text-white text-lg font-bold mb-2 text-center">Add Existing File</p>
+                <Dropdown 
+                    options={availableFiles()}
+                    selected={selectedFiles()}
+                    onChange={setSelectedFiles}
+                    placeholderText="Select Files"
+                />
+                <Dialog.Close class="w-full">
+                    <button
+                        onClick={() => handleSubmit(() => {})}
+                        class="bg-green-700 text-white p-2 rounded-lg font-semibold w-full hover:bg-green-800 transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed"
+                        disabled={selectedFiles().length === 0}
+                    >
+                        Add Selected
+                    </button>
+                </Dialog.Close>
+            </Dialog.Content>
+            </Dialog.Portal>
+        </Dialog>
+    );
+}
+
 const Popup: Component<{collectionId: string}> = (props) => {
     const ctx = useContext(AppContext)!;
     const { socket } = useWebSocket();
@@ -114,6 +179,7 @@ const Popup: Component<{collectionId: string}> = (props) => {
                             options={availableCollections()}
                             selected={selectedFolders()}
                             onChange={setSelectedFolders}
+                            placeholderText="Select Folders"
                         />
                     </>
                 )}
@@ -156,7 +222,10 @@ const CollectionPageDesktop: Component = () => {
             <div class="w-full flex justify-between items-center">
                 <div/>
                 <p class="text-white font-black text-[4vh] text-center">{ctx.knownCollections()[collectionId()]?.name || "Unknown Collection"}</p>
-                <Popup collectionId={collectionId()} />
+                <div class="flex space-x-2">
+                    <Popup collectionId={collectionId()} />
+                    <AddFilePopup collectionId={collectionId()} />
+                </div>
             </div>
             <div class="w-full flex flex-wrap justify-center items-start gap-[2vh]">
                 <For each={ctx.knownCollections()[collectionId()]?.folders || []}>
@@ -165,11 +234,13 @@ const CollectionPageDesktop: Component = () => {
                     )}
                 </For>
             </div>
-            <For each={ctx.knownCollections()[collectionId()]?.files || []}>
-                {(file) => (
-                <FileCard File={file} />
-                )}
-            </For>
+            <div class="w-full flex flex-wrap justify-center items-start gap-[2vh]">
+                <For each={ctx.knownCollections()[collectionId()]?.files || []}>
+                    {(file) => (
+                    <FileCard File={file} />
+                    )}
+                </For>
+            </div>
             </div>
         </DesktopTemplate>
     );

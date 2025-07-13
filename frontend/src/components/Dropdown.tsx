@@ -1,10 +1,15 @@
 import { Component, For, createSignal, onCleanup, onMount } from 'solid-js';
-import { CollectionCardData } from '../library/types';
+
+interface DropdownOption {
+    id: string;
+    name: string;
+}
 
 interface DropdownProps {
-    options: CollectionCardData[];
+    options: DropdownOption[];
     selected: string[];
     onChange: (selected: string[]) => void;
+    placeholderText?: string;
 }
 
 const Dropdown: Component<DropdownProps> = (props) => {
@@ -46,7 +51,7 @@ const Dropdown: Component<DropdownProps> = (props) => {
             <div onClick={toggleDropdown} class="w-full p-2 rounded-lg bg-neutral-700 text-white focus-within:ring-2 focus-within:ring-green-500 flex justify-between items-center cursor-pointer">
                 <div class="flex flex-wrap gap-2 items-center flex-grow">
                     {props.selected.length === 0 ? (
-                        <span class="text-gray-400">Select Folders</span>
+                        <span class="text-gray-400">{props.placeholderText || "Select items"}</span>
                     ) : (
                         <For each={selectedOptions()}>
                             {(option) => (

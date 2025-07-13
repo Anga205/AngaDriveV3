@@ -83,3 +83,54 @@ func (collection *Collection) RemoveFolder(folder string) error {
 	}()
 	return nil
 }
+
+func (collection *Collection) AddFile(fileDirectory string) error {
+	files := collection.GetFiles()
+	files = append(files, fileDirectory)
+	collection.Files = strings.Join(files, ",")
+	db := GetDB()
+	if err := db.Save(collection).Error; err != nil {
+		return err
+	}
+	go func() {
+		CollectionCacheLock.Lock()
+		defer CollectionCacheLock.Unlock()
+		CollectionCache[collection.ID] = *collection
+	}()
+	go func() {
+		CollectionFilesMutex.Lock()
+		defer CollectionFilesMutex.Unlock()
+		if _, ok := CollectionFiles[collection.ID]; ok {
+			CollectionFiles[collection.ID].Add(fileDirectory)
+		}
+	}()
+	return nil
+}
+
+func (collection *Collection) RemoveFile(fileDirectory string) error {
+	files := strings.Split(collection.Files, ",")
+	for i, f := range files {
+		if strings.TrimSpace(f) == fileDirectory {
+			files = append(files[:i], files[i+1:]...)
+			break
+		}
+	}
+	collection.Files = strings.Join(files, ",")
+	db := GetDB()
+	if err := db.Save(collection).Error; err != nil {
+		return err
+	}
+	go func() {
+		CollectionCacheLock.Lock()
+		defer CollectionCacheLock.Unlock()
+		CollectionCache[collection.ID] = *collection
+	}()
+	go func() {
+		CollectionFilesMutex.Lock()
+		defer CollectionFilesMutex.Unlock()
+		if _, ok := CollectionFiles[collection.ID]; ok {
+			CollectionFiles[collection.ID].Remove(fileDirectory)
+		}
+	}()
+	return nil
+}

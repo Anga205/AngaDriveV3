@@ -1,9 +1,10 @@
 import { Component } from "solid-js";
 import type { FileData } from "../library/types"
-import { BinSVG, CopySVG, DownloadSVG, EyeSVG, FileTextSVG, RefreshSVG } from "../assets/SvgFiles";
+import { BinSVG, CopySVG, CrossSVG, DownloadSVG, EyeSVG, FileTextSVG, RefreshSVG } from "../assets/SvgFiles";
 import { formatFileSize, getFileType } from "../library/functions";
 import toast from "solid-toast";
 import { useWebSocket } from "../Websockets";
+import { useLocation } from "@solidjs/router";
 
 const FilePreview: Component<{ file: FileData }> = (props) => {
     let link = import.meta.env.DEV ? "http://localhost:8080/i/" : import.meta.env.VITE_DEFAULT_LINK || `${window.location.protocol}//${window.location.host}/i/`;
@@ -100,11 +101,43 @@ const DeleteButton: Component<{ file: FileData }> = (props) => {
     )
 }
 
+const RemoveFromCollectionButton: Component<{ file: FileData }> = (props) => {
+    const { socket: getSocket } = useWebSocket();
+    const collectionIdParam = new URLSearchParams(location.search).get("id") || "";
+    const ids = collectionIdParam.split(" ");
+    const collectionId = ids[ids.length - 1];
+    const handleRemove = async () => {
+        const removeRequest = {
+            type: "remove_file_from_collection",
+            data: {
+                file_directory: props.file.file_directory,
+                collection_id: collectionId,
+                auth: {
+                    token: localStorage.getItem("token") || "",
+                    email: localStorage.getItem("email") || "",
+                    password: localStorage.getItem("password") || ""
+                }
+            }
+        }
+        if (getSocket()?.readyState !== WebSocket.OPEN) {
+            toast.error("WebSocket is not available");
+            return;
+        }
+        getSocket()?.send(JSON.stringify(removeRequest));
+    }
+    return (
+        <button class="flex items-center justify-center p-2 text-red-700 bg-red-800/30 hover:bg-red-900/20 rounded-xl" onClick={handleRemove}>
+            <CrossSVG />
+        </button>
+    )
+}
+
 const FileCard: Component<{ File: FileData }> = (props) => {
     let link = import.meta.env.DEV ? "http://localhost:8080/i/" : import.meta.env.VITE_DEFAULT_LINK || `${window.location.protocol}//${window.location.host}/i/`;
     link += props.File.file_directory;
     link = link.split('.').slice(0, -1).join('.');
     link += "/"+props.File.original_file_name;
+    const location = useLocation();
     return (
         <div class="flex flex-col w-80 h-96 bg-neutral-950 border-neutral-800 border-1 rounded-lg">
             <div class="flex items-center overflow-hidden justify-center w-full h-[14%] bg-neutral-900 rounded-t-lg">
@@ -176,7 +209,7 @@ const FileCard: Component<{ File: FileData }> = (props) => {
                     <DownloadSVG />
                 </button>
                 <ConvertButton file={props.File} />
-                <DeleteButton file={props.File} />
+                {location.pathname === "/my_drive" ? <DeleteButton file={props.File} /> : <RemoveFromCollectionButton file={props.File} />}
                 <div/>
             </div>
         </div>
