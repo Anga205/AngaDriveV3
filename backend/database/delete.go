@@ -34,7 +34,13 @@ func (collection Collection) Delete() error {
 		return nil
 	}
 
-	go func(dependantID string) {
+	var collectionsContainingThisCollection []Collection
+	db.Where("collections LIKE ?", "%"+collection.ID+"%").Find(&collectionsContainingThisCollection)
+	for _, c := range collectionsContainingThisCollection {
+		c.RemoveFolder(collection.ID)
+	}
+
+	go func(dependantID string) { // Delete the collections that depend on this collection
 		var dependantCollections []Collection
 		db.Where("dependant = ?", dependantID).Find(&dependantCollections)
 

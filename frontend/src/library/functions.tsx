@@ -60,16 +60,12 @@ const getFileType = (filePath: string) => {
 const UniversalMessageHandler = (message: MessageEvent, ctx: AppContextType) => {
   const data = JSON.parse(message.data);
   if (data.type === "get_user_files_response") {
-      if (data.data.error) {
-          toast.error(`Error fetching files: ${data.data.error}`);
-      } else {
-            ctx.setFiles(data.data.sort((a: FileData, b: FileData) => {
-              if (b.timestamp === a.timestamp) {
-                return a.file_directory.localeCompare(b.file_directory);
-              }
-              return b.timestamp - a.timestamp;
-            }) || []);
-      }
+      ctx.setFiles(data.data.sort((a: FileData, b: FileData) => {
+        if (b.timestamp === a.timestamp) {
+          return a.file_directory.localeCompare(b.file_directory);
+        }
+        return b.timestamp - a.timestamp;
+      }) || []);
   } else if (data.type === "file_update") {
       if (data.data.toggle === true) {
           ctx.setFiles((prev: FileData[]) => [data.data.File, ...prev]);
@@ -77,16 +73,12 @@ const UniversalMessageHandler = (message: MessageEvent, ctx: AppContextType) => 
           ctx.setFiles((prev: FileData[]) => prev.filter((file: FileData) => file.file_directory !== data.data.File.file_directory));
       }
   } else if (data.type === "get_user_collections_response") {
-      if (data.data.error) {
-          toast.error(`Error fetching collections: ${data.data.error}`);
-      } else {
-            ctx.setUserCollections(data.data.sort((a: CollectionCardData, b: CollectionCardData) => {
-              if (b.timestamp - a.timestamp === a.timestamp - b.timestamp) {
-                return a.id.localeCompare(b.id);
-              }
-              return b.timestamp - a.timestamp;
-            }) || []);
-      }
+      ctx.setUserCollections(data.data.sort((a: CollectionCardData, b: CollectionCardData) => {
+        if (b.timestamp - a.timestamp === a.timestamp - b.timestamp) {
+          return a.id.localeCompare(b.id);
+        }
+        return b.timestamp - a.timestamp;
+      }) || []);
   } else if (data.type === "collection_update") {
       if (data.data.toggle === true) {
           console.log("Collection added:", data.data.collection);

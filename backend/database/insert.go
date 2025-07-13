@@ -6,7 +6,13 @@ import (
 	"time"
 )
 
-func (collection Collection) Insert() error {
+func (collection *Collection) Insert() error {
+	if collection.ID == "" {
+		collection.ID = generateNewCollectionID()
+	}
+	if collection.Timestamp == 0 {
+		collection.Timestamp = time.Now().Unix()
+	}
 	db := GetDB()
 	if err := db.Create(&collection).Error; err != nil {
 		return err
@@ -14,7 +20,7 @@ func (collection Collection) Insert() error {
 	go func() {
 		CollectionCacheLock.Lock()
 		defer CollectionCacheLock.Unlock()
-		CollectionCache[collection.ID] = collection
+		CollectionCache[collection.ID] = *collection
 	}()
 	go func() {
 		editors := collection.GetEditors()
@@ -138,9 +144,6 @@ func generateNewCollectionID() string {
 }
 
 func InsertNewCollection(collection Collection) (Collection, error) {
-
-	collection.ID = generateNewCollectionID()
-	collection.Timestamp = time.Now().Unix()
 
 	if err := collection.Insert(); err != nil {
 		return Collection{}, err

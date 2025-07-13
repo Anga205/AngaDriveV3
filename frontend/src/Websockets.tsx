@@ -62,7 +62,7 @@ const WebSocketProvider: ParentComponent = (props) => {
           ws.onmessage = (event) => {
             const message = JSON.parse(event.data);
             if (message.type === "login_response"){
-              if (message.data.error !== undefined) {
+              if (message.data === "invalid credentials") {
                 console.error("Login failed:", message.data.error);
                 localStorage.removeItem("email");
                 localStorage.removeItem("password");

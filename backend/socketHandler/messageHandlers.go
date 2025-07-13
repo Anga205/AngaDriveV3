@@ -106,6 +106,9 @@ var messageHandlers = map[string]MessageHandler{
 	"remove_folder_from_collection": HandlerFunc(func(conn *websocket.Conn, data json.RawMessage) {
 		processRequest(conn, data, RemoveFolder, "get_collection_response")
 	}),
+	"create_folder_in_collection": HandlerFunc(func(conn *websocket.Conn, data json.RawMessage) {
+		processRequest(conn, data, CreateFolderInCollection, "create_folder_in_collection_response")
+	}),
 }
 
 func handleEnableHomepageUpdates(conn *websocket.Conn, data json.RawMessage) {
