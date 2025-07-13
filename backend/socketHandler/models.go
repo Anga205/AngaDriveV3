@@ -160,3 +160,9 @@ type AddFolderToCollectionRequest struct {
 }
 
 type RemoveFolderFromCollectionRequest AddFolderToCollectionRequest
+
+type CreateFolderInCollectionRequest struct {
+	CollectionID string   `json:"collection_id"`
+	FolderName   string   `json:"folder_name"`
+	Auth         AuthInfo `json:"auth"`
+}

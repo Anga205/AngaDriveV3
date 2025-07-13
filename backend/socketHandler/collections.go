@@ -172,3 +172,31 @@ func AddFolder(req AddFolderToCollectionRequest) (GetCollectionResponse, error) 
 func RemoveFolder(req RemoveFolderFromCollectionRequest) (GetCollectionResponse, error) {
 	return updateCollectionFolders(req.CollectionID, req.FolderID, req.Auth, false)
 }
+
+func CreateFolderInCollection(req CreateFolderInCollectionRequest) (GetCollectionResponse, error) {
+	token, err := req.Auth.GetToken()
+	if err != nil {
+		return GetCollectionResponse{}, fmt.Errorf("authentication failed: %v", err)
+	}
+	collection, err := database.GetCollection(req.CollectionID)
+	if err != nil {
+		return GetCollectionResponse{}, fmt.Errorf("failed to get collection: %v", err)
+	}
+	if !collection.IsEditor(token) {
+		return GetCollectionResponse{}, fmt.Errorf("user is not an editor of the collection")
+	}
+	folder := database.Collection{
+		Name:        req.FolderName,
+		Editors:     token,
+		Collections: "",
+		Files:       "",
+		Size:        0,
+	}
+	folder, _ = database.InsertNewCollection(folder)
+	err = collection.AddFolder(folder.ID)
+	if err != nil {
+		return GetCollectionResponse{}, fmt.Errorf("failed to add folder to collection: %v", err)
+	}
+	go CollectionPulse(true, folder)
+	return Collection(collection).getCollectionResponse(token), nil
+}
