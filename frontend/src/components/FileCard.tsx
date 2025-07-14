@@ -103,6 +103,7 @@ const DeleteButton: Component<{ file: FileData }> = (props) => {
 
 const RemoveFromCollectionButton: Component<{ file: FileData }> = (props) => {
     const { socket: getSocket } = useWebSocket();
+    const location = useLocation();
     const collectionIdParam = new URLSearchParams(location.search).get("id") || "";
     const ids = collectionIdParam.split(" ");
     const collectionId = ids[ids.length - 1];

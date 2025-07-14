@@ -51,6 +51,18 @@ func processRequest[T any, R any](conn *websocket.Conn, data json.RawMessage, ha
 		return
 	}
 
+	if responseType == "get_collection_response" {
+		if r, ok := any(req).(interface{ GetCollectionID() string }); ok {
+			collectionID := r.GetCollectionID()
+			if collectionID != "" {
+				ActiveWebsocketsMutex.Lock()
+				wsData := ActiveWebsockets[conn]
+				wsData.SubscribedCollections[collectionID] = true
+				ActiveWebsockets[conn] = wsData
+				ActiveWebsocketsMutex.Unlock()
+			}
+		}
+	}
 	sendJSON(conn, OutgoingResponse{
 		Type: responseType,
 		Data: responseInfo,
