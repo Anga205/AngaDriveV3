@@ -76,9 +76,9 @@ func (collection Collection) Delete() error {
 	return nil
 }
 
-func DeleteFile(file FileData) error {
+func DeleteFile(file FileData, collectionPulser func(collection Collection)) error {
 
-	go func() { // Remove from UserFiles Cache
+	go func(file FileData) { // Remove from UserFiles Cache
 		UserFilesMutex.Lock()
 		for _, fileSet := range UserFiles {
 			if fileSet != nil {
@@ -86,9 +86,9 @@ func DeleteFile(file FileData) error {
 			}
 		}
 		UserFilesMutex.Unlock()
-	}()
+	}(file)
 
-	go func() { // Remove from CollectionFiles Cache
+	go func(file FileData) { // Remove from CollectionFiles Cache
 		CollectionFilesMutex.Lock()
 		for _, fileSet := range CollectionFiles {
 			if fileSet != nil {
@@ -96,22 +96,22 @@ func DeleteFile(file FileData) error {
 			}
 		}
 		CollectionFilesMutex.Unlock()
-	}()
+	}(file)
 
-	go func() { // Remove from FileCache
+	go func(file FileData) { // Remove from FileCache
 		FileCacheLock.Lock()
 		delete(FileCache, file.FileDirectory)
 		FileCacheLock.Unlock()
-	}()
+	}(file)
 
-	go func() { // remove from collection cache
+	go func(file FileData) { // remove from collection cache
 		CollectionCacheLock.Lock()
 		for key, collection := range CollectionCache {
 			collection.Files = removeFile(collection.Files, file.FileDirectory)
 			CollectionCache[key] = collection
 		}
 		CollectionCacheLock.Unlock()
-	}()
+	}(file)
 
 	// Delete from database
 	db := GetDB()
@@ -129,6 +129,8 @@ func DeleteFile(file FileData) error {
 		collection.Files = removeFile(collection.Files, file.FileDirectory)
 		if err := db.Save(&collection).Error; err != nil {
 			return fmt.Errorf("failed to update collection %s: %v", collection.Name, err)
+		} else {
+			go collectionPulser(collection)
 		}
 	}
 	return nil

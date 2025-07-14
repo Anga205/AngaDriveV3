@@ -101,6 +101,14 @@ const CollectionCard: Component<{ collection: CollectionCardData }> = (props) =>
         getCollection(props.collection.id, status, socket, ctx);
     });
 
+    const isParentCollectionOwned = () => {
+        const collectionIdFromUrl = new URLSearchParams(location.search).get("id") || "";
+        if (!collectionIdFromUrl) return false;
+        const ids = collectionIdFromUrl.split(" ");
+        const lastId = ids[ids.length - 1];
+        return ctx.knownCollections()[lastId]?.isOwned || false;
+    }
+
     return (
         <div class="flex flex-col w-64 h-60 bg-neutral-800 rounded-lg px-4 py-2 pb-3">
             <p class="text-white font-bold text-2xl text-center w-full p-2">{props.collection.name}</p>
@@ -143,17 +151,21 @@ const CollectionCard: Component<{ collection: CollectionCardData }> = (props) =>
                     </Tooltip.Content>
                 </Tooltip>
                 {location.pathname.startsWith("/collection") ? (
-                    <Tooltip placement="bottom" openDelay={0} closeDelay={0}>
-                        <Tooltip.Trigger
-                            onClick={handleRemove}
-                            class="flex items-center justify-center p-2 bg-red-700/30 hover:bg-red-700/20 rounded-xl text-red-600"
-                        >
-                            <CrossSVG />
-                        </Tooltip.Trigger>
-                        <Tooltip.Content class="bg-neutral-900 text-white px-2 py-1 rounded">
-                            Remove From Collection
-                        </Tooltip.Content>
-                    </Tooltip>
+                    <>
+                    {isParentCollectionOwned() && (
+                        <Tooltip placement="bottom" openDelay={0} closeDelay={0}>
+                            <Tooltip.Trigger
+                                onClick={handleRemove}
+                                class="flex items-center justify-center p-2 bg-red-700/30 hover:bg-red-700/20 rounded-xl text-red-600"
+                            >
+                                <CrossSVG />
+                            </Tooltip.Trigger>
+                            <Tooltip.Content class="bg-neutral-900 text-white px-2 py-1 rounded">
+                                Remove From Collection
+                            </Tooltip.Content>
+                        </Tooltip>
+                    )}
+                    </>
                 ) : (
                     <Tooltip placement="bottom" openDelay={0} closeDelay={0}>
                         <Tooltip.Trigger

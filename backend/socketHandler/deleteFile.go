@@ -50,7 +50,7 @@ func DeleteFile(req DeleteFileRequest) error {
 		fmt.Printf("[%s] Unauthorized delete attempt by %s on file %s\n", timestamp, req.Auth.Email, req.FileDirectory)
 		return fmt.Errorf("unauthorized delete attempt")
 	}
-	err = database.DeleteFile(fileToDelete)
+	err = database.DeleteFile(fileToDelete, PulseCollectionSubscribers)
 	if err != nil {
 		now := time.Now()
 		timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
