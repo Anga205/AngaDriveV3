@@ -92,7 +92,7 @@ const UniversalMessageHandler = (message: MessageEvent, ctx: AppContextType) => 
           });
       }
   } else if (data.type === "error") {
-      toast.error(`Error: ${data.data.error}`, {
+      toast.error(`Error: ${data.data}`, {
         style: {
           "background-color": "#2a2a2a",
           "color": "#ffffff"

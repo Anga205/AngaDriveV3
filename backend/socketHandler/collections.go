@@ -162,6 +162,7 @@ func updateCollectionFolders(collectionID, folderID string, auth AuthInfo, add b
 	} else {
 		collection.RemoveFolder(folderID)
 	}
+	go PulseCollectionSubscribers(collection)
 	return Collection(collection).getCollectionResponse(token), nil
 }
 
@@ -198,6 +199,7 @@ func CreateFolderInCollection(req CreateFolderInCollectionRequest) (GetCollectio
 		return GetCollectionResponse{}, fmt.Errorf("failed to add folder to collection: %v", err)
 	}
 	go CollectionPulse(true, folder)
+	go PulseCollectionSubscribers(collection)
 	return Collection(collection).getCollectionResponse(token), nil
 }
 
@@ -218,6 +220,7 @@ func updateCollectionFiles(collectionID, fileDirectory string, auth AuthInfo, ad
 	} else {
 		collection.RemoveFile(fileDirectory)
 	}
+	go PulseCollectionSubscribers(collection)
 	return Collection(collection).getCollectionResponse(token), nil
 }
 

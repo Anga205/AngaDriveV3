@@ -16,9 +16,10 @@ type UserInfo struct {
 }
 
 type WebsocketData struct {
-	Mutex           *sync.Mutex
-	HomePageUpdates bool
-	UserInfo        UserInfo
+	Mutex                 *sync.Mutex
+	HomePageUpdates       bool
+	UserInfo              UserInfo
+	SubscribedCollections map[string]bool
 }
 
 type IncomingMessage struct {
@@ -114,6 +115,10 @@ type GetCollectionRequest struct {
 	Auth         AuthInfo `json:"auth"`
 }
 
+func (r GetCollectionRequest) GetCollectionID() string {
+	return r.CollectionID
+}
+
 type GetCollectionResponse struct {
 	CollectionID   string               `json:"collection_id"`
 	CollectionName string               `json:"collection_name"`
@@ -159,6 +164,10 @@ type AddFolderToCollectionRequest struct {
 	Auth         AuthInfo `json:"auth"`
 }
 
+func (r AddFolderToCollectionRequest) GetCollectionID() string {
+	return r.CollectionID
+}
+
 type RemoveFolderFromCollectionRequest AddFolderToCollectionRequest
 
 type CreateFolderInCollectionRequest struct {
@@ -167,10 +176,18 @@ type CreateFolderInCollectionRequest struct {
 	Auth         AuthInfo `json:"auth"`
 }
 
+func (r CreateFolderInCollectionRequest) GetCollectionID() string {
+	return r.CollectionID
+}
+
 type AddFileToCollectionRequest struct {
 	FileDirectory string   `json:"file_directory"`
 	CollectionID  string   `json:"collection_id"`
 	Auth          AuthInfo `json:"auth"`
+}
+
+func (r AddFileToCollectionRequest) GetCollectionID() string {
+	return r.CollectionID
 }
 
 type RemoveFileFromCollectionRequest AddFileToCollectionRequest

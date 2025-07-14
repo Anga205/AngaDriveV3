@@ -68,7 +68,12 @@ func SetupWebsocket(r *gin.Engine, upload_dir string) {
 		defer conn.Close()
 
 		ActiveWebsocketsMutex.Lock()
-		ActiveWebsockets[conn] = WebsocketData{Mutex: &sync.Mutex{}, HomePageUpdates: false, UserInfo: UserInfo{"", "", ""}}
+		ActiveWebsockets[conn] = WebsocketData{
+			Mutex:                 &sync.Mutex{},
+			HomePageUpdates:       false,
+			UserInfo:              UserInfo{"", "", ""},
+			SubscribedCollections: make(map[string]bool),
+		}
 		ActiveWebsocketsMutex.Unlock()
 
 		defer func() {
