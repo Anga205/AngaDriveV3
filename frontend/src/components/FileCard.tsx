@@ -1,10 +1,11 @@
-import { Component } from "solid-js";
+import { Component, useContext } from "solid-js";
 import type { FileData } from "../library/types"
 import { BinSVG, CopySVG, CrossSVG, DownloadSVG, EyeSVG, FileTextSVG, RefreshSVG } from "../assets/SvgFiles";
 import { formatFileSize, getFileType } from "../library/functions";
 import toast from "solid-toast";
 import { useWebSocket } from "../Websockets";
 import { useLocation } from "@solidjs/router";
+import { AppContext } from "../Context";
 
 const FilePreview: Component<{ file: FileData }> = (props) => {
     let link = import.meta.env.DEV ? "http://localhost:8080/i/" : import.meta.env.VITE_DEFAULT_LINK || `${window.location.protocol}//${window.location.host}/i/`;
@@ -103,6 +104,7 @@ const DeleteButton: Component<{ file: FileData }> = (props) => {
 
 const RemoveFromCollectionButton: Component<{ file: FileData }> = (props) => {
     const { socket: getSocket } = useWebSocket();
+    const ctx = useContext(AppContext)!;
     const location = useLocation();
     const collectionIdParam = new URLSearchParams(location.search).get("id") || "";
     const ids = collectionIdParam.split(" ");
@@ -127,9 +129,11 @@ const RemoveFromCollectionButton: Component<{ file: FileData }> = (props) => {
         getSocket()?.send(JSON.stringify(removeRequest));
     }
     return (
-        <button class="flex items-center justify-center p-2 text-red-700 bg-red-800/30 hover:bg-red-900/20 rounded-xl" onClick={handleRemove}>
-            <CrossSVG />
-        </button>
+        ctx.knownCollections()[collectionId]?.isOwned && (
+            <button class="flex items-center justify-center p-2 text-red-700 bg-red-800/30 hover:bg-red-900/20 rounded-xl" onClick={handleRemove}>
+                <CrossSVG />
+            </button>
+        )
     )
 }
 
@@ -209,7 +213,7 @@ const FileCard: Component<{ File: FileData }> = (props) => {
                 }}>
                     <DownloadSVG />
                 </button>
-                <ConvertButton file={props.File} />
+                {location.pathname === "/my_drive" ? <ConvertButton file={props.File} /> : <div/>}
                 {location.pathname === "/my_drive" ? <DeleteButton file={props.File} /> : <RemoveFromCollectionButton file={props.File} />}
                 <div/>
             </div>

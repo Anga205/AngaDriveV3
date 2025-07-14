@@ -75,7 +75,7 @@ const AddFilePopup: Component<{collectionId: string}> = (props) => {
     );
 }
 
-const Popup: Component<{collectionId: string}> = (props) => {
+const AddFolderPopup: Component<{collectionId: string}> = (props) => {
     const ctx = useContext(AppContext)!;
     const { socket } = useWebSocket();
     const [selectedFolders, setSelectedFolders] = createSignal<string[]>([]);
@@ -219,28 +219,33 @@ const CollectionPageDesktop: Component = () => {
     return (
         <DesktopTemplate CurrentPage="Collection">
             <div class="flex flex-col w-full h-full px-[2vh] p-[1vh] space-y-10">
-            <div class="w-full flex justify-between items-center">
-                <div/>
-                <p class="text-white font-black text-[4vh] text-center">{ctx.knownCollections()[collectionId()]?.name || "Unknown Collection"}</p>
-                <div class="flex space-x-2">
-                    <Popup collectionId={collectionId()} />
-                    <AddFilePopup collectionId={collectionId()} />
+                <div class="w-full flex justify-between items-center">
+                    <div/>
+                    <p class="text-white font-black text-[4vh] text-center">{ctx.knownCollections()[collectionId()]?.name || "Unknown Collection"}</p>
+                    {
+                        ctx.knownCollections()[collectionId()]?.isOwned ?
+                        <div class="flex space-x-2">
+                            <AddFolderPopup collectionId={collectionId()} />
+                            <AddFilePopup collectionId={collectionId()} />
+                        </div>
+                        :
+                        <div/>
+                    }
                 </div>
-            </div>
-            <div class="w-full flex flex-wrap justify-center items-start gap-[2vh]">
-                <For each={ctx.knownCollections()[collectionId()]?.folders || []}>
-                    {(folder) => (
-                    <CollectionCard collection={folder} />
-                    )}
-                </For>
-            </div>
-            <div class="w-full flex flex-wrap justify-center items-start gap-[2vh]">
-                <For each={ctx.knownCollections()[collectionId()]?.files || []}>
-                    {(file) => (
-                    <FileCard File={file} />
-                    )}
-                </For>
-            </div>
+                <div class="w-full flex flex-wrap justify-center items-start gap-[2vh]">
+                    <For each={ctx.knownCollections()[collectionId()]?.folders || []}>
+                        {(folder) => (
+                        <CollectionCard collection={folder} />
+                        )}
+                    </For>
+                </div>
+                <div class="w-full flex flex-wrap justify-center items-start gap-[2vh]">
+                    <For each={ctx.knownCollections()[collectionId()]?.files || []}>
+                        {(file) => (
+                        <FileCard File={file} />
+                        )}
+                    </For>
+                </div>
             </div>
         </DesktopTemplate>
     );
