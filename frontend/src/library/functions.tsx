@@ -73,22 +73,45 @@ const UniversalMessageHandler = (message: MessageEvent, ctx: AppContextType) => 
           ctx.setFiles((prev: FileData[]) => prev.filter((file: FileData) => file.file_directory !== data.data.File.file_directory));
       }
   } else if (data.type === "get_user_collections_response") {
-      ctx.setUserCollections(data.data.sort((a: CollectionCardData, b: CollectionCardData) => {
-        if (b.timestamp - a.timestamp === a.timestamp - b.timestamp) {
-          return a.id.localeCompare(b.id);
-        }
-        return b.timestamp - a.timestamp;
-      }) || []);
+      const collections: CollectionCardData[] = data.data || [];
+      ctx.setKnownCollectionCards(prev => {
+          const newCards = { ...prev };
+          for (const collection of collections) {
+              newCards[collection.id] = collection;
+          }
+          return newCards;
+      });
+      const collectionIds = new Set(collections.map(c => c.id));
+      ctx.setUserCollections(collectionIds);
+  } else if (data.type === "collection_card_update"){
+      ctx.setKnownCollectionCards(prev => {
+          const cards = { ...prev };
+          cards[data.data.id] = data.data;
+          return cards;
+      });
   } else if (data.type === "collection_update") {
       if (data.data.toggle === true) {
           console.log("Collection added:", data.data.collection);
-          ctx.setUserCollections((prev: CollectionCardData[]) => [data.data.collection, ...prev]);
+          ctx.setKnownCollectionCards(prev => ({
+            ...prev,
+            [data.data.collection.id]: data.data.collection
+          }));
+          ctx.setUserCollections((prev: Set<string>) => new Set([data.data.collection.id, ...Array.from(prev)]));
       } else if (data.data.toggle === false) {
-          ctx.setUserCollections((prev: CollectionCardData[]) => prev.filter((collection: CollectionCardData) => collection.id !== data.data.collection.id));
+          ctx.setUserCollections((prev: Set<string>) => {
+              const newSet = new Set(prev);
+              newSet.delete(data.data.collection.id);
+              return newSet;
+          });
           ctx.setKnownCollections(prev => {
             const newCollections = { ...prev };
             delete newCollections[data.data.collection.id];
             return newCollections;
+          });
+          ctx.setKnownCollectionCards(prev => {
+            const newCards = { ...prev };
+            delete newCards[data.data.collection.id];
+            return newCards;
           });
       }
   } else if (data.type === "error") {

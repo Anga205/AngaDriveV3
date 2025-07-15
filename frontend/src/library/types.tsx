@@ -59,13 +59,19 @@ type KnownCollections = {
     [id: string]: CollectionData;
 }
 
+type KnownCollectionCards = {
+    [id: string]: CollectionCardData;
+}
+
 type AppContextType = {
     files: () => Array<FileData>;
     setFiles: (value: Array<FileData> | ((prev: Array<FileData>) => Array<FileData>)) => void;
-    userCollections: () => Array<CollectionCardData>;
-    setUserCollections: (value: Array<CollectionCardData> | ((prev: Array<CollectionCardData>) => Array<CollectionCardData>)) => void;
+    userCollections: () => Set<string>;
+    setUserCollections: (value: Set<string> | ((prev: Set<string>) => Set<string>)) => void;
     knownCollections: () => KnownCollections;
     setKnownCollections: (value: KnownCollections | ((prev: KnownCollections) => KnownCollections)) => void;
+    knownCollectionCards: () => KnownCollectionCards;
+    setKnownCollectionCards: (value: KnownCollectionCards | ((prev: KnownCollectionCards) => KnownCollectionCards)) => void;
 };
 
-export type {RAMData, CPUData, SysInfo, GraphData, IncomingData, SocketStatus, Pages, FileData, CollectionCardData, AppContextType, KnownCollections};
+export type {RAMData, CPUData, SysInfo, GraphData, IncomingData, SocketStatus, Pages, FileData, CollectionCardData, AppContextType, KnownCollections, KnownCollectionCards};

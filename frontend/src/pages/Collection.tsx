@@ -9,6 +9,7 @@ import Dialog from "@corvu/dialog";
 import Dropdown from "../components/Dropdown";
 import { getCollection } from "../library/functions";
 import { Toaster } from "solid-toast";
+import { CollectionCardData } from "../library/types";
 
 const AddFilePopup: Component<{collectionId: string}> = (props) => {
     const ctx = useContext(AppContext)!;
@@ -131,7 +132,13 @@ const AddFolderPopup: Component<{collectionId: string}> = (props) => {
 
     const availableCollections = () => {
         const currentFolders = ctx.knownCollections()[props.collectionId]?.folders.map(f => f.id) || [];
-        return ctx.userCollections().filter(c => c.id !== props.collectionId && !currentFolders.includes(c.id));
+        const collections: CollectionCardData[] = []
+        for (const collection of ctx.userCollections()) {
+            if (ctx.knownCollectionCards()[collection].id !== props.collectionId && !currentFolders.includes(ctx.knownCollectionCards()[collection].id)) {
+                collections.push(ctx.knownCollectionCards()[collection]);
+            }
+        }
+        return collections;
     }
 
     const isButtonVisible = () => {
