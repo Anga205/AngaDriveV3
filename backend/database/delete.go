@@ -59,7 +59,11 @@ func (collection Collection) Delete() error {
 		func() {
 			UserCollectionsMutex.Lock()
 			defer UserCollectionsMutex.Unlock()
-			delete(UserCollections, collection.ID)
+			for user := range UserCollections {
+				if UserCollections[user] != nil {
+					UserCollections[user].Remove(collection.ID)
+				}
+			}
 		}()
 
 		func() {

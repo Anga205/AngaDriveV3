@@ -34,6 +34,18 @@ func PulseCollectionSubscribers(collection database.Collection) {
 			"type": "get_collection_response",
 			"data": Collection(collection).getCollectionResponse(token),
 		})
+		ci.conn.WriteJSON(map[string]interface{}{
+			"type": "collection_card_update",
+			"data": CollectionCardData{
+				CollectionID:   collection.ID,
+				CollectionName: collection.Name,
+				Size:           int64(collection.Size),
+				FileCount:      len(collection.GetFiles()),
+				FolderCount:    len(collection.GetCollections()),
+				EditorCount:    len(collection.GetEditors()),
+				Timestamp:      collection.Timestamp,
+			},
+		})
 		ci.data.Mutex.Unlock()
 	}
 }
