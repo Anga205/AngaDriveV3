@@ -50,68 +50,35 @@ func (collection Collection) Delete() error {
 	}(collection.ID)
 
 	go func() {
-		CollectionCacheLock.Lock()
-		defer CollectionCacheLock.Unlock()
-		delete(CollectionCache, collection.ID)
-	}()
+		func() {
+			CollectionCacheLock.Lock()
+			defer CollectionCacheLock.Unlock()
+			delete(CollectionCache, collection.ID)
+		}()
 
-	go func() {
-		UserCollectionsMutex.Lock()
-		defer UserCollectionsMutex.Unlock()
-		delete(UserCollections, collection.ID)
-	}()
+		func() {
+			UserCollectionsMutex.Lock()
+			defer UserCollectionsMutex.Unlock()
+			delete(UserCollections, collection.ID)
+		}()
 
-	go func() {
-		CollectionFilesMutex.Lock()
-		defer CollectionFilesMutex.Unlock()
-		delete(CollectionFiles, collection.ID)
-	}()
+		func() {
+			CollectionFilesMutex.Lock()
+			defer CollectionFilesMutex.Unlock()
+			delete(CollectionFiles, collection.ID)
+		}()
 
-	go func() {
-		CollectionFoldersMutex.Lock()
-		defer CollectionFoldersMutex.Unlock()
-		delete(CollectionFolders, collection.ID)
+		func() {
+			CollectionFoldersMutex.Lock()
+			defer CollectionFoldersMutex.Unlock()
+			delete(CollectionFolders, collection.ID)
+		}()
+		updateParentCollectionSizes(collection.ID, &map[string]bool{collection.ID: true})
 	}()
-
 	return nil
 }
 
 func DeleteFile(file FileData, collectionPulser func(collection Collection)) error {
-
-	go func(file FileData) { // Remove from UserFiles Cache
-		UserFilesMutex.Lock()
-		for _, fileSet := range UserFiles {
-			if fileSet != nil {
-				fileSet.Remove(file.FileDirectory)
-			}
-		}
-		UserFilesMutex.Unlock()
-	}(file)
-
-	go func(file FileData) { // Remove from CollectionFiles Cache
-		CollectionFilesMutex.Lock()
-		for _, fileSet := range CollectionFiles {
-			if fileSet != nil {
-				fileSet.Remove(file.FileDirectory)
-			}
-		}
-		CollectionFilesMutex.Unlock()
-	}(file)
-
-	go func(file FileData) { // Remove from FileCache
-		FileCacheLock.Lock()
-		delete(FileCache, file.FileDirectory)
-		FileCacheLock.Unlock()
-	}(file)
-
-	go func(file FileData) { // remove from collection cache
-		CollectionCacheLock.Lock()
-		for key, collection := range CollectionCache {
-			collection.Files = removeFile(collection.Files, file.FileDirectory)
-			CollectionCache[key] = collection
-		}
-		CollectionCacheLock.Unlock()
-	}(file)
 
 	// Delete from database
 	db := GetDB()
@@ -125,13 +92,71 @@ func DeleteFile(file FileData, collectionPulser func(collection Collection)) err
 	// Delete file from collections
 	var collections []Collection
 	db.Where("Files LIKE ?", "%"+file.FileDirectory+"%").Find(&collections)
+	updatedCollections := make(map[string]bool)
 	for _, collection := range collections {
 		collection.Files = removeFile(collection.Files, file.FileDirectory)
+		collection.Size = calculateCollectionSize(collection, make(map[string]bool), make(map[string]bool))
+		updatedCollections[collection.ID] = true
 		if err := db.Save(&collection).Error; err != nil {
 			return fmt.Errorf("failed to update collection %s: %v", collection.Name, err)
 		} else {
 			go collectionPulser(collection)
+			updateParentCollectionSizes(collection.ID, &updatedCollections)
 		}
 	}
+
+	go func(file FileData) { // Remove from UserFiles Cache
+		UserFilesMutex.Lock()
+		fmt.Println("Removing file from UserFiles cache:", file.FileDirectory)
+		for _, fileSet := range UserFiles {
+			if fileSet != nil {
+				fileSet.Remove(file.FileDirectory)
+			}
+		}
+		fmt.Println("File removed from UserFiles cache:", file.FileDirectory)
+		UserFilesMutex.Unlock()
+	}(file)
+
+	go func(file FileData) { // Remove from FileCache
+		fmt.Println("Removing file from FileCache:", file.FileDirectory)
+		FileCacheLock.Lock()
+		delete(FileCache, file.FileDirectory)
+		FileCacheLock.Unlock()
+		fmt.Println("File removed from FileCache:", file.FileDirectory)
+	}(file)
+
+	go func(file FileData) { // Remove from CollectionFiles Cache and then collection cache
+		CollectionFilesMutex.Lock()
+		for _, fileSet := range CollectionFiles {
+			if fileSet != nil {
+				fileSet.Remove(file.FileDirectory)
+			}
+		}
+		CollectionFilesMutex.Unlock()
+
+		var CollectionsToUpdate []Collection
+		CollectionCacheLock.RLock()
+		for _, collection := range CollectionCache {
+			newFiles := removeFile(collection.Files, file.FileDirectory)
+			if newFiles != collection.Files {
+				collection.Files = newFiles
+				CollectionsToUpdate = append(CollectionsToUpdate, collection)
+			}
+		}
+		CollectionCacheLock.RUnlock()
+
+		updatedCollections := make(map[string]bool)
+		for _, collection := range CollectionsToUpdate {
+			collection.Files = removeFile(collection.Files, file.FileDirectory)
+			collection.Size = calculateCollectionSize(collection, make(map[string]bool), make(map[string]bool))
+			updatedCollections[collection.ID] = true
+			updateParentCollectionSizes(collection.ID, &updatedCollections)
+			CollectionCacheLock.Lock()
+			CollectionCache[collection.ID] = collection
+			CollectionCacheLock.Unlock()
+		}
+
+	}(file)
+
 	return nil
 }
