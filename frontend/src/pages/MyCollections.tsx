@@ -65,8 +65,12 @@ const Popup = () => {
                         <input type="text" disabled={true} placeholder="Import a GitHub Repository" class="cursor-not-allowed w-full p-2 rounded-lg bg-neutral-700 text-white focus:outline-none focus:ring-2 focus:ring-green-500"/>
                     )}
                     {(modifying() === "New" || modifying() === "Github") && (
-                        <Dialog.Close onClick={onSubmit} class="bg-green-700 text-white p-2 rounded-lg font-semibold w-full hover:bg-green-800 transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed">
-                            Submit
+                        <Dialog.Close 
+                            onClick={onSubmit} 
+                            class={`bg-green-700 disabled:bg-neutral-600 text-white p-2 rounded-lg font-semibold w-full hover:bg-green-800 transition-colors ${modifying() === "New" && newCollectionName().trim().length <= 2 ? 'bg-gray-500 cursor-not-allowed' : 'hover:bg-green-800'}`}
+                            disabled={modifying() === "New" && newCollectionName().trim().length <= 2}
+                        >
+                            {modifying() === "New" ? "Create" : "Import"}
                         </Dialog.Close>
                     )}
                 </Dialog.Content>
