@@ -1,6 +1,6 @@
 import { Component, For, useContext, createSignal, createEffect } from "solid-js";
 import { DesktopTemplate } from "../components/Template";
-import { useSearchParams } from "@solidjs/router";
+import { useNavigate, useSearchParams } from "@solidjs/router";
 import { AppContext } from "../Context";
 import { useWebSocket } from "../Websockets";
 import FileCard from "../components/FileCard";
@@ -196,7 +196,7 @@ const AddFolderPopup: Component<{collectionId: string}> = (props) => {
                         <button
                             onClick={() => handleSubmit(() => {})}
                             class="bg-green-700 text-white p-2 rounded-lg font-semibold w-full hover:bg-green-800 transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed"
-                            disabled={modifying() === "existing" ? selectedFolders().length === 0 : newFolderName().trim() === ""}
+                            disabled={modifying() === "existing" ? selectedFolders().length === 0 : newFolderName().trim().length <= 2}
                         >
                             {modifying() === "new" ? "Create" : "Add Selected"}
                         </button>
@@ -206,6 +206,50 @@ const AddFolderPopup: Component<{collectionId: string}> = (props) => {
             </Dialog.Portal>
         </Dialog>
     );
+}
+
+const CollectionNavigator: Component = () => {
+    const [collectionIds, setCollectionIds] = createSignal<Array<string>>([]);
+    const [params] = useSearchParams();
+    const ctx = useContext(AppContext)!;
+    const {socket, status} = useWebSocket();
+    const navigate = useNavigate();
+    createEffect(() => {
+        const allIds = params.id?.toString().split(" ") || []
+        allIds.pop();
+        setCollectionIds(allIds);
+        for (const id of collectionIds()) {
+            if (!ctx.knownCollections()[id]) {
+                getCollection(id, status, socket, ctx);
+            }
+        }
+    });
+
+    const handleCollectionClick = (clickedId: string) => {
+        const index = collectionIds().indexOf(clickedId);
+        if (index !== -1) {
+            const newIds = collectionIds().slice(0, index + 1);
+            navigate(`/collection?id=${newIds.join(" ")}`);
+        }
+    };
+
+    return (
+        <p class="text-gray-200 hover:cursor-default">
+            <span class="text-xl font-semibold text-gray-400 hover:text-gray-200 hover:cursor-pointer" onClick={()=>{navigate("/my_collections")}}>Collection</span>
+            &nbsp;&nbsp;&#47;&nbsp;&nbsp;
+            <For each={collectionIds()}>
+                {(id) => (
+                    <span 
+                        class="text-sm text-gray-400 hover:text-gray-200 hover:cursor-pointer"
+                        onClick={() => handleCollectionClick(id)}
+                    >
+                        {ctx.knownCollections()[id]?.name || id}
+                        &nbsp;&nbsp;&#47;&nbsp;&nbsp;
+                    </span>
+                )}
+            </For>
+        </p>
+    )
 }
 
 const CollectionPageDesktop: Component = () => {
@@ -227,7 +271,7 @@ const CollectionPageDesktop: Component = () => {
         <DesktopTemplate CurrentPage="Collection">
             <div class="flex flex-col w-full h-full px-[2vh] p-[1vh] space-y-10">
                 <div class="w-full flex justify-between items-center">
-                    <div/>
+                    <CollectionNavigator />
                     <p class="text-white font-black text-[4vh] text-center">{ctx.knownCollections()[collectionId()]?.name || "Unknown Collection"}</p>
                     {
                         ctx.knownCollections()[collectionId()]?.isOwned ?
@@ -239,19 +283,35 @@ const CollectionPageDesktop: Component = () => {
                         <div/>
                     }
                 </div>
-                <div class="w-full flex flex-wrap justify-center items-start gap-[2vh]">
-                    <For each={ctx.knownCollections()[collectionId()]?.folders || []}>
-                        {(folder) => (
-                        <CollectionCard collection={folder} />
-                        )}
-                    </For>
-                </div>
-                <div class="w-full flex flex-wrap justify-center items-start gap-[2vh]">
-                    <For each={ctx.knownCollections()[collectionId()]?.files || []}>
-                        {(file) => (
-                        <FileCard File={file} />
-                        )}
-                    </For>
+                <div class="w-full flex flex-col overflow-y-scroll space-y-10 custom-scrollbar h-full">
+                    {ctx.knownCollections()[collectionId()]?.folders.length > 0 && ctx.knownCollections()[collectionId()]?.files.length > 0 && (
+                        <div class="w-full flex justify-center items-center">
+                            <hr class="border-t border-gray-600 w-full" />
+                            <p class="mx-4 text-gray-400">Folders</p>
+                            <hr class="border-t border-gray-600 w-full" />
+                        </div>
+                    )}
+                    <div class="w-full flex flex-wrap justify-center items-start gap-[2vh]">
+                        <For each={ctx.knownCollections()[collectionId()]?.folders || []}>
+                            {(folder) => (
+                            <CollectionCard collection={folder} />
+                            )}
+                        </For>
+                    </div>
+                    {ctx.knownCollections()[collectionId()]?.folders.length > 0 && ctx.knownCollections()[collectionId()]?.files.length > 0 && (
+                        <div class="w-full flex justify-center items-center">
+                            <hr class="border-t border-gray-600 w-full" />
+                            <p class="mx-4 text-gray-400">Files</p>
+                            <hr class="border-t border-gray-600 w-full" />
+                        </div>
+                    )}
+                    <div class="w-full flex flex-wrap justify-center items-start gap-[2vh]">
+                        <For each={ctx.knownCollections()[collectionId()]?.files || []}>
+                            {(file) => (
+                            <FileCard File={file} />
+                            )}
+                        </For>
+                    </div>
                 </div>
             </div>
         </DesktopTemplate>
