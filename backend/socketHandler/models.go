@@ -191,3 +191,8 @@ func (r AddFileToCollectionRequest) GetCollectionID() string {
 }
 
 type RemoveFileFromCollectionRequest AddFileToCollectionRequest
+
+type ImportGithubRepoRequest struct {
+	RepoURL string   `json:"repo_url"`
+	Auth    AuthInfo `json:"auth"`
+}

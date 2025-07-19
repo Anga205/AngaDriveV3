@@ -85,53 +85,73 @@ func GetUserFiles(token string) ([]FileData, error) {
 	return dbFiles, nil
 }
 
-func GetFile(file_directory string) (FileData, error) {
-	FileCacheLock.RLock()
-	data, found := FileCache[file_directory]
-	FileCacheLock.RUnlock()
-
-	if found {
-		return data, nil
+func unsafeGetFile(fileDirectory string) (FileData, bool, error) {
+	if fileData, ok := FileCache[fileDirectory]; ok {
+		return fileData, true, nil
 	}
-
 	db := GetDB()
 	var fileData FileData
-	err := db.Where("file_directory = ?", file_directory).First(&fileData).Error
+	err := db.Where("file_directory = ?", fileDirectory).First(&fileData).Error
+	if err != nil {
+		return FileData{}, false, err
+	}
+	return fileData, false, nil
+}
+
+func GetFile(file_directory string) (FileData, error) {
+	FileCacheLock.RLock()
+	fileData, inCache, err := unsafeGetFile(file_directory)
+	FileCacheLock.RUnlock()
 	if err != nil {
 		return FileData{}, err
 	}
-
-	go func() {
-		FileCacheLock.Lock()
-		defer FileCacheLock.Unlock()
-		FileCache[file_directory] = fileData
-	}()
-
+	if !inCache {
+		go func() {
+			FileCacheLock.Lock()
+			defer FileCacheLock.Unlock()
+			fileData, _, err := unsafeGetFile(file_directory)
+			if err != nil {
+				return
+			}
+			FileCache[file_directory] = fileData
+		}()
+	}
 	return fileData, nil
 }
 
-func GetCollection(collectionID string) (Collection, error) {
-	CollectionCacheLock.RLock()
-	data, found := CollectionCache[collectionID]
-	CollectionCacheLock.RUnlock()
-
-	if found {
-		return data, nil
+func unsafeGetCollection(collectionID string) (Collection, bool, error) {
+	if collection, ok := CollectionCache[collectionID]; ok {
+		return collection, true, nil
 	}
 	db := GetDB()
 	var collection Collection
 	err := db.Where("id = ?", collectionID).First(&collection).Error
 	if err != nil {
+		return Collection{}, false, err
+	}
+	return collection, false, nil
+}
+
+func GetCollection(collectionID string) (Collection, error) {
+	CollectionCacheLock.RLock()
+	data, inCache, err := unsafeGetCollection(collectionID)
+	CollectionCacheLock.RUnlock()
+
+	if err != nil {
 		return Collection{}, err
 	}
-
-	go func() {
-		CollectionCacheLock.Lock()
-		defer CollectionCacheLock.Unlock()
-		CollectionCache[collectionID] = collection
-	}()
-
-	return collection, nil
+	if !inCache {
+		go func() {
+			CollectionCacheLock.Lock()
+			defer CollectionCacheLock.Unlock()
+			data, _, err := unsafeGetCollection(collectionID)
+			if err != nil {
+				return
+			}
+			CollectionCache[collectionID] = data
+		}()
+	}
+	return data, nil
 }
 
 func CheckForFilesWithMd5sum(md5sum string) bool {

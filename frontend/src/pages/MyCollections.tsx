@@ -1,4 +1,4 @@
-import { Component, createEffect, createSignal, useContext } from 'solid-js';
+import { Accessor, Component, createEffect, createSignal, useContext } from 'solid-js';
 import { DesktopTemplate } from '../components/Template';
 import Navbar from '../components/Navbar';
 import Dialog from '@corvu/dialog';
@@ -12,9 +12,12 @@ import CollectionCard from '../components/CollectionCard';
 const Popup = () => {
     const [newCollectionName, setNewCollectionName] = createSignal<string>('');
     const [modifying, setModifying] = createSignal<null | "Github" | "New">(null);
+    const [githubURL, setGithubURL] = createSignal<string>('');
     createEffect(()=>{
         if (newCollectionName() !== '') {
             setModifying("New");
+        } else if (githubURL() !== '') {
+            setModifying("Github");
         } else {
             setModifying(null);
         }
@@ -40,11 +43,38 @@ const Popup = () => {
                     }
                 }
             }))
+        } else if (modifying() === "Github") {
+            let url = githubURL().trim();
+            setGithubURL('');
+            socket.send(JSON.stringify({
+                type: "import_from_github",
+                data: {
+                    repo_url: url,
+                    auth: {
+                        token: localStorage.getItem('token') || '',
+                        email: localStorage.getItem('email') || '',
+                        password: localStorage.getItem('password') || ''
+                    }
+                }
+            }));
         }
     }
-    return (
-        <Dialog onOpenChange={() => {}}>
-            <Dialog.Trigger class="cursor-pointer hover:text-gray-300 text-white flex justify-center items-center bg-green-600 hover:bg-green-800 md:p-[0.2vh] px-[1vh] rounded-[1vh] font-bold md:translate-y-[4vh]">
+    const disableSubmitButton: Accessor<boolean> = () => {
+        if (modifying() === "New") {
+            return newCollectionName().trim().length <= 2;
+        } else if (modifying() === "Github") {
+            const githubRepoRegex = /^https:\/\/github\.com\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+$/;
+            return !githubRepoRegex.test(githubURL());
+        }
+        return false;
+    }
+    return (    
+        <Dialog onOpenChange={() => {
+            setNewCollectionName('');
+            setGithubURL('');
+            setModifying(null);
+        }}>
+            <Dialog.Trigger class="cursor-pointer hover:text-gray-300 text-white flex justify-center items-center bg-green-600 hover:bg-green-800 py-[0.2vh] px-[1vh] rounded-[1vh] font-bold md:translate-y-[4vh]">
                 <span class="text-4xl text-center">+</span>&nbsp;Create&nbsp;Collection
             </Dialog.Trigger>
             <Dialog.Portal>
@@ -62,13 +92,13 @@ const Popup = () => {
                         </div>
                     )}
                     {(modifying() === null || modifying() === "Github") && (
-                        <input type="text" disabled={true} placeholder="Import a GitHub Repository" class="cursor-not-allowed w-full p-2 rounded-lg bg-neutral-700 text-white focus:outline-none focus:ring-2 focus:ring-green-500"/>
+                        <input type="text" placeholder="Import a GitHub Repository" onInput={(e) => setGithubURL(e.target.value)} class="w-full p-2 rounded-lg bg-neutral-700 text-white focus:outline-none focus:ring-2 focus:ring-green-500"/>
                     )}
                     {(modifying() === "New" || modifying() === "Github") && (
                         <Dialog.Close 
                             onClick={onSubmit} 
                             class={`bg-green-700 disabled:bg-neutral-600 text-white p-2 rounded-lg font-semibold w-full hover:bg-green-800 transition-colors ${modifying() === "New" && newCollectionName().trim().length <= 2 ? 'bg-gray-500 cursor-not-allowed' : 'hover:bg-green-800'}`}
-                            disabled={modifying() === "New" && newCollectionName().trim().length <= 2}
+                            disabled={disableSubmitButton()}
                         >
                             {modifying() === "New" ? "Create" : "Import"}
                         </Dialog.Close>

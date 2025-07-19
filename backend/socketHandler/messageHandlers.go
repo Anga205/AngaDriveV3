@@ -127,6 +127,9 @@ var messageHandlers = map[string]MessageHandler{
 	"remove_file_from_collection": HandlerFunc(func(conn *websocket.Conn, data json.RawMessage) {
 		processRequest(conn, data, RemoveFileFromCollection, "get_collection_response")
 	}),
+	"import_from_github": HandlerFunc(func(conn *websocket.Conn, data json.RawMessage) {
+		processRequest(conn, data, GithubImportHandler, "success_notification")
+	}),
 }
 
 func handleEnableHomepageUpdates(conn *websocket.Conn, data json.RawMessage) {

@@ -131,6 +131,34 @@ const UniversalMessageHandler = (message: MessageEvent, ctx: AppContextType) => 
         isOwned: data.data.is_owner
       }
     }))
+  } else if (data.type === "notification") {
+    toast.custom((t)=>(
+      <div 
+        class="px-6 py-3 pr-12 rounded-sm shadow-md font-medium relative"
+        style={{
+          "background-color": "#2a2a2a",
+          "color": "#ffffff"
+        }}
+        >
+        <button 
+          class="bg-gray-700/80 hover:bg-gray-600 flex justify-center top-1/2 -translate-y-1/2 items-center w-6 h-6 right-2.5 absolute rounded-full"
+          onClick={() => toast.dismiss(t.id)}
+        >
+            &times;
+        </button>
+        {data.data}
+      </div>
+    ),{
+      duration: 2000,
+      position: "bottom-right",
+    })
+  } else if (data.type === "success_notification") {
+    toast.success(data.data, {
+      style: {
+        "background-color": "#2a2a2a",
+        "color": "#ffffff"
+      }
+    })
   }
 }
 
