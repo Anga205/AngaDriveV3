@@ -11,6 +11,8 @@ type LoginRequest struct {
 	Password string `json:"password" binding:"required,min=3,max=64"`
 }
 
+type DeleteUserRequest LoginRequest
+
 type ChangePasswordRequest struct {
 	Email             string `json:"email" binding:"required,email"`
 	OldPassword       string `json:"old_password" binding:"required,min=3,max=64"`

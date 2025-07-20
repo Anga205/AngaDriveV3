@@ -25,9 +25,9 @@ func removeFile(fileList string, file string) string {
 }
 
 func (collection Collection) unsafeDelete() error {
-	if CollectionCacheLock.TryLock() {
-		defer CollectionCacheLock.Unlock()
-		return fmt.Errorf("please Lock CollectionCacheLock before calling unsafeDelete")
+	if UserCollectionsMutex.TryLock() {
+		defer UserCollectionsMutex.Unlock()
+		return fmt.Errorf("please Lock UserCollectionsMutex before calling unsafeDelete")
 	}
 	if CollectionFilesMutex.TryLock() {
 		defer CollectionFilesMutex.Unlock()
@@ -37,13 +37,13 @@ func (collection Collection) unsafeDelete() error {
 		defer CollectionFoldersMutex.Unlock()
 		return fmt.Errorf("please Lock CollectionFoldersMutex before calling unsafeDelete")
 	}
-	if UserCollectionsMutex.TryLock() {
-		defer UserCollectionsMutex.Unlock()
-		return fmt.Errorf("please Lock UserCollectionsMutex before calling unsafeDelete")
-	}
 	if FileCacheLock.TryLock() {
 		defer FileCacheLock.Unlock()
 		return fmt.Errorf("please Read-Lock FileCacheLock before calling unsafeDelete")
+	}
+	if CollectionCacheLock.TryLock() {
+		defer CollectionCacheLock.Unlock()
+		return fmt.Errorf("please Lock CollectionCacheLock before calling unsafeDelete")
 	}
 	db := GetDB()
 	result := db.Delete(&Collection{}, collection)
@@ -76,31 +76,31 @@ func (collection Collection) unsafeDelete() error {
 }
 
 func (collection Collection) Delete() error {
-	CollectionCacheLock.Lock()
-	defer CollectionCacheLock.Unlock()
+	UserCollectionsMutex.RLock()
+	defer UserCollectionsMutex.RUnlock()
 	CollectionFilesMutex.Lock()
 	defer CollectionFilesMutex.Unlock()
 	CollectionFoldersMutex.Lock()
 	defer CollectionFoldersMutex.Unlock()
-	UserCollectionsMutex.RLock()
-	defer UserCollectionsMutex.RUnlock()
 	FileCacheLock.RLock()
 	defer FileCacheLock.RUnlock()
+	CollectionCacheLock.Lock()
+	defer CollectionCacheLock.Unlock()
 	return collection.unsafeDelete()
 }
 
 func unsafeDeleteFile(file FileData, collectionPulser func(collection Collection)) error {
-	if FileCacheLock.TryLock() {
-		defer FileCacheLock.Unlock()
-		return fmt.Errorf("please Lock FileCacheLock before calling unsafeDeleteFile")
+	if UserFilesMutex.TryLock() {
+		defer UserFilesMutex.Unlock()
+		return fmt.Errorf("please Read-Lock UserFilesMutex before calling unsafeDeleteFile")
 	}
 	if CollectionFilesMutex.TryLock() {
 		defer CollectionFilesMutex.Unlock()
 		return fmt.Errorf("please Read-Lock CollectionFilesMutex before calling unsafeDeleteFile")
 	}
-	if UserFilesMutex.TryLock() {
-		defer UserFilesMutex.Unlock()
-		return fmt.Errorf("please Read-Lock UserFilesMutex before calling unsafeDeleteFile")
+	if FileCacheLock.TryLock() {
+		defer FileCacheLock.Unlock()
+		return fmt.Errorf("please Lock FileCacheLock before calling unsafeDeleteFile")
 	}
 	if CollectionCacheLock.TryLock() {
 		defer CollectionCacheLock.Unlock()
@@ -145,13 +145,34 @@ func unsafeDeleteFile(file FileData, collectionPulser func(collection Collection
 }
 
 func DeleteFile(file FileData, collectionPulser func(collection Collection)) error {
-	FileCacheLock.Lock()
-	defer FileCacheLock.Unlock()
-	CollectionFilesMutex.RLock()
-	defer CollectionFilesMutex.RUnlock()
 	UserFilesMutex.RLock()
 	defer UserFilesMutex.RUnlock()
+	CollectionFilesMutex.RLock()
+	defer CollectionFilesMutex.RUnlock()
+	FileCacheLock.Lock()
+	defer FileCacheLock.Unlock()
 	CollectionCacheLock.Lock()
 	defer CollectionCacheLock.Unlock()
 	return unsafeDeleteFile(file, collectionPulser)
+}
+
+func (account Account) Delete() error {
+	UserFilesMutex.Lock()
+	defer UserFilesMutex.Unlock()
+	UserCollectionsMutex.Lock()
+	defer UserCollectionsMutex.Unlock()
+	UserAccountsByEmailMutex.Lock()
+	defer UserAccountsByEmailMutex.Unlock()
+	UserAccountsByTokenMutex.Lock()
+	defer UserAccountsByTokenMutex.Unlock()
+	db := GetDB()
+	result := db.Where("token = ?", account.Token).Delete(&Account{})
+	if result.Error != nil {
+		return result.Error
+	}
+	delete(UserFiles, account.Token)
+	delete(UserCollections, account.Token)
+	delete(UserAccountsByEmail, account.Email)
+	delete(UserAccountsByToken, account.Token)
+	return nil
 }
