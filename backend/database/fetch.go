@@ -298,13 +298,3 @@ func (user Account) GetCollections() ([]Collection, error) {
 	}()
 	return dbCollections, nil
 }
-
-func (collection Collection) hasFolder(folderID string) bool {
-	folders := strings.Split(collection.Collections, ",")
-	for _, folder := range folders {
-		if strings.TrimSpace(folder) == folderID {
-			return true
-		}
-	}
-	return false
-}

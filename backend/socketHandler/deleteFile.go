@@ -20,9 +20,6 @@ func getExtension(filename string) string {
 func RemoveFile(md5sum string) {
 	if !database.CheckForFilesWithMd5sum(md5sum) {
 		os.Remove(UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + md5sum)
-		if getExtension(md5sum) == "pdf" {
-			os.Remove(UPLOAD_DIR + string(os.PathSeparator) + "pdf_previews" + string(os.PathSeparator) + md5sum + ".png")
-		}
 	}
 }
 
@@ -51,6 +48,9 @@ func DeleteFile(req DeleteFileRequest) error {
 		return fmt.Errorf("unauthorized delete attempt")
 	}
 	err = database.DeleteFile(fileToDelete, PulseCollectionSubscribers)
+	if getExtension(fileToDelete.OriginalFileName) == "pdf" {
+		os.Remove(UPLOAD_DIR + string(os.PathSeparator) + "pdf_previews" + string(os.PathSeparator) + fileToDelete.FileDirectory + ".png")
+	}
 	if err != nil {
 		now := time.Now()
 		timestamp := now.Format("03:04:05 PM, 02 Jan 2006")

@@ -5,7 +5,7 @@ import { useWebSocket } from "../Websockets";
 import bcrypt from "bcryptjs";
 import { DesktopTemplate } from "../components/Template";
 import { AppContext } from "../Context";
-import { fetchFilesAndCollections, formatFileSize, generateClientToken } from "../library/functions";
+import { fetchFilesAndCollections, formatFileSize, handleLogout } from "../library/functions";
 
 const isEmailValid = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -697,14 +697,81 @@ const AccountDetails: Component<{email: Accessor<string>; setEmail: (email: stri
     )
 }
 
+const DeleteAccountDialog: Component = () => {
+    const [open, setOpen] = createSignal(false);
+    const [deletePassword, setDeletePassword] = createSignal("");
+    const { socket: getSocket, status: socketStatus } = useWebSocket();
+    const handleAccountDeletion = () => {
+        if (socketStatus() !== "connected") {
+            setTimeout(() => {
+                handleAccountDeletion();
+            }, 100);
+            return;
+        }
+        if (!deletePassword()) {
+            toast.error("Please enter your password to confirm account deletion.");
+            return;
+        }
+        const currentSocket = getSocket();
+        currentSocket?.send(
+            JSON.stringify({
+                type: "delete_account",
+                data: {
+                    email: localStorage.getItem("email"),
+                    password: deletePassword(),
+                },
+            })
+        )
+    }
+    return (
+        <Dialog open={open()} onOpenChange={(newOpen) => {
+            setOpen(newOpen);
+            setDeletePassword("");
+        }}>
+            <Dialog.Trigger class="bg-red-600 w-full hover:bg-red-700 text-white font-semibold py-[1vh] px-[1vw] rounded mt-auto transition-colors duration-200 text-[1.5vh]">
+                Delete&nbsp;Account
+            </Dialog.Trigger>
+            <Dialog.Portal>
+                <Dialog.Overlay class="fixed inset-0 bg-black/50 z-40" />
+                <Dialog.Content class="flex z-50 justify-center flex-col fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-neutral-800 p-6 rounded-md shadow-lg text-white w-[clamp(300px,50vw,500px)]">
+                    <Dialog.Label class="text-xl font-semibold mb-2 text-center">Confirm Account Deletion</Dialog.Label>
+                    <p class="mb-4 text-sm text-neutral-400">
+                        P.S. if u delete ur account then i cant recover it even if you ask me to, all ur files, collections, and data will be instantly deleted automatically
+                    </p>
+                    <label for="deletePasswordInput" class="text-sm text-red-400 mb-1 font-semibold">
+                        Enter ur password to confirm:
+                    </label>
+                    <input
+                        id="deletePasswordInput"
+                        type="password"
+                        class="w-full p-3 rounded bg-neutral-700 text-[1.5vh] placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-red-400"
+                        placeholder="Your Password"
+                        autocomplete="current-password"
+                        onInput={e => setDeletePassword(e.currentTarget.value)}
+                    />
+                    <div class="flex justify-end space-x-3 mt-6">
+                        <Dialog.Close class="bg-neutral-600 hover:bg-neutral-700 text-white font-semibold py-2 px-4 rounded transition-colors duration-200">
+                            Cancel
+                        </Dialog.Close>
+                        <button
+                            class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded transition-colors duration-200"
+                            onClick={handleAccountDeletion}
+                        >
+                            Delete Account
+                        </button>
+                    </div>
+                </Dialog.Content>
+            </Dialog.Portal>
+        </Dialog>
+    )
+}
+
 const DangerZone: Component<{logout: () => void; class?: string}> = (props) => {
     return (
         <div class={`bg-red-950 border border-red-700 rounded-md p-[2vh] text-white flex flex-col shadow-md w-full ${props.class}`}>
             <p class="font-semibold text-[2vh] mb-[2vh] text-center">Danger Zone</p>
             <div class="w-full flex space-x-[1vh]">
-                <button class="bg-red-600 hover:bg-red-700 w-full text-white font-semibold py-[1vh] px-[1vw] rounded mt-auto transition-colors duration-200 text-[1.5vh]">
-                    Delete&nbsp;Account
-                </button>
+                <DeleteAccountDialog/>
                 <button class="bg-yellow-600 w-full hover:bg-yellow-700 text-white font-semibold py-[1vh] px-[1vw] rounded mt-auto transition-colors duration-200 text-[1.5vh]"
                 onClick={() => {
                     props.logout();
@@ -730,7 +797,6 @@ const AccountManager: Component<{logout: () => void}> = (props) => {
 
     const [email, setEmail] = createSignal(localStorage.getItem("email") || "{email}");
     const [displayName, setDisplayName] = createSignal(localStorage.getItem("display_name") || "{display_name}");
-    const [collections] = createSignal("5");
     const ctx = useContext(AppContext)!;
 
     return (
@@ -742,7 +808,7 @@ const AccountManager: Component<{logout: () => void}> = (props) => {
                 <div class="min-w-[20%] grid grid-cols-2 grid-rows-2 gap-[1vh]">
                     <UserStat title="Space&nbsp;Used" value={formatFileSize(ctx.files().reduce((sum, file) => sum + file.file_size, 0))} class="col-span-2"/>
                     <UserStat title="Files&nbsp;Hosted" value={ctx.files().length.toString()} />
-                    <UserStat title="Collections" value={collections()}/>
+                    <UserStat title="Collections" value={ctx.userCollections().size.toString()}/>
                     <DangerZone logout={props.logout} class="col-span-2"/>
                 </div>
             </div>
@@ -761,33 +827,22 @@ const Account: Component = () => {
         fetchFilesAndCollections(currentSocket.socket()!);
     };
 
-
-    const handleLogout = () => {
-        localStorage.removeItem("email");
-        localStorage.removeItem("password");
-        localStorage.removeItem("display_name");
-        localStorage.setItem("token", generateClientToken());
-        ctx.setFiles([]);
-        setIsLoggedIn(false);
-        toast('Logged out successfully!', {
-            icon: '↩️'
-        })
-    };
-
     onMount(() => {
         const storedEmail = localStorage.getItem("email");
         const storedPassword = localStorage.getItem("password");
-        if (storedEmail && storedPassword) {
-            setIsLoggedIn(true);
-        } else {
-            setIsLoggedIn(false);
-        }
+        setIsLoggedIn(!!(storedEmail && storedPassword));
+    });
+
+    window.addEventListener('storage', () => {
+        const storedEmail = localStorage.getItem("email");
+        const storedPassword = localStorage.getItem("password");
+        setIsLoggedIn(!!(storedEmail && storedPassword));
     });
     
     return (
         <>
             <title>Account | DriveV3</title>
-            {isLoggedIn() ? <AccountManager logout={handleLogout}/> : <LoginScreen onLoginSuccess={handleLoginSuccess} />}
+            {isLoggedIn() ? <AccountManager logout={() => handleLogout(setIsLoggedIn, ctx)} /> : <LoginScreen onLoginSuccess={handleLoginSuccess} />}
             <Toaster
             position="bottom-right"
             gutter={8}

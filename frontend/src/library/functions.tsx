@@ -159,6 +159,8 @@ const UniversalMessageHandler = (message: MessageEvent, ctx: AppContextType) => 
         "color": "#ffffff"
       }
     })
+  } else if (data.type === "force_logout" && localStorage.getItem("email")===data.data) {
+    handleLogout(()=>{}, ctx);
   }
 }
 
@@ -218,4 +220,17 @@ const getCollection = (id: string, status: Accessor<SocketStatus>, socket: Acces
     }
 }
 
-export {getFileMD5, formatFileSize, truncateFileName, getFileType, UniversalMessageHandler, generateClientToken, fetchFilesAndCollections, getCollection};
+const handleLogout = (setIsLoggedIn: (value: boolean) => void, ctx: AppContextType) => {
+    localStorage.removeItem("email");
+    localStorage.removeItem("password");
+    localStorage.removeItem("display_name");
+    localStorage.setItem("token", generateClientToken());
+    ctx.setFiles([]);
+    ctx.setUserCollections(new Set());
+    setIsLoggedIn(false);
+    toast('Logged out successfully!', {
+        icon: '↩️'
+    })
+};
+
+export {getFileMD5, formatFileSize, truncateFileName, getFileType, UniversalMessageHandler, generateClientToken, fetchFilesAndCollections, getCollection, handleLogout};

@@ -32,17 +32,17 @@ func (oldInfo Account) Update(newInfo Account) error { // this assumes token can
 
 func (collection *Collection) unsafeAddFolder(folder string) error {
 	var err error
-	if CollectionCacheLock.TryLock() {
-		defer CollectionCacheLock.Unlock()
-		return fmt.Errorf("please Lock CollectionCacheLock before calling unsafeAddFolder")
+	if CollectionFoldersMutex.TryLock() {
+		defer CollectionFoldersMutex.Unlock()
+		return fmt.Errorf("please Lock CollectionFoldersMutex before calling unsafeAddFolder")
 	}
 	if FileCacheLock.TryLock() {
 		defer FileCacheLock.Unlock()
 		return fmt.Errorf("please Read-Lock FileCacheLock before calling unsafeAddFolder")
 	}
-	if CollectionFoldersMutex.TryLock() {
-		defer CollectionFoldersMutex.Unlock()
-		return fmt.Errorf("please Lock CollectionFoldersMutex before calling unsafeAddFolder")
+	if CollectionCacheLock.TryLock() {
+		defer CollectionCacheLock.Unlock()
+		return fmt.Errorf("please Lock CollectionCacheLock before calling unsafeAddFolder")
 	}
 	// CollectionCacheLock is already locked
 	// we're doing this to ensure that the collection still exists and is up-to-date by the time the locks were acquired and the function was called
@@ -67,9 +67,9 @@ func (collection *Collection) unsafeAddFolder(folder string) error {
 }
 
 func (collection *Collection) AddFolder(folder string) error {
-	CollectionCacheLock.Lock()
-	FileCacheLock.RLock()
 	CollectionFoldersMutex.Lock()
+	FileCacheLock.RLock()
+	CollectionCacheLock.Lock()
 	defer CollectionFoldersMutex.Unlock()
 	defer FileCacheLock.RUnlock()
 	defer CollectionCacheLock.Unlock()
@@ -77,13 +77,13 @@ func (collection *Collection) AddFolder(folder string) error {
 }
 
 func (collection *Collection) unsafeRemoveFolder(folder string) error {
-	if CollectionCacheLock.TryLock() {
-		defer CollectionCacheLock.Unlock()
-		return fmt.Errorf("please Lock CollectionCacheLock before calling unsafeRemoveFolder")
-	}
 	if CollectionFoldersMutex.TryLock() {
 		defer CollectionFoldersMutex.Unlock()
 		return fmt.Errorf("please Lock CollectionFoldersMutex before calling unsafeRemoveFolder")
+	}
+	if CollectionCacheLock.TryLock() {
+		defer CollectionCacheLock.Unlock()
+		return fmt.Errorf("please Lock CollectionCacheLock before calling unsafeRemoveFolder")
 	}
 	var err error
 	*collection, _, err = unsafeGetCollection(collection.ID) // CollectionCacheLock is already locked
@@ -113,8 +113,8 @@ func (collection *Collection) unsafeRemoveFolder(folder string) error {
 
 func (collection *Collection) RemoveFolder(folder string) error {
 	CollectionFoldersMutex.Lock()
-	CollectionCacheLock.Lock()
 	FileCacheLock.RLock()
+	CollectionCacheLock.Lock()
 	defer FileCacheLock.RUnlock()
 	defer CollectionCacheLock.Unlock()
 	defer CollectionFoldersMutex.Unlock()
@@ -182,13 +182,13 @@ func unsafeUpdateParentCollectionSizes(collectionID string, collectionsAlreadyUp
 }
 
 func (collection *Collection) unsafeAddFile(fileDirectory string) error {
-	if CollectionCacheLock.TryLock() {
-		defer CollectionCacheLock.Unlock()
-		return fmt.Errorf("please Lock CollectionCacheLock before calling unsafeAddFile")
-	}
 	if CollectionFilesMutex.TryLock() {
 		defer CollectionFilesMutex.Unlock()
 		return fmt.Errorf("please Lock CollectionFilesMutex before calling unsafeAddFile")
+	}
+	if CollectionCacheLock.TryLock() {
+		defer CollectionCacheLock.Unlock()
+		return fmt.Errorf("please Lock CollectionCacheLock before calling unsafeAddFile")
 	}
 	var err error
 	*collection, _, err = unsafeGetCollection(collection.ID) // CollectionCacheLock is already locked
@@ -221,9 +221,9 @@ func (collection *Collection) unsafeAddFile(fileDirectory string) error {
 }
 
 func (collection *Collection) AddFile(fileDirectory string) error {
-	CollectionCacheLock.Lock()
 	CollectionFilesMutex.Lock()
 	FileCacheLock.RLock()
+	CollectionCacheLock.Lock()
 	defer FileCacheLock.RUnlock()
 	defer CollectionFilesMutex.Unlock()
 	defer CollectionCacheLock.Unlock()
@@ -231,13 +231,13 @@ func (collection *Collection) AddFile(fileDirectory string) error {
 }
 
 func (collection *Collection) unsafeRemoveFile(fileDirectory string) error {
-	if CollectionCacheLock.TryLock() {
-		defer CollectionCacheLock.Unlock()
-		return fmt.Errorf("please Lock CollectionCacheLock before calling unsafeRemoveFile")
-	}
 	if CollectionFilesMutex.TryLock() {
 		defer CollectionFilesMutex.Unlock()
 		return fmt.Errorf("please Lock CollectionFilesMutex before calling unsafeRemoveFile")
+	}
+	if CollectionCacheLock.TryLock() {
+		defer CollectionCacheLock.Unlock()
+		return fmt.Errorf("please Lock CollectionCacheLock before calling unsafeRemoveFile")
 	}
 	var err error
 	*collection, _, err = unsafeGetCollection(collection.ID) // CollectionCacheLock is already locked
@@ -267,8 +267,8 @@ func (collection *Collection) unsafeRemoveFile(fileDirectory string) error {
 
 func (collection *Collection) RemoveFile(fileDirectory string) error {
 	CollectionFilesMutex.Lock()
-	CollectionCacheLock.Lock()
 	FileCacheLock.RLock()
+	CollectionCacheLock.Lock()
 	defer FileCacheLock.RUnlock()
 	defer CollectionCacheLock.Unlock()
 	defer CollectionFilesMutex.Unlock()

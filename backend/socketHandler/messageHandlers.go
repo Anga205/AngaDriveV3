@@ -130,6 +130,9 @@ var messageHandlers = map[string]MessageHandler{
 	"import_from_github": HandlerFunc(func(conn *websocket.Conn, data json.RawMessage) {
 		processRequest(conn, data, GithubImportHandler, "success_notification")
 	}),
+	"delete_account": HandlerFunc(func(conn *websocket.Conn, data json.RawMessage) {
+		processRequest(conn, data, removeAccountHandler, "success_notification")
+	}),
 }
 
 func handleEnableHomepageUpdates(conn *websocket.Conn, data json.RawMessage) {

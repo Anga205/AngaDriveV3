@@ -196,3 +196,5 @@ type ImportGithubRepoRequest struct {
 	RepoURL string   `json:"repo_url"`
 	Auth    AuthInfo `json:"auth"`
 }
+
+type removeAccRequest accounts.DeleteUserRequest
