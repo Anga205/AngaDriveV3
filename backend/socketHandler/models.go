@@ -97,7 +97,7 @@ type DeleteFileRequest struct {
 
 type connInfo struct {
 	conn *websocket.Conn
-	data WebsocketData
+	data *WebsocketData
 }
 
 type CreateCollectionRequest struct {

@@ -13,7 +13,7 @@ func PulseCollectionSubscribers(collection database.Collection) {
 	ActiveWebsocketsMutex.RLock()
 	for conn, connData := range ActiveWebsockets {
 		if _, ok := connData.SubscribedCollections[collection.ID]; ok {
-			connectionsToUpdate = append(connectionsToUpdate, connInfo{conn: conn, data: connData})
+			connectionsToUpdate = append(connectionsToUpdate, connInfo{conn: conn, data: &connData})
 		}
 	}
 	ActiveWebsocketsMutex.RUnlock()

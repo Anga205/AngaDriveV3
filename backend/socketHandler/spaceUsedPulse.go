@@ -26,12 +26,12 @@ func SpaceUsedPulse() {
 	ActiveWebsocketsMutex.RLock()
 	for conn, connData := range ActiveWebsockets {
 		if connData.HomePageUpdates {
-			connectionsToUpdate = append(connectionsToUpdate, connInfo{conn: conn, data: connData})
+			connectionsToUpdate = append(connectionsToUpdate, connInfo{conn: conn, data: &connData})
 		}
 	}
 	ActiveWebsocketsMutex.RUnlock()
 	for _, ci := range connectionsToUpdate {
-		go func(conn *websocket.Conn, connData WebsocketData) {
+		go func(conn *websocket.Conn, connData *WebsocketData) {
 			connData.Mutex.Lock()
 			defer connData.Mutex.Unlock()
 			if !connData.HomePageUpdates {

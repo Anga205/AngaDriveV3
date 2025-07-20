@@ -25,7 +25,7 @@ func genericUserPulse(token string, message map[string]interface{}) {
 	var connectionsToUpdate []connInfo
 	ActiveWebsocketsMutex.RLock()
 	for conn, connData := range ActiveWebsockets {
-		connectionsToUpdate = append(connectionsToUpdate, connInfo{conn: conn, data: connData})
+		connectionsToUpdate = append(connectionsToUpdate, connInfo{conn: conn, data: &connData})
 	}
 	ActiveWebsocketsMutex.RUnlock()
 	for _, ci := range connectionsToUpdate {
