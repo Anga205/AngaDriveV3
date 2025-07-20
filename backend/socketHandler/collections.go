@@ -92,7 +92,7 @@ func CollectionPulse(toggle bool, collection database.Collection) {
 	ActiveWebsocketsMutex.RLock()
 	for conn, connData := range ActiveWebsockets {
 		if (connData.UserInfo.Email != "" && connData.UserInfo.HashedPassword != "") || (connData.UserInfo.Token != "") {
-			connectionsToUpdate = append(connectionsToUpdate, connInfo{conn: conn, data: connData})
+			connectionsToUpdate = append(connectionsToUpdate, connInfo{conn: conn, data: &connData})
 		}
 	}
 	ActiveWebsocketsMutex.RUnlock()
@@ -124,7 +124,7 @@ func CollectionPulse(toggle bool, collection database.Collection) {
 				conn.Close()
 				return
 			}
-		}(ci.conn, &ci.data, collection, collectionCard)
+		}(ci.conn, ci.data, collection, collectionCard)
 	}
 }
 

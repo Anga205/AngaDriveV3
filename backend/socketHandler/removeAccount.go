@@ -13,7 +13,7 @@ func logoutUser(email string) error {
 	ActiveWebsocketsMutex.RLock()
 	for conn, connData := range ActiveWebsockets {
 		if connData.UserInfo.Email == email && connData.UserInfo.HashedPassword != "" {
-			collectionsToUpdate = append(collectionsToUpdate, connInfo{conn: conn, data: connData})
+			collectionsToUpdate = append(collectionsToUpdate, connInfo{conn: conn, data: &connData})
 		}
 	}
 	ActiveWebsocketsMutex.RUnlock()
@@ -27,7 +27,7 @@ func logoutUser(email string) error {
 	}
 	ActiveWebsocketsMutex.Unlock()
 	for _, ci := range collectionsToUpdate {
-		go func(conn *websocket.Conn, connData WebsocketData) {
+		go func(conn *websocket.Conn, connData *WebsocketData) {
 			connData.Mutex.Lock()
 			defer connData.Mutex.Unlock()
 			err := conn.WriteJSON(map[string]any{

@@ -21,13 +21,13 @@ func sysinfoPulse() {
 		ActiveWebsocketsMutex.RLock()
 		for conn, connMutex := range ActiveWebsockets {
 			if connMutex.HomePageUpdates {
-				connectionsToUpdate = append(connectionsToUpdate, connInfo{conn, connMutex})
+				connectionsToUpdate = append(connectionsToUpdate, connInfo{conn, &connMutex})
 			}
 		}
 		ActiveWebsocketsMutex.RUnlock()
 
 		for _, c := range connectionsToUpdate {
-			go func(conn *websocket.Conn, connMutex WebsocketData) {
+			go func(conn *websocket.Conn, connMutex *WebsocketData) {
 				connMutex.Mutex.Lock()
 				defer connMutex.Mutex.Unlock()
 				err := conn.WriteJSON(map[string]any{
