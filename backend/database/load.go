@@ -1,7 +1,6 @@
 package database
 
 import (
-	"fmt"
 	"sync"
 )
 
@@ -10,7 +9,6 @@ var (
 )
 
 func loadUserFiles() {
-	fmt.Println("Loading user files...")
 	UserFilesMutex.Lock()
 	defer UserFilesMutex.Unlock()
 	defer wg.Done()
@@ -32,11 +30,9 @@ func loadUserFiles() {
 		}
 		UserFiles[account.Token].Set(files)
 	}
-	fmt.Println("User files loaded successfully.")
 }
 
 func loadUserCollections() {
-	fmt.Println("Loading user collections...")
 	UserCollectionsMutex.Lock()
 	defer UserCollectionsMutex.Unlock()
 	defer wg.Done()
@@ -58,11 +54,9 @@ func loadUserCollections() {
 		}
 		UserCollections[account.Token].Set(collections)
 	}
-	fmt.Println("User collections loaded successfully.")
 }
 
 func loadCollectionFiles() {
-	fmt.Println("Loading collection files...")
 	CollectionFilesMutex.Lock()
 	defer CollectionFilesMutex.Unlock()
 	defer wg.Done()
@@ -86,11 +80,9 @@ func loadCollectionFiles() {
 			CollectionFiles[collection.ID].Set(files)
 		}
 	}
-	fmt.Println("Collection files loaded successfully.")
 }
 
 func loadCollectionFolders() {
-	fmt.Println("Loading collection folders...")
 	CollectionFoldersMutex.Lock()
 	defer CollectionFoldersMutex.Unlock()
 	defer wg.Done()
@@ -114,11 +106,9 @@ func loadCollectionFolders() {
 			CollectionFolders[collection.ID].Set(folders)
 		}
 	}
-	fmt.Println("Collection folders loaded successfully.")
 }
 
 func loadTimeStamps() {
-	fmt.Println("Loading timestamps...")
 	TimeStampsMutex.Lock()
 	defer TimeStampsMutex.Unlock()
 	defer wg.Done()
@@ -130,11 +120,9 @@ func loadTimeStamps() {
 	}
 
 	TimeStamps = timestamps
-	fmt.Println("Timestamps loaded successfully.")
 }
 
 func loadUserAccountsByEmail() {
-	fmt.Println("Loading user accounts by email...")
 	UserAccountsByEmailMutex.Lock()
 	defer UserAccountsByEmailMutex.Unlock()
 	defer wg.Done()
@@ -148,11 +136,9 @@ func loadUserAccountsByEmail() {
 	for _, account := range accounts {
 		UserAccountsByEmail[account.Email] = account
 	}
-	fmt.Println("User accounts by email loaded successfully.")
 }
 
 func loadUserAccountsByToken() {
-	fmt.Println("Loading user accounts by token...")
 	UserAccountsByTokenMutex.Lock()
 	defer UserAccountsByTokenMutex.Unlock()
 	defer wg.Done()
@@ -166,11 +152,9 @@ func loadUserAccountsByToken() {
 	for _, account := range accounts {
 		UserAccountsByToken[account.Token] = account
 	}
-	fmt.Println("User accounts by token loaded successfully.")
 }
 
 func loadFiles() {
-	fmt.Println("Loading files...")
 	FileCacheLock.Lock()
 	defer FileCacheLock.Unlock()
 	defer wg.Done()
@@ -184,11 +168,9 @@ func loadFiles() {
 	for _, file := range files {
 		FileCache[file.FileDirectory] = file
 	}
-	fmt.Println("Files loaded successfully.")
 }
 
 func loadCollections() {
-	fmt.Println("Loading collections...")
 	CollectionCacheLock.Lock()
 	defer CollectionCacheLock.Unlock()
 	defer wg.Done()
@@ -201,7 +183,6 @@ func loadCollections() {
 	for _, collection := range collections {
 		CollectionCache[collection.ID] = collection
 	}
-	fmt.Println("Collections loaded successfully.")
 }
 
 func LoadCache() {

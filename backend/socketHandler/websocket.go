@@ -109,7 +109,6 @@ func reader(conn *websocket.Conn, done chan bool) {
 		}
 
 		if messageType == websocket.TextMessage {
-			fmt.Printf("Received message: %s\n", msg)
 			var message IncomingMessage
 			if err := json.Unmarshal(msg, &message); err != nil {
 				now := time.Now()
