@@ -79,7 +79,7 @@ const MobileNavbar: Component<{ CurrentPage: Pages }> = (props) => {
                                     </div>
                                     <p class="font-black text-white text-4xl">DriveV3</p>
                                 </div>
-                                <div class="mt-4 flex flex-col items-start space-y-4 px-4">
+                                <div class="mt-4 flex flex-col items-start space-y-4 px-4 h-full">
                                     <button
                                         class={`w-full text-left px-4 py-2 flex items-center space-x-4 rounded-lg ${
                                             props.CurrentPage === "Home" ? "bg-black text-white" : "hover:bg-[#242424] text-white"
@@ -129,6 +129,20 @@ const MobileNavbar: Component<{ CurrentPage: Pages }> = (props) => {
                                             <GitHubSVG />
                                         </div>
                                         <span class="font-bold">GitHub</span>
+                                    </button>
+                                    <div class="flex-grow" />
+                                    <button
+                                        class={`mb-5 w-full text-left px-4 py-2 flex items-center space-x-4 rounded-lg ${
+                                            props.CurrentPage === "Account" ? "bg-black text-white" : "hover:bg-[#242424] text-white"
+                                        }`}
+                                        onClick={() => {
+                                            navigate("/account");
+                                        }}
+                                    >
+                                        <div class="h-full aspect-square">
+                                            <UserSVG />
+                                        </div>
+                                        <span class="font-bold">Account</span>
                                     </button>
                                 </div>
                             </Drawer.Content>

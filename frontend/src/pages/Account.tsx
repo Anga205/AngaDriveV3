@@ -1,4 +1,4 @@
-import { Accessor, Component, createEffect, createSignal, onMount, useContext } from "solid-js";
+import { Accessor, Component, createEffect, createSignal, onMount, useContext, onCleanup } from "solid-js";
 import Dialog from '@corvu/dialog';
 import { toast, Toaster } from "solid-toast";
 import { useWebSocket } from "../Websockets";
@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import { DesktopTemplate } from "../components/Template";
 import { AppContext } from "../Context";
 import { fetchFilesAndCollections, formatFileSize, handleLogout } from "../library/functions";
+import Navbar from "../components/Navbar";
 
 const isEmailValid = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -123,7 +124,7 @@ const LoginCard: Component<{ onSignUpClick: () => void; onLoginSuccess: () => vo
     };
 
     return (
-        <div class="flex flex-col items-center p-6 border-2 border-gray-500 rounded-lg min-w-[350px] bg-gray-900 shadow-lg overflow-hidden">
+        <div class="flex flex-col items-center p-6 border-2 border-gray-500 rounded-lg w-[90vw] max-w-[350px] bg-gray-900 shadow-lg overflow-hidden">
             <p class="font-bold text-[3.5vh] mb-6">Login</p>
             <div class="w-full mb-4">
                 <p class="text-[1.8vh] mb-1">Enter Email ID:</p>
@@ -298,7 +299,7 @@ const RegisterCard: Component<{ onLoginClick: () => void; onRegisterSuccess: () 
         );
     };
     return (
-        <div class="flex flex-col items-center p-6 border-2 border-gray-500 rounded-lg min-w-[350px] bg-gray-900 shadow-lg overflow-hidden">
+        <div class="flex flex-col items-center p-6 border-2 border-gray-500 rounded-lg w-[90vw] max-w-[350px] bg-gray-900 shadow-lg overflow-hidden">
             <p class="font-bold text-[3.5vh] mb-6">Register</p>
             <div class="w-full mb-4">
                 <p class="text-[1.8vh] mb-1">Display Name:</p>
@@ -366,22 +367,40 @@ const RegisterCard: Component<{ onLoginClick: () => void; onRegisterSuccess: () 
     );
 };
 
-const LoginScreen: Component<{ onLoginSuccess: () => void }> = (props) => {
+const LoginScreen: Component<{ onLoginSuccess: () => void, isMobile: boolean }> = (props) => {
     const [signUp, setSignUp] = createSignal<boolean>(false);
+
+    const Content = () => (
+        <div class="flex justify-center items-center w-full h-full text-white">
+            {signUp() ? (
+                <RegisterCard onLoginClick={() => setSignUp(false)} onRegisterSuccess={props.onLoginSuccess} />
+            ) : (
+                <LoginCard onSignUpClick={() => setSignUp(true)} onLoginSuccess={props.onLoginSuccess} />
+            )}
+        </div>
+    );
+
     return (
-        <DesktopTemplate CurrentPage="Account">
-            <div class="flex justify-center items-center w-full h-full pl-[2vh] pr-[1vh] py-[1vh] text-white">
-                {signUp() ? (
-                    <RegisterCard onLoginClick={() => setSignUp(false)} onRegisterSuccess={props.onLoginSuccess} />
-                ) : (
-                    <LoginCard onSignUpClick={() => setSignUp(true)} onLoginSuccess={props.onLoginSuccess} />
-                )}
-            </div>
-        </DesktopTemplate>
+        <>
+            {props.isMobile ? (
+                <div class="w-full h-screen bg-black flex flex-col">
+                    <Navbar CurrentPage="Account" Type="mobile" />
+                    <div class="flex-grow flex items-center justify-center">
+                        <Content />
+                    </div>
+                </div>
+            ) : (
+                <DesktopTemplate CurrentPage="Account">
+                    <div class="w-full h-full pl-[2vh] pr-[1vh] py-[1vh]">
+                        <Content />
+                    </div>
+                </DesktopTemplate>
+            )}
+        </>
     );
 };
 
-const AccountDetails: Component<{email: Accessor<string>; setEmail: (email: string) => void; displayName: Accessor<string>; setDisplayName: (name: string) => void}> = (props) => {
+const AccountDetails: Component<{email: Accessor<string>; setEmail: (email: string) => void; displayName: Accessor<string>; setDisplayName: (name: string) => void; class?: string}> = (props) => {
     const [open, setOpen] = createSignal(false);
     const [tempDisplayName, setTempDisplayName] = createSignal(props.displayName());
     const [tempEmail, setTempEmail] = createSignal(props.email());
@@ -610,7 +629,7 @@ const AccountDetails: Component<{email: Accessor<string>; setEmail: (email: stri
                 setCurrentAuthPassword("");
             }
         }}>
-            <div class="bg-gray-950 border border-gray-700 rounded-md w-full p-[2vh] text-white flex flex-col shadow-md">
+            <div class={`bg-gray-950 border border-gray-700 rounded-md w-full p-[2vh] text-white flex flex-col shadow-md ${props.class ?? ''}`}>
                 <p class="font-semibold text-[2.5vh] mb-[2vh]">Account Details</p>
                 <div class="mb-[1vh]">
                     <p class="text-gray-500 text-[1.5vh] uppercase tracking-wider">Display Name:</p>
@@ -787,7 +806,7 @@ const DangerZone: Component<{logout: () => void; class?: string}> = (props) => {
 const UserStat: Component<{title: string; value: string; class?: string}> = (props) => {
     return (
         <div class={`bg-neutral-900 w-full h-full rounded-md border border-neutral-700 flex justify-between items-center flex-col text-white p-[1vh] ${props.class ?? ''}`}>
-            <p class="text-blue-700 font-bold text-[2.5vh]">{props.title}</p>
+            <p class="text-blue-700 font-bold text-center text-[2.5vh]">{props.title}</p>
             <p class="text-[2vh]">{props.value}</p>
         </div>
     )
@@ -816,8 +835,30 @@ const AccountManager: Component<{logout: () => void}> = (props) => {
     )
 }
 
+const MobileAccountManager: Component<{logout: () => void}> = (props) => {
+    const [email, setEmail] = createSignal(localStorage.getItem("email") || "{email}");
+    const [displayName, setDisplayName] = createSignal(localStorage.getItem("display_name") || "{display_name}");
+    const ctx = useContext(AppContext)!;
+
+    return (
+        <div class="w-full h-screen bg-black flex flex-col">
+            <Navbar CurrentPage="Account" Type="mobile" />
+            <div class="flex-grow overflow-y-auto p-4 space-y-4">
+                <AccountDetails email={email} setEmail={setEmail} displayName={displayName} setDisplayName={setDisplayName} />
+                <div class="grid grid-cols-2 gap-4">
+                    <UserStat title="Space Used" value={formatFileSize(ctx.files().reduce((sum, file) => sum + file.file_size, 0))} class="col-span-2"/>
+                    <UserStat title="Files Hosted" value={ctx.files().length.toString()} />
+                    <UserStat title="Collections" value={ctx.userCollections().size.toString()}/>
+                </div>
+                <DangerZone logout={props.logout} />
+            </div>
+        </div>
+    );
+}
+
 const Account: Component = () => {
     const [isLoggedIn, setIsLoggedIn] = createSignal(false);
+    const [isMobile, setIsMobile] = createSignal(window.innerWidth <= 768);
     const ctx = useContext(AppContext)!;
 
     const currentSocket = useWebSocket();
@@ -827,10 +868,19 @@ const Account: Component = () => {
         fetchFilesAndCollections(currentSocket.socket()!);
     };
 
+    const handleResize = () => {
+        setIsMobile(window.innerWidth <= 768);
+    };
+
     onMount(() => {
         const storedEmail = localStorage.getItem("email");
         const storedPassword = localStorage.getItem("password");
         setIsLoggedIn(!!(storedEmail && storedPassword));
+        window.addEventListener('resize', handleResize);
+    });
+
+    onCleanup(() => {
+        window.removeEventListener('resize', handleResize);
     });
 
     window.addEventListener('storage', () => {
@@ -842,7 +892,10 @@ const Account: Component = () => {
     return (
         <>
             <title>Account | DriveV3</title>
-            {isLoggedIn() ? <AccountManager logout={() => handleLogout(setIsLoggedIn, ctx)} /> : <LoginScreen onLoginSuccess={handleLoginSuccess} />}
+            {isLoggedIn() ? 
+                (isMobile() ? <MobileAccountManager logout={() => handleLogout(setIsLoggedIn, ctx)} /> : <AccountManager logout={() => handleLogout(setIsLoggedIn, ctx)} />) 
+                : <LoginScreen onLoginSuccess={handleLoginSuccess} isMobile={isMobile()} />
+            }
             <Toaster
             position="bottom-right"
             gutter={8}
