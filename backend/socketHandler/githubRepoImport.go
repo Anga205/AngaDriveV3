@@ -111,16 +111,23 @@ func GithubImportHandler(req ImportGithubRepoRequest) (string, error) {
 					newFileName := d.Name()
 					fileDir := database.GenerateUniqueFileName(newFileName)
 					fileInfo, _ := d.Info()
+					fileExtension := filepath.Ext(newFileName)
 					newFile := database.FileData{
 						OriginalFileName: newFileName,
 						FileDirectory:    fileDir,
 						AccountToken:     userToken,
 						Timestamp:        time.Now().Unix(),
-						Md5sum:           fileMD5,
+						Md5sum:           fileMD5 + fileExtension,
 						FileSize:         fileInfo.Size(),
 					}
 					newFile.Insert()
 					parentDir.AddFile(newFile.FileDirectory)
+					newPath := filepath.Join(UPLOAD_DIR, "i", fileMD5+fileExtension)
+					err := os.Rename(path, newPath)
+					if err != nil {
+						fmt.Println("Error moving file:", err)
+						return err
+					}
 				} else { // Avoid creating a duplicate collection for the root cloned directory
 					newCollection := database.Collection{
 						Name:        d.Name(),
@@ -139,10 +146,12 @@ func GithubImportHandler(req ImportGithubRepoRequest) (string, error) {
 			}
 			return nil
 		})
+		os.RemoveAll(folderToCloneTo)
 		if err != nil {
-			os.RemoveAll(folderToCloneTo)
 			return "", err
 		}
+		collectionUpdate, _ := database.GetCollection(rootCollection.ID)
+		go CollectionPulse(true, collectionUpdate)
 		return folderToCloneTo, nil
 	case <-ctx.Done():
 		// If the context is done, it means the operation timed out

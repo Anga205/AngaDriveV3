@@ -195,14 +195,18 @@ func (collection *Collection) unsafeAddFile(fileDirectory string) error {
 	if err != nil {
 		return fmt.Errorf("collection %s not found: %w", collection.ID, err)
 	}
-	files := strings.Split(collection.Files, ",")
-	for _, f := range files {
-		if strings.TrimSpace(f) == fileDirectory {
-			return nil
+	if collection.Files == "" {
+		collection.Files = fileDirectory
+	} else {
+		files := strings.Split(collection.Files, ",")
+		for _, f := range files {
+			if strings.TrimSpace(f) == fileDirectory {
+				return nil
+			}
 		}
+		files = append(files, fileDirectory)
+		collection.Files = strings.Join(files, ",")
 	}
-	files = append(files, fileDirectory)
-	collection.Files = strings.Join(files, ",")
 	collection.Size = unsafeCalculateCollectionSize(*collection, make(map[string]bool), make(map[string]bool))
 	db := GetDB()
 	if err := db.Save(collection).Error; err != nil {
