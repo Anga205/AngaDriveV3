@@ -144,34 +144,36 @@ const FileCard: Component<{ File: FileData }> = (props) => {
     link += "/"+props.File.original_file_name;
     const location = useLocation();
     return (
-        <div class="flex flex-col w-80 h-96 bg-neutral-950 border-neutral-800 border-1 rounded-lg">
-            <div class="flex items-center overflow-hidden justify-center w-full h-[14%] bg-neutral-900 rounded-t-lg">
-                <p class="text-white text-2xl font-semibold text-nowrap font-sans">{props.File.original_file_name.length >17
-                    ? `${props.File.original_file_name.slice(0,17)}...`
-                    : props.File.original_file_name}</p>
-            </div>
-            <div class="flex justify-center items-center w-full h-1/2 overflow-hidden">
-                <FilePreview file={props.File}/>
-            </div>
-            <div class="flex w-full space-x-2 p-2 text-xs border-b-1 border-neutral-800">
-                <div class="flex flex-col items-end w-1/2 h-full text-neutral-700 font-sans">
-                    <p>Type:</p>
-                    <p>Uploaded Name:</p>
-                    <p>Timestamp:</p>
-                    <p>Size:</p>
+        <div class="flex flex-col w-80 h-96 bg-neutral-950 border-neutral-800 border-1 rounded-lg hover:scale-105 transition-transform duration-200 shadow-lg">
+            <a class="w-full h-[calc(14%+50%+21.4%)]" href={link} target="_blank" rel="noopener noreferrer">
+                <div class="flex items-center overflow-hidden justify-center w-full h-[16.393442623%] bg-neutral-900 rounded-t-lg">
+                    <p class="text-white text-2xl font-semibold text-nowrap font-sans">{props.File.original_file_name.length >17
+                        ? `${props.File.original_file_name.slice(0,17)}...`
+                        : props.File.original_file_name}</p>
                 </div>
-                <div class="flex flex-col items-start w-1/2 h-full text-neutral-700 font-sans">
-                    <p>
-                        {getFileType(props.File.file_directory)}
-                    </p>
-                    <p>{props.File.file_directory}</p>
-                    <p>{new Date(props.File.timestamp*1000).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}</p>
-                    <p>
-                        {formatFileSize(props.File.file_size)}
-                    </p>
+                <div class="flex justify-center items-center w-full h-[58.5480093677%] overflow-hidden">
+                    <FilePreview file={props.File}/>
                 </div>
-            </div>
-            <div class="w-full flex justify-between p-2">
+                <div class="flex w-full space-x-2 p-2 text-xs border-b-1 border-neutral-800 h-[25.0585480094%]">
+                    <div class="flex flex-col items-end w-1/2 h-full text-neutral-700 font-sans">
+                        <p>Type:</p>
+                        <p>Uploaded Name:</p>
+                        <p>Timestamp:</p>
+                        <p>Size:</p>
+                    </div>
+                    <div class="flex flex-col items-start w-1/2 h-full text-neutral-700 font-sans">
+                        <p>
+                            {getFileType(props.File.file_directory)}
+                        </p>
+                        <p>{props.File.file_directory}</p>
+                        <p>{new Date(props.File.timestamp*1000).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}</p>
+                        <p>
+                            {formatFileSize(props.File.file_size)}
+                        </p>
+                    </div>
+                </div>
+            </a>
+            <div class="w-full flex justify-between p-2 h-[14.6%]">
                 <div/>
                 <a class="flex items-center justify-center p-2 bg-yellow-700/30 hover:bg-yellow-700/20 rounded-xl text-yellow-600" href={link} target="_blank">
                     <EyeSVG />
