@@ -9,7 +9,7 @@ import Dialog from "@corvu/dialog";
 import FileCard from "../components/FileCard";
 import { Toaster, toast } from 'solid-toast';
 import { AppContext } from "../Context";
-import { formatFileSize, getFileMD5, truncateFileName, generateClientToken } from "../library/functions";
+import { formatFileSize, getFileMD5, truncateFileName, generateClientToken, generateUUID } from "../library/functions";
 
 const FilesError: Component = () => {
     const baseClass = "flex items-center p-[1vh] rounded-[1vh] w-full";
@@ -268,7 +268,7 @@ const UploadPopup: Component = () => {
         const input = event.target as HTMLInputElement;
         if (input.files) {
             const newFiles = Array.from(input.files).map(f => ({
-                uniqueId: crypto.randomUUID(),
+                uniqueId: generateUUID(),
                 file: f,
             }));
             setSelectedFiles(prev => [...prev, ...newFiles]);
@@ -390,7 +390,7 @@ const UploadPopup: Component = () => {
                 }
             }));
             
-            const backendUploadId = crypto.randomUUID();
+            const backendUploadId = generateUUID();
 
             try {
                 await uploadFileInChunks(
