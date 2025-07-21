@@ -27,7 +27,11 @@ func compileFrontend() error {
 			return fmt.Errorf("[compileFrontend] error running 'bun install': %w", err)
 		}
 	}
-	if err := exec.Command("bun", "run", "build").Run(); err != nil {
+	cmd := exec.Command("bun", "run", "build")
+	env := os.Environ()
+	env = append(env, "VITE_ASSETS_URL="+vars.AssetsURL)
+	cmd.Env = env
+	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("[compileFrontend] error running 'bun run build': %w", err)
 	}
 	if err := os.Chdir(".."); err != nil {
@@ -65,56 +69,22 @@ func setupRoutes(r *gin.Engine, distPath string) {
 		return
 	}
 
-	r.GET("/", func(c *gin.Context) {
-		fmt.Println(c.Request.Host)
-		if c.Request.Host == vars.FrontendURL {
-			go socketHandler.SiteActivityPulse()
-			c.Data(http.StatusOK, "text/html", fileCache["/index.html"])
-		} else {
-			c.AbortWithStatus(http.StatusNotFound)
-		}
-	})
-
-	r.GET("/my_drive", func(c *gin.Context) {
-		if c.Request.Host == vars.FrontendURL {
-			go socketHandler.SiteActivityPulse()
-			c.Data(http.StatusOK, "text/html", fileCache["/index.html"])
-		} else {
-			c.AbortWithStatus(http.StatusNotFound)
-		}
-	})
-
-	r.GET("/my_collections", func(c *gin.Context) {
-		if c.Request.Host == vars.FrontendURL {
-			go socketHandler.SiteActivityPulse()
-			c.Data(http.StatusOK, "text/html", fileCache["/index.html"])
-		} else {
-			c.AbortWithStatus(http.StatusNotFound)
-		}
-	})
-
-	r.GET("/collection", func(c *gin.Context) {
-		if c.Request.Host == vars.FrontendURL {
-			go socketHandler.SiteActivityPulse()
-			c.Data(http.StatusOK, "text/html", fileCache["/index.html"])
-		} else {
-			c.AbortWithStatus(http.StatusNotFound)
-		}
-	})
-
-	r.GET("/account", func(c *gin.Context) {
-		if c.Request.Host == vars.FrontendURL {
-			go socketHandler.SiteActivityPulse()
-			c.Data(http.StatusOK, "text/html", fileCache["/index.html"])
-		} else {
-			c.AbortWithStatus(http.StatusNotFound)
-		}
-	})
+	routes := []string{"/", "/my_drive", "/my_collections", "/collection", "/account"}
+	for _, route := range routes {
+		r.GET(route, func(c *gin.Context) {
+			if c.Request.Host == vars.WebURL {
+				go socketHandler.SiteActivityPulse()
+				c.Data(http.StatusOK, "text/html", fileCache["/index.html"])
+			} else {
+				c.AbortWithStatus(http.StatusNotFound)
+			}
+		})
+	}
 
 	for relPath := range fileCache { // register all files in the dist directory
 		if relPath != "/index.html" { // since index.html is handled separately, we dont want to register it again
 			r.GET(relPath, func(c *gin.Context) {
-				if c.Request.Host == vars.FrontendURL {
+				if c.Request.Host == vars.WebURL {
 					c.Data(
 						http.StatusOK,
 						getContentType(relPath),

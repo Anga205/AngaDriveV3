@@ -6,7 +6,6 @@ import (
 	"service/info"
 	"service/socketHandler"
 
-	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 )
@@ -17,11 +16,6 @@ func main() {
 
 	r := gin.Default()
 	r.Use(gzip.Gzip(gzip.BestCompression))
-
-	config := cors.DefaultConfig()
-	config.AllowAllOrigins = true
-	config.AllowCredentials = true
-	r.Use(cors.New(config))
 
 	err := endpoints.SetupFrontend(r)
 	if err != nil {

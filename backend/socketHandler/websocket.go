@@ -56,7 +56,7 @@ func SetupWebsocket(r *gin.Engine, upload_dir string) {
 	go initSpaceUsedPulser()
 	go sysinfoPulse()
 	r.GET("/ws", func(c *gin.Context) {
-		if c.Request.Host != vars.BackendURL {
+		if c.Request.Host != vars.WebURL {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Websocket connection not allowed from this host"})
 			return
 		}
