@@ -1,14 +1,3 @@
-# THIS REPOSITORY IS STILL UNDER DEVELOPMENT
-
-Any links you see are **non-functional** and just previews of what the general idea for the project is, 
-
-❗❗❗**DO NOT USE THIS CODE IN A PRODUCTION ENVIRONMENT**❗❗❗
-
-If you want to deploy and use features from this project, please refer to [AngaDriveV2](https://github.com/Anga205/AngaDriveV2).
-
-<details>
-<summary>Click here to view the documentation anyway</summary>
-
 # AngaDriveV3
 
 #### A remote file hosting web application with a specific focus on performance and scalability
@@ -19,8 +8,8 @@ If you want to deploy and use features from this project, please refer to [AngaD
 
 ![TechStack.png](https://skillicons.dev/icons?i=go,solidjs,sqlite)
 
-- **SolidJS**: Using SolidJS for the frontend (in the `frontend` directory) because its pretty performant for making decent frontend applications, and performance is key for this kind of project.
-- **SQLite**: Because it's relatively portable compared to other relational databases like CockroachDB and MySQL
+- **SolidJS**: Using SolidJS for the frontend (in the `frontend` directory) because i like how fast it feels
+- **SQLite**: Because it's relatively portable compared to other relational databases like CockroachDB and MySQL, which makes development and deployment a lil bit easier, anyway the speed doesnt matter too much because we're caching the database in the backend, (but its still pretty fast!).
 - **Go**: Backend is written in go, all the files you can find in the `backend` directory, a gonic-gin server is being used to serve up the compiled frontend files, and most updates on the frontend happen via a gorilla websocket connection
 
 ## Self Hosting Guide
@@ -43,5 +32,3 @@ bash run.sh
 ```
 
 Now, your website should be availbile on `http://localhost:8080`!
-
-</details>
