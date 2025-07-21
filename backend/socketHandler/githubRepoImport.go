@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -60,6 +61,34 @@ func GithubImportHandler(req ImportGithubRepoRequest) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	repoBreakDown := strings.Split(req.RepoURL, "/")
+	repoName := repoBreakDown[len(repoBreakDown)-1]
+	repoOwner := repoBreakDown[len(repoBreakDown)-2]
+
+	// Check repository size via GitHub API
+	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s", repoOwner, repoName)
+	resp, err := http.Get(apiURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch repository details: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to fetch repository details: received status code %d", resp.StatusCode)
+	}
+
+	var repoDetails struct {
+		Size int `json:"size"` // Size in kilobytes
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&repoDetails); err != nil {
+		return "", fmt.Errorf("failed to parse repository details: %w", err)
+	}
+
+	// 2.5 GB in KB = 2.5 * 1024 * 1024 = 2621440
+	if repoDetails.Size > 2621440 {
+		return "", errors.New("repository size exceeds the 2.5GB limit")
+	}
 
 	genericUserPulse(userToken, map[string]interface{}{
 		"type": "notification",
@@ -77,8 +106,7 @@ func GithubImportHandler(req ImportGithubRepoRequest) (string, error) {
 	go func() {
 		result <- err
 	}()
-	repoBreakDown := strings.Split(req.RepoURL, "/")
-	repoName := repoBreakDown[len(repoBreakDown)-1]
+
 	rootCollection := database.Collection{
 		Name:      repoName,
 		Editors:   userToken,
