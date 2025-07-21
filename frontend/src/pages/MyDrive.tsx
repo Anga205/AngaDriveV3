@@ -60,7 +60,7 @@ const FilesError: Component = () => {
 const DriveBody: Component<{ Files: Accessor<Array<FileData>> }> = (props) => {
     return (
         <div 
-            class="w-full flex justify-center flex-wrap space-x-8 space-y-8 overflow-y-scroll pt-10 custom-scrollbar"
+            class="w-full flex justify-center flex-wrap h-full space-x-8 space-y-8 overflow-y-scroll pt-10 custom-scrollbar"
         >
             <For each={props.Files()}>
             {(file) => <FileCard File={file} />}
@@ -170,6 +170,7 @@ async function uploadFileInChunks(
     uploadSystemId: string,
     authDetails: AuthDetails,
     updateProgress: (progress: number) => void,
+    collectionId?: string,
 ): Promise<void> {
     
     const backendUrl = import.meta.env.DEV ? 'http://localhost:8080' : '';
@@ -204,6 +205,9 @@ async function uploadFileInChunks(
     finalizeFormData.append('totalChunks', String(totalChunks));
     finalizeFormData.append('originalFileName', file.name);
     finalizeFormData.append('md5sum', md5sum);
+    if (collectionId) {
+        finalizeFormData.append('collectionId', collectionId);
+    }
 
     if (authDetails.token) {
         finalizeFormData.append('token', authDetails.token);
@@ -238,6 +242,9 @@ async function uploadFileInChunks(
             finalizeFormData.append('totalChunks', String(totalChunks));
             finalizeFormData.append('originalFileName', file.name);
             finalizeFormData.append('token', localStorage.getItem("token") || "");
+            if (collectionId) {
+                finalizeFormData.append('collectionId', collectionId);
+            }
             const retryResponse = await fetch(`${backendUrl}/upload/success/${uploadSystemId}`, {
                 method: 'POST',
                 body: finalizeFormData,
@@ -593,4 +600,5 @@ const MyDrive: Component = () => {
     )
 }
 
-export default MyDrive
+export { MyDrive, uploadFileInChunks, FileUploadPreview }
+export type { SelectableFile, FileUploadProgressData }

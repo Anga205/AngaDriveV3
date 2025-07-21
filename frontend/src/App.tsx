@@ -1,6 +1,6 @@
 import { Router, Route } from "@solidjs/router";
 import HomePage from "./pages/HomePage";
-import MyDrive from "./pages/MyDrive";
+import { MyDrive } from "./pages/MyDrive";
 import { useWebSocket, WebSocketProvider } from "./Websockets";
 import MyCollections from "./pages/MyCollections";
 import Account from "./pages/Account";

@@ -1,4 +1,4 @@
-import { Component, For, useContext, createSignal, createEffect } from "solid-js";
+import { Component, For, useContext, createSignal, createEffect, Show } from "solid-js";
 import { DesktopTemplate } from "../components/Template";
 import { useNavigate, useSearchParams } from "@solidjs/router";
 import { AppContext } from "../Context";
@@ -7,18 +7,123 @@ import FileCard from "../components/FileCard";
 import CollectionCard from "../components/CollectionCard";
 import Dialog from "@corvu/dialog";
 import Dropdown from "../components/Dropdown";
-import { getCollection } from "../library/functions";
+import { getCollection, generateUUID } from "../library/functions";
 import { Toaster } from "solid-toast";
 import { CollectionCardData } from "../library/types";
+import { uploadFileInChunks, FileUploadPreview, SelectableFile, FileUploadProgressData } from "./MyDrive";
 
 const AddFilePopup: Component<{collectionId: string}> = (props) => {
     const ctx = useContext(AppContext)!;
     const { socket } = useWebSocket();
-    const [selectedFiles, setSelectedFiles] = createSignal<string[]>([]);
+    const [selectedExistingFiles, setSelectedExistingFiles] = createSignal<string[]>([]);
+    const [selectedUploadFiles, setSelectedUploadFiles] = createSignal<SelectableFile[]>([]);
+    const [uploadProgressMap, setUploadProgressMap] = createSignal<Record<string, FileUploadProgressData>>({});
+    const [isUploading, setIsUploading] = createSignal(false);
+    const [modifying, setModifying] = createSignal<"existing" | "new" | null>(null);
+
+    createEffect(() => {
+        if (selectedExistingFiles().length > 0) {
+            setModifying("existing");
+        } else if (selectedUploadFiles().length > 0) {
+            setModifying("new");
+        } else {
+            setModifying(null);
+        }
+    });
+
+    const handleFileChange = (event: Event) => {
+        const input = event.target as HTMLInputElement;
+        if (input.files) {
+            const newFiles = Array.from(input.files).map(f => ({
+                uniqueId: generateUUID(),
+                file: f,
+            }));
+            setSelectedUploadFiles(prev => [...prev, ...newFiles]);
+            setUploadProgressMap(prevMap => {
+                const updatedMap = {...prevMap};
+                newFiles.forEach(sf => {
+                    if (!updatedMap[sf.uniqueId]) {
+                         updatedMap[sf.uniqueId] = {
+                            id: sf.uniqueId,
+                            name: sf.file.name,
+                            progress: 0,
+                            status: 'pending',
+                        };
+                    }
+                });
+                return updatedMap;
+            });
+        }
+        if (input) input.value = '';
+    };
+
+    const handleFileDelete = (uniqueIdToDelete: string) => {
+        setSelectedUploadFiles((prev) => prev.filter(sf => sf.uniqueId !== uniqueIdToDelete));
+        setUploadProgressMap(prev => {
+            const updated = { ...prev };
+            delete updated[uniqueIdToDelete];
+            return updated;
+        });
+    };
+
+    const handleUpload = async () => {
+        let authDetails: any = {};
+        const storedEmail = localStorage.getItem("email");
+        const storedPassword = localStorage.getItem("password");
+
+        if (storedEmail && storedPassword) {
+            authDetails = { email: storedEmail, password: storedPassword };
+        } else {
+            authDetails = { token: localStorage.getItem("token") || "" };
+        }
+
+        setIsUploading(true);
+        const filesToProcess = selectedUploadFiles().filter(sf => {
+            const currentStatus = uploadProgressMap()[sf.uniqueId]?.status;
+            return currentStatus === 'pending' || currentStatus === 'error';
+        });
+
+        const queue = [...filesToProcess];
+        let activeUploads = 0;
+        const MAX_CONCURRENT_UPLOADS = 3;
+
+        const processNext = async () => {
+            if (activeUploads >= MAX_CONCURRENT_UPLOADS || queue.length === 0) {
+                if (activeUploads === 0 && queue.length === 0) setIsUploading(false);
+                return;
+            }
+
+            activeUploads++;
+            const selectableFile = queue.shift();
+            if (!selectableFile) {
+                activeUploads--;
+                processNext();
+                return;
+            }
+
+            setUploadProgressMap(prev => ({ ...prev, [selectableFile.uniqueId]: { ...prev[selectableFile.uniqueId], status: 'uploading', progress: 0 } }));
+            
+            try {
+                await uploadFileInChunks(selectableFile, generateUUID(), authDetails, (progress) => {
+                    setUploadProgressMap(prev => ({ ...prev, [selectableFile.uniqueId]: { ...prev[selectableFile.uniqueId], progress } }));
+                }, props.collectionId);
+                setUploadProgressMap(prev => ({ ...prev, [selectableFile.uniqueId]: { ...prev[selectableFile.uniqueId], status: 'completed', progress: 100 } }));
+            } catch (error: any) {
+                setUploadProgressMap(prev => ({ ...prev, [selectableFile.uniqueId]: { ...prev[selectableFile.uniqueId], status: 'error', errorMessage: error.message || 'Upload failed' } }));
+            } finally {
+                activeUploads--;
+                processNext();
+            }
+        };
+
+        for (let i = 0; i < MAX_CONCURRENT_UPLOADS; i++) {
+            processNext();
+        }
+    };
 
     const handleSubmit = (close: () => void) => {
-        if (socket()) {
-            for (const fileDirectory of selectedFiles()) {
+        if (modifying() === "existing" && socket()) {
+            for (const fileDirectory of selectedExistingFiles()) {
                 socket()?.send(JSON.stringify({
                     type: "add_file_to_collection",
                     data: {
@@ -32,9 +137,14 @@ const AddFilePopup: Component<{collectionId: string}> = (props) => {
                     }
                 }));
             }
+        } else if (modifying() === "new") {
+            handleUpload();
         }
-        setSelectedFiles([]);
-        close();
+        setSelectedExistingFiles([]);
+        // Don't close automatically for uploads, let user see progress.
+        if (modifying() === "existing") {
+            close();
+        }
     };
 
     const availableFiles = () => {
@@ -42,10 +152,18 @@ const AddFilePopup: Component<{collectionId: string}> = (props) => {
         return ctx.files().filter(f => !currentFiles.includes(f.file_directory)).map(f => ({id: f.file_directory, name: f.original_file_name}));
     }
 
+    const filesPendingOrError = () => selectedUploadFiles().filter(sf => {
+        const status = uploadProgressMap()[sf.uniqueId]?.status;
+        return status === 'pending' || status === 'error';
+    }).length;
+
     return (
         <Dialog onOpenChange={(open) => {
             if (!open) {
-                setSelectedFiles([]);
+                setSelectedExistingFiles([]);
+                setSelectedUploadFiles([]);
+                setUploadProgressMap({});
+                setIsUploading(false);
             }
         }}>
             <Dialog.Trigger class="cursor-pointer hover:text-gray-300 text-white flex justify-center items-center bg-blue-600 hover:bg-blue-800 p-[0.2vh] px-[1vh] rounded-[1vh] font-bold translate-y-[4vh]">
@@ -53,23 +171,68 @@ const AddFilePopup: Component<{collectionId: string}> = (props) => {
             </Dialog.Trigger>
             <Dialog.Portal>
             <Dialog.Overlay class="fixed inset-0 z-50 bg-black/50 data-open:animate-in data-open:fade-in-0% data-closed:animate-out data-closed:fade-out-0%"/>
-            <Dialog.Content class="fixed z-50 top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] w-[90vw] max-w-md bg-neutral-800 rounded-lg p-6 space-y-4">
-                <p class="text-white text-lg font-bold mb-2 text-center">Add Existing File</p>
-                <Dropdown 
-                    options={availableFiles()}
-                    selected={selectedFiles()}
-                    onChange={setSelectedFiles}
-                    placeholderText="Select Files"
-                />
-                <Dialog.Close class="w-full">
-                    <button
-                        onClick={() => handleSubmit(() => {})}
-                        class="bg-green-700 text-white p-2 rounded-lg font-semibold w-full hover:bg-green-800 transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed"
-                        disabled={selectedFiles().length === 0}
-                    >
-                        Add Selected
-                    </button>
-                </Dialog.Close>
+            <Dialog.Content class="fixed z-50 top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] w-[90vw] max-w-lg bg-neutral-800 rounded-lg p-6 space-y-4">
+                {(modifying() === "new" || modifying() === null) && (
+                    <>
+                        <p class="text-white text-lg font-bold mb-2 text-center">Upload New File</p>
+                        <label for="collection-file-upload" class={`rounded-md min-h-[15vh] flex justify-center items-center cursor-pointer my-[1vh] ${selectedUploadFiles().length === 0 ? 'border-dotted border-2 border-blue-800' : ''}`}>
+                            {selectedUploadFiles().length === 0 ? (
+                                <p class="text-center p-4 text-white">Drag and drop files here or click to select files</p>
+                            ) : (
+                                <div class="flex flex-col w-full space-y-2 max-h-[30vh] overflow-y-auto custom-scrollbar p-1">
+                                    <For each={selectedUploadFiles()}>
+                                        {(sf) => (
+                                            <FileUploadPreview
+                                                selectableFile={sf}
+                                                uploadInfo={() => uploadProgressMap()[sf.uniqueId]}
+                                                onDelete={handleFileDelete}
+                                            />
+                                        )}
+                                    </For>
+                                </div>
+                            )}
+                            <input id="collection-file-upload" type="file" multiple class="hidden" onChange={handleFileChange} />
+                        </label>
+                    </>
+                )}
+
+                {modifying() === null && (
+                    <div class="flex w-full items-center justify-center">
+                        <hr class="w-full border-neutral-600"/>
+                        <p class="mx-2 text-gray-500">OR</p>
+                        <hr class="w-full border-neutral-600"/>
+                    </div>
+                )}
+
+                {(modifying() === "existing" || modifying() === null) && (
+                    <>
+                        <p class="text-white text-lg font-bold mb-2 text-center">Add Existing File</p>
+                        <Dropdown 
+                            options={availableFiles()}
+                            selected={selectedExistingFiles()}
+                            onChange={setSelectedExistingFiles}
+                            placeholderText="Select Files"
+                        />
+                    </>
+                )}
+
+                <Show when={selectedUploadFiles().length > 0 && filesPendingOrError() > 0}>
+                    {modifying() !== null && (
+                        <button
+                            onClick={() => handleSubmit(() => {})}
+                            class="bg-green-700 text-white p-2 rounded-lg font-semibold w-full hover:bg-green-800 transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed mt-4"
+                            disabled={
+                                (modifying() === 'existing' && selectedExistingFiles().length === 0) ||
+                                (modifying() === 'new' && (isUploading() || filesPendingOrError() === 0))
+                            }
+                        >
+                            {modifying() === 'new' ? (isUploading() ? 'Uploading...' : `Upload ${filesPendingOrError()} File(s)`) : 'Add Selected'}
+                        </button>
+                    )}
+                </Show>
+                 {modifying() === 'new' && selectedUploadFiles().length > 0 && filesPendingOrError() === 0 && !isUploading() && (
+                    <p class="mt-4 text-center text-green-500">All selected files uploaded!</p>
+                )}
             </Dialog.Content>
             </Dialog.Portal>
         </Dialog>

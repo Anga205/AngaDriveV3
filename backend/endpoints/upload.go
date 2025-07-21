@@ -59,6 +59,7 @@ func finalizeUpload(c *gin.Context) {
 	totalChunksStr := c.PostForm("totalChunks")
 	originalFileName := c.PostForm("originalFileName")
 	md5sum := c.PostForm("md5sum")
+	collectionID := c.PostForm("collectionId") // New field
 
 	userToken := c.PostForm("token")
 	email := c.PostForm("email")
@@ -165,6 +166,20 @@ func finalizeUpload(c *gin.Context) {
 		os.Remove(finalFilePath) // Clean up if DB insert fails
 		c.String(500, fmt.Sprintf("Failed to insert file metadata: %v", err))
 		return
+	}
+
+	// If a collection ID is provided, add the file to the collection
+	if collectionID != "" {
+		addReq := socketHandler.AddFileToCollectionRequest{
+			CollectionID:  collectionID,
+			FileDirectory: fileData.FileDirectory,
+			Auth:          socketHandler.AuthInfo{Token: accountToken},
+		}
+		if _, err := socketHandler.AddFileToCollection(addReq); err != nil {
+			// Log this error, but don't fail the entire upload.
+			// The file is uploaded, just not added to the collection.
+			fmt.Printf("Warning: Failed to add file %s to collection %s: %v\n", fileData.FileDirectory, collectionID, err)
+		}
 	}
 
 	// Clean up: Stop timer and remove chunk directory
