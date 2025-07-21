@@ -1,6 +1,7 @@
 package endpoints
 
 import (
+	"compress/gzip"
 	"fmt"
 	"io"
 	"os"
@@ -36,6 +37,14 @@ func handleChunkUpload(c *gin.Context) {
 	}
 	defer file.Close()
 
+	// Decompress gzipped chunk
+	gzReader, err := gzip.NewReader(file)
+	if err != nil {
+		c.String(400, "Could not decompress chunk. Make sure it's gzipped.")
+		return
+	}
+	defer gzReader.Close()
+
 	uploadPath := filepath.Join(chunkDir, uploadID)
 	os.MkdirAll(uploadPath, os.ModePerm)
 
@@ -46,7 +55,7 @@ func handleChunkUpload(c *gin.Context) {
 		return
 	}
 	defer out.Close()
-	io.Copy(out, file)
+	io.Copy(out, gzReader)
 
 	// Reset inactivity timer
 	resetUploadTimer(uploadID)

@@ -8,7 +8,8 @@ import { useLocation } from "@solidjs/router";
 import { AppContext } from "../Context";
 
 const FilePreview: Component<{ file: FileData }> = (props) => {
-    let link = import.meta.env.DEV ? "http://localhost:8080/i/" : import.meta.env.VITE_DEFAULT_LINK || `${window.location.protocol}//${window.location.host}/i/`;
+    const AssetsURL = import.meta.env.VITE_ASSETS_URL ? `${window.location.protocol}//${import.meta.env.VITE_ASSETS_URL}` : "http://localhost:8080";
+    let link = import.meta.env.DEV ? "http://localhost:8080/i/" : `${AssetsURL}/i/`;
     const preview_size_limit = 50 * 1024 * 1024;
     link += props.file.file_directory;
 
@@ -28,7 +29,7 @@ const FilePreview: Component<{ file: FileData }> = (props) => {
     } else if (["mp3", "wav", "aac", "flac", "ogg", "wma", "m4a"].includes(ext)) {
         previewContent = <audio src={link} controls class="w-full" />;
     } else if (["pdf"].includes(ext)) {
-        link = import.meta.env.DEV ? "http://localhost:8080/preview/" : import.meta.env.VITE_DEFAULT_LINK || `${window.location.protocol}//${window.location.host}/preview/`;
+        link = import.meta.env.DEV ? "http://localhost:8080/preview/" : `${AssetsURL}/preview/`;
         link += props.file.file_directory;
         link += '.png'
         previewContent = <img src={link} loading="lazy" class="max-h-full max-w-full p-2" />;
@@ -138,7 +139,8 @@ const RemoveFromCollectionButton: Component<{ file: FileData }> = (props) => {
 }
 
 const FileCard: Component<{ File: FileData }> = (props) => {
-    let link = import.meta.env.DEV ? "http://localhost:8080/i/" : import.meta.env.VITE_DEFAULT_LINK || `${window.location.protocol}//${window.location.host}/i/`;
+    const AssetsURL = import.meta.env.VITE_ASSETS_URL ? `${window.location.protocol}//${import.meta.env.VITE_ASSETS_URL}/i/` : "http://localhost:8080/i/";
+    let link = import.meta.env.DEV ? "http://localhost:8080/i/" : AssetsURL;
     link += props.File.file_directory;
     link = link.split('.').slice(0, -1).join('.');
     link += "/"+props.File.original_file_name;

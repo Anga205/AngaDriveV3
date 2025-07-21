@@ -158,6 +158,7 @@ const FileUploadPreview: Component<{
 
 const CHUNK_SIZE = 7 * 1024 * 1024; // 7MB chunk size
 const MAX_CONCURRENT_UPLOADS = 3;
+const MAX_CONCURRENT_CHUNKS_PER_FILE = 6;
 
 interface AuthDetails {
     token?: string;
@@ -177,14 +178,19 @@ async function uploadFileInChunks(
     const file = selectableFile.file;
     const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
     let uploadedChunks = 0;
+    const chunkQueue = Array.from({ length: totalChunks }, (_, i) => i);
 
-    for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+    const uploadChunk = async (chunkIndex: number): Promise<void> => {
         const start = chunkIndex * CHUNK_SIZE;
         const end = Math.min(start + CHUNK_SIZE, file.size);
-        const chunk = file.slice(start, end);
+        const chunkBlob = file.slice(start, end);
+
+        // Compress the chunk using the Compression Streams API
+        const stream = new Blob([chunkBlob]).stream().pipeThrough(new CompressionStream('gzip'));
+        const compressedBlob = await new Response(stream).blob();
 
         const formData = new FormData();
-        formData.append('chunk', chunk, file.name);
+        formData.append('chunk', compressedBlob, `${file.name}.gz`);
         formData.append('chunkIndex', String(chunkIndex));
 
         const response = await fetch(`${backendUrl}/upload/${uploadSystemId}`, {
@@ -194,10 +200,32 @@ async function uploadFileInChunks(
 
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`Chunk upload failed (${response.status}): ${errorText}`);
+            throw new Error(`Chunk ${chunkIndex} upload failed (${response.status}): ${errorText}`);
         }
-        uploadedChunks++;
-        updateProgress(Math.round((uploadedChunks / totalChunks) * 100));
+        // This needs to be atomic for concurrent updates
+        const newUploadedCount = uploadedChunks + 1;
+        uploadedChunks = newUploadedCount;
+        updateProgress(Math.round((newUploadedCount / totalChunks) * 100));
+    };
+
+    const worker = async (): Promise<void> => {
+        while (chunkQueue.length > 0) {
+            const chunkIndex = chunkQueue.shift();
+            if (chunkIndex === undefined) {
+                break;
+            }
+            await uploadChunk(chunkIndex);
+        }
+    };
+
+    const uploadPromises: Promise<void>[] = [];
+    for (let i = 0; i < Math.min(MAX_CONCURRENT_CHUNKS_PER_FILE, totalChunks); i++) {
+        uploadPromises.push(worker());
+    }
+    await Promise.all(uploadPromises);
+
+    if (uploadedChunks !== totalChunks) {
+        throw new Error("Not all chunks were uploaded successfully.");
     }
 
     let finalizeFormData = new FormData();

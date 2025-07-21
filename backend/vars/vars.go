@@ -4,18 +4,18 @@ import (
 	"os"
 )
 
-var FrontendURL string
-var BackendURL string
+var WebURL string
+var AssetsURL string
 
 func init() {
-	FrontendURL = os.Getenv("FRONTEND_URL")
-	BackendURL = os.Getenv("BACKEND_URL")
+	WebURL = os.Getenv("WEB_URL")
+	AssetsURL = os.Getenv("ASSETS_URL")
 
-	if FrontendURL == "" {
-		FrontendURL = "localhost:8080"
+	if WebURL == "" {
+		WebURL = "localhost:8080"
 	}
 
-	if BackendURL == "" {
-		BackendURL = "localhost:8080"
+	if AssetsURL == "" {
+		AssetsURL = "localhost:8080"
 	}
 }
