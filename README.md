@@ -4,6 +4,7 @@
 
 <details>
 <summary>Click to view Screenshot</summary>
+  
 ![preview.png](/.github/assets/preview.png)
 </details>
 
