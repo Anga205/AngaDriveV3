@@ -15,7 +15,7 @@ require (
 	github.com/cloudwego/iasm v0.2.0 // indirect
 	github.com/ebitengine/purego v0.8.4 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
-	github.com/gen2brain/go-fitz v1.24.15 // indirect
+	github.com/gen2brain/go-fitz v1.22.0 // indirect
 	github.com/gin-contrib/cors v1.7.5 // indirect
 	github.com/gin-contrib/gzip v1.2.3 // indirect
 	github.com/gin-contrib/sse v1.0.0 // indirect
