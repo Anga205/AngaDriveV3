@@ -1,4 +1,4 @@
-import { Component, For, useContext, createSignal, createEffect, Show } from "solid-js";
+import { Component, For, useContext, createSignal, createEffect, Show, onMount, onCleanup } from "solid-js";
 import { DesktopTemplate } from "../components/Template";
 import { useNavigate, useSearchParams } from "@solidjs/router";
 import { AppContext } from "../Context";
@@ -11,8 +11,9 @@ import { getCollection, generateUUID } from "../library/functions";
 import { Toaster } from "solid-toast";
 import { CollectionCardData } from "../library/types";
 import { uploadFileInChunks, FileUploadPreview, SelectableFile, FileUploadProgressData } from "./MyDrive";
+import Navbar from "../components/Navbar";
 
-const AddFilePopup: Component<{collectionId: string}> = (props) => {
+const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (props) => {
     const ctx = useContext(AppContext)!;
     const { socket } = useWebSocket();
     const [selectedExistingFiles, setSelectedExistingFiles] = createSignal<string[]>([]);
@@ -166,7 +167,7 @@ const AddFilePopup: Component<{collectionId: string}> = (props) => {
                 setIsUploading(false);
             }
         }}>
-            <Dialog.Trigger class="cursor-pointer hover:text-gray-300 text-white flex justify-center items-center bg-blue-600 hover:bg-blue-800 p-[0.2vh] px-[1vh] rounded-[1vh] font-bold translate-y-[4vh]">
+            <Dialog.Trigger class={`cursor-pointer hover:text-gray-300 text-white flex justify-center items-center bg-blue-600 hover:bg-blue-800 p-[0.2vh] px-[1vh] rounded-[1vh] font-bold ${!props.isMobile && 'translate-y-[4vh]'}`}>
                 <span class="text-4xl text-center">+</span>&nbsp;Add File
             </Dialog.Trigger>
             <Dialog.Portal>
@@ -239,7 +240,7 @@ const AddFilePopup: Component<{collectionId: string}> = (props) => {
     );
 }
 
-const AddFolderPopup: Component<{collectionId: string}> = (props) => {
+const AddFolderPopup: Component<{collectionId: string, isMobile?: boolean}> = (props) => {
     const ctx = useContext(AppContext)!;
     const { socket } = useWebSocket();
     const [selectedFolders, setSelectedFolders] = createSignal<string[]>([]);
@@ -315,7 +316,7 @@ const AddFolderPopup: Component<{collectionId: string}> = (props) => {
                 setNewFolderName("");
             }
         }}>
-            <Dialog.Trigger class="cursor-pointer hover:text-gray-300 text-white flex justify-center items-center bg-green-600 hover:bg-green-800 p-[0.2vh] px-[1vh] rounded-[1vh] font-bold translate-y-[4vh]">
+            <Dialog.Trigger class={`cursor-pointer hover:text-gray-300 text-white flex justify-center items-center bg-green-600 hover:bg-green-800 p-[0.2vh] px-[1vh] rounded-[1vh] font-bold ${!props.isMobile && 'translate-y-[4vh]'}`}>
                 <span class="text-4xl text-center">+</span>&nbsp;Add Folder
             </Dialog.Trigger>
             <Dialog.Portal>
@@ -397,13 +398,13 @@ const CollectionNavigator: Component = () => {
     };
 
     return (
-        <p class="text-gray-200 hover:cursor-default">
-            <span class="text-xl font-semibold text-gray-400 hover:text-gray-200 hover:cursor-pointer" onClick={()=>{navigate("/my_collections")}}>Collection</span>
+        <p class="text-gray-200 hover:cursor-default text-sm md:text-base">
+            <span class="font-semibold text-gray-400 hover:text-gray-200 hover:cursor-pointer" onClick={()=>{navigate("/my_collections")}}>Collection</span>
             &nbsp;&nbsp;&#47;&nbsp;&nbsp;
             <For each={collectionIds()}>
                 {(id) => (
                     <span 
-                        class="text-sm text-gray-400 hover:text-gray-200 hover:cursor-pointer"
+                        class="text-gray-400 hover:text-gray-200 hover:cursor-pointer"
                         onClick={() => handleCollectionClick(id)}
                     >
                         {ctx.knownCollections()[id]?.name || id}
@@ -447,13 +448,13 @@ const CollectionPageDesktop: Component = () => {
                     }
                 </div>
                 <div class="w-full flex flex-col overflow-y-scroll space-y-10 custom-scrollbar h-full">
-                    {ctx.knownCollections()[collectionId()]?.folders.length > 0 && ctx.knownCollections()[collectionId()]?.files.length > 0 && (
+                    <Show when={(ctx.knownCollections()[collectionId()]?.folders?.length || 0) > 0 && (ctx.knownCollections()[collectionId()]?.files?.length || 0) > 0}>
                         <div class="w-full flex justify-center items-center">
                             <hr class="border-t border-gray-600 w-full" />
                             <p class="mx-4 text-gray-400">Folders</p>
                             <hr class="border-t border-gray-600 w-full" />
                         </div>
-                    )}
+                    </Show>
                     <div class="w-full flex flex-wrap justify-center items-start gap-[2vh]">
                         <For each={ctx.knownCollections()[collectionId()]?.folders || []}>
                             {(folder) => (
@@ -461,13 +462,13 @@ const CollectionPageDesktop: Component = () => {
                             )}
                         </For>
                     </div>
-                    {ctx.knownCollections()[collectionId()]?.folders.length > 0 && ctx.knownCollections()[collectionId()]?.files.length > 0 && (
+                    <Show when={(ctx.knownCollections()[collectionId()]?.folders?.length || 0) > 0 && (ctx.knownCollections()[collectionId()]?.files?.length || 0) > 0}>
                         <div class="w-full flex justify-center items-center">
                             <hr class="border-t border-gray-600 w-full" />
                             <p class="mx-4 text-gray-400">Files</p>
                             <hr class="border-t border-gray-600 w-full" />
                         </div>
-                    )}
+                    </Show>
                     <div class="w-full flex flex-wrap justify-center items-start gap-[2vh]">
                         <For each={ctx.knownCollections()[collectionId()]?.files || []}>
                             {(file) => (
@@ -481,10 +482,83 @@ const CollectionPageDesktop: Component = () => {
     );
 }
 
+const CollectionPageMobile: Component = () => {
+    const ctx = useContext(AppContext)!;
+    const {socket, status} = useWebSocket();
+    const [collectionId, setCollectionId] = createSignal<string>("");
+    const [params] = useSearchParams();
+
+    createEffect(() => {
+        const newCollectionId = params.id?.toString().split(" ").pop() || "";
+        if (newCollectionId !== collectionId()) {
+            setCollectionId(newCollectionId);
+            getCollection(newCollectionId, status, socket, ctx);
+        }
+    });
+
+    const hasFolders = () => (ctx.knownCollections()[collectionId()]?.folders?.length || 0) > 0;
+    const hasFiles = () => (ctx.knownCollections()[collectionId()]?.files?.length || 0) > 0;
+
+    return (
+        <div class="flex flex-col w-full max-h-screen h-screen bg-black">
+            <Navbar CurrentPage="Collections" Type="mobile"/>
+            <div class="h-[6vh]"/>
+            <div class="px-3 space-y-2">
+                <CollectionNavigator />
+                <p class="text-white font-black text-[4vh]">{ctx.knownCollections()[collectionId()]?.name || "Unknown Collection"}</p>
+                <Show when={ctx.knownCollections()[collectionId()]?.isOwned}>
+                    <div class="flex justify-end space-x-2">
+                        <AddFolderPopup collectionId={collectionId()} isMobile={true} />
+                        <AddFilePopup collectionId={collectionId()} isMobile={true} />
+                    </div>
+                </Show>
+            </div>
+            <div class="w-full px-4 mt-4 max-h-full h-full flex flex-col space-y-4 overflow-y-auto custom-scrollbar">
+                <Show when={hasFolders() && hasFiles()}>
+                    <p class="text-gray-400 text-lg font-semibold w-full text-center">Folders</p>
+                </Show>
+                <Show when={hasFolders()}>
+                    <div class="w-full flex flex-wrap justify-center gap-4">
+                        <For each={ctx.knownCollections()[collectionId()]?.folders || []}>
+                            {(folder) => <CollectionCard collection={folder} />}
+                        </For>
+                    </div>
+                </Show>
+                <Show when={hasFolders() && hasFiles()}>
+                     <p class="text-gray-400 text-lg font-semibold w-full text-center">Files</p>
+                </Show>
+                <Show when={hasFiles()}>
+                     <div class="w-full flex flex-wrap justify-center gap-4">
+                        <For each={ctx.knownCollections()[collectionId()]?.files || []}>
+                            {(file) => <FileCard File={file} />}
+                        </For>
+                    </div>
+                </Show>
+                <div class="w-full h-[2vh]"/>
+            </div>
+        </div>
+    );
+}
+
 const CollectionPage: Component = () => {
+    const [isMobile, setIsMobile] = createSignal(window.innerWidth <= 768);
+
+    const handleResize = () => {
+        setIsMobile(window.innerWidth <= 768);
+    };
+
+    onMount(() => {
+        window.addEventListener('resize', handleResize);
+    });
+
+    onCleanup(() => {
+        window.removeEventListener('resize', handleResize);
+    });
+
     return (
         <>
-            <CollectionPageDesktop />
+            <title>Collection | DriveV3</title>
+            {isMobile() ? <CollectionPageMobile /> : <CollectionPageDesktop />}
             <Toaster
             position="bottom-right"
             gutter={8}
