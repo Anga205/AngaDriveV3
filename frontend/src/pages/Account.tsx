@@ -843,7 +843,8 @@ const MobileAccountManager: Component<{logout: () => void}> = (props) => {
     return (
         <div class="w-full h-screen bg-black flex flex-col">
             <Navbar CurrentPage="Account" Type="mobile" />
-            <div class="flex-grow overflow-y-auto p-4 space-y-4">
+            <div class="h-[6vh]"/>
+            <div class="overflow-y-auto p-4 space-y-4 items-center justify-center h-full">
                 <AccountDetails email={email} setEmail={setEmail} displayName={displayName} setDisplayName={setDisplayName} />
                 <div class="grid grid-cols-2 gap-4">
                     <UserStat title="Space Used" value={formatFileSize(ctx.files().reduce((sum, file) => sum + file.file_size, 0))} class="col-span-2"/>
