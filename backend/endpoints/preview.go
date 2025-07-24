@@ -63,11 +63,39 @@ func generatePreview(file_directory string) error {
 		return fmt.Errorf("failed to extract image from PDF: %w", err)
 	}
 
-	resized := resize.Resize(512, 512, img, resize.Lanczos3)
+	// Calculate new dimensions while preserving aspect ratio
+	originalBounds := img.Bounds()
+	originalWidth := originalBounds.Dx()
+	originalHeight := originalBounds.Dy()
+
+	var newWidth, newHeight uint
+	if originalWidth > originalHeight {
+		newWidth = 512
+		newHeight = uint(float64(originalHeight) * (512.0 / float64(originalWidth)))
+	} else {
+		newHeight = 512
+		newWidth = uint(float64(originalWidth) * (512.0 / float64(originalHeight)))
+	}
+
+	// If for some reason a dimension is 0, make it 1 to avoid errors
+	if newWidth == 0 {
+		newWidth = 1
+	}
+	if newHeight == 0 {
+		newHeight = 1
+	}
+
+	resized := resize.Resize(newWidth, newHeight, img, resize.Lanczos3)
 	var buf bytes.Buffer
-	err = png.Encode(&buf, resized)
+	encoder := png.Encoder{CompressionLevel: png.BestCompression}
+	err = encoder.Encode(&buf, resized)
 	if err != nil {
 		return fmt.Errorf("failed to encode image: %w", err)
+	}
+
+	previewsDir := UPLOAD_DIR + string(os.PathSeparator) + "pdf_previews"
+	if err := os.MkdirAll(previewsDir, os.ModePerm); err != nil {
+		return fmt.Errorf("failed to create previews directory: %w", err)
 	}
 
 	f, err := os.Create(previewFile)

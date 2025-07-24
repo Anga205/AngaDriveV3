@@ -125,7 +125,7 @@ func performConversion(inputFile database.FileData) {
 		"-i", inputFilePath,
 		"-c:v", "libx264",
 		"-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2", // force even dimensions
-		"-preset", "ultrafast",
+		"-preset", "veryslow",
 		"-crf", "18",
 		"-c:a", "copy",
 		outputFilePath,
