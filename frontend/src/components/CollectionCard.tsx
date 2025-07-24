@@ -111,7 +111,7 @@ const CollectionCard: Component<{ collection: CollectionCardData }> = (props) =>
 
     return (
         <div class="flex flex-col w-64 h-60 bg-neutral-800 rounded-lg px-4 py-2 pb-3">
-            <p class="text-white font-bold text-2xl text-center w-full p-2">{props.collection.name}</p>
+            <p class="text-white font-bold text-2xl text-center w-full p-2">{props.collection.name.length <= 11 ? props.collection.name : props.collection.name.substring(0, 9) + "..."}</p>
             <hr class="border-neutral-600"/>
             <div class="flex w-full items-center justify-center h-full my-2">
                 <div class="flex flex-col items-start justify-between h-full">
