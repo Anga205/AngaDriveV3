@@ -9,7 +9,7 @@ import Dialog from "@corvu/dialog";
 import FileCard from "../components/FileCard";
 import { Toaster, toast } from 'solid-toast';
 import { AppContext } from "../Context";
-import { formatFileSize, getFileMD5, truncateFileName, generateClientToken, generateUUID } from "../library/functions";
+import { formatFileSize, truncateFileName, generateClientToken, generateUUID } from "../library/functions";
 
 const FilesError: Component = () => {
     const baseClass = "flex items-center p-[1vh] rounded-[1vh] w-full";
@@ -229,10 +229,8 @@ async function uploadFileInChunks(
     }
 
     let finalizeFormData = new FormData();
-    let md5sum = await getFileMD5(selectableFile.file)
     finalizeFormData.append('totalChunks', String(totalChunks));
     finalizeFormData.append('originalFileName', file.name);
-    finalizeFormData.append('md5sum', md5sum);
     if (collectionId) {
         finalizeFormData.append('collectionId', collectionId);
     }

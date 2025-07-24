@@ -1,29 +1,6 @@
-import SparkMD5 from 'spark-md5';
 import toast from 'solid-toast';
 import type { AppContextType, CollectionCardData, FileData, SocketStatus } from './types';
 import { Accessor } from 'solid-js';
-
-async function getFileMD5(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = function (event) {
-      const arrayBuffer = event.target?.result;
-      if (arrayBuffer instanceof ArrayBuffer) {
-        const wordArray = SparkMD5.ArrayBuffer.hash(arrayBuffer);
-        resolve(wordArray);
-      } else {
-        reject(new Error('Failed to read file as ArrayBuffer'));
-      }
-    };
-
-    reader.onerror = function () {
-      reject(new Error('Error reading file'));
-    };
-
-    reader.readAsArrayBuffer(file);
-  });
-}
 
 const formatFileSize = (size: number) => {
     if (size < 1024) return `${size} B`;
@@ -244,5 +221,5 @@ function generateUUID() {
     return v.toString(16);
   });
 }
-
-export {generateUUID, getFileMD5, formatFileSize, truncateFileName, getFileType, UniversalMessageHandler, generateClientToken, fetchFilesAndCollections, getCollection, handleLogout};
+  
+export {generateUUID, formatFileSize, truncateFileName, getFileType, UniversalMessageHandler, generateClientToken, fetchFilesAndCollections, getCollection, handleLogout};
