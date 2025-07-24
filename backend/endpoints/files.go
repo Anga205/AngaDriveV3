@@ -17,6 +17,14 @@ func getFilePath(file_directory string) string {
 	return UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + File.Md5sum
 }
 
+func getFileName(file_directory string) string {
+	File, err := database.GetFile(file_directory)
+	if err != nil {
+		return file_directory
+	}
+	return File.OriginalFileName
+}
+
 func returnFile(c *gin.Context) {
 	go socketHandler.SiteActivityPulse()
 	file_directory := c.Param("file_directory")
@@ -58,5 +66,5 @@ func downloadFile(c *gin.Context) {
 		return
 	}
 
-	c.FileAttachment(filePath, filepath.Base(filePath))
+	c.FileAttachment(filePath, getFileName(file_directory))
 }
