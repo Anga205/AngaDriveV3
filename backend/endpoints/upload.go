@@ -2,6 +2,8 @@ package endpoints
 
 import (
 	"compress/gzip"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -67,8 +69,8 @@ func finalizeUpload(c *gin.Context) {
 	uploadID := c.Param("uuid")
 	totalChunksStr := c.PostForm("totalChunks")
 	originalFileName := c.PostForm("originalFileName")
-	md5sum := c.PostForm("md5sum")
-	collectionID := c.PostForm("collectionId") // New field
+	// md5sum := c.PostForm("md5sum") // No longer sent from frontend
+	collectionID := c.PostForm("collectionId")
 
 	userToken := c.PostForm("token")
 	email := c.PostForm("email")
@@ -119,46 +121,53 @@ func finalizeUpload(c *gin.Context) {
 		c.String(500, "Failed to create destination directory")
 		return
 	}
-	finalFilePath := filepath.Join(finalDestDir, md5sum+filepath.Ext(originalFileName))
-
-	// if _, err := os.Stat(finalFilePath); !os.IsNotExist(err) {
-	// 	c.String(400, "File already exists")
-	// 	return
-	// }
-
-	destFile, err := os.Create(finalFilePath)
+	// Create a temporary file first, we'll rename it after calculating the hash
+	tempFile, err := os.CreateTemp(finalDestDir, "upload-*.tmp")
 	if err != nil {
-		c.String(500, "Failed to create final file")
+		c.String(500, "Failed to create temporary file")
 		return
 	}
-	defer destFile.Close()
+	defer tempFile.Close()
+	defer os.Remove(tempFile.Name()) // Ensure temp file is cleaned up on error
 
 	for i := 0; i < totalChunks; i++ {
 		chunkPath := filepath.Join(uploadPath, fmt.Sprintf("%d.part", i))
 		chunkFile, err := os.Open(chunkPath)
 		if err != nil {
-			destFile.Close()         // Close before removing
-			os.Remove(finalFilePath) // Clean up partially created file
 			c.String(500, fmt.Sprintf("Failed to open chunk %d: %v", i, err))
 			return
 		}
-		_, err = io.Copy(destFile, chunkFile)
+		_, err = io.Copy(tempFile, chunkFile)
 		chunkFile.Close() // Close chunk file immediately after copy
 		if err != nil {
-			destFile.Close()         // Close before removing
-			os.Remove(finalFilePath) // Clean up partially created file
 			c.String(500, fmt.Sprintf("Failed to copy chunk %d: %v", i, err))
 			return
 		}
 	}
 
-	fileInfo, err := destFile.Stat()
+	// Calculate MD5 hash of the assembled file
+	tempFile.Seek(0, 0) // Go back to the start of the file
+	hash := md5.New()
+	if _, err := io.Copy(hash, tempFile); err != nil {
+		c.String(500, "Failed to calculate MD5 hash")
+		return
+	}
+	md5sum := hex.EncodeToString(hash.Sum(nil))
+
+	fileInfo, err := tempFile.Stat()
 	if err != nil {
-		os.Remove(finalFilePath) // Clean up
 		c.String(500, "Failed to get final file stats")
 		return
 	}
 	fileSize := fileInfo.Size()
+
+	// Rename the temp file to its final name
+	finalFilePath := filepath.Join(finalDestDir, md5sum+filepath.Ext(originalFileName))
+	tempFile.Close() // Close the file before renaming
+	if err := os.Rename(tempFile.Name(), finalFilePath); err != nil {
+		c.String(500, "Failed to rename temporary file")
+		return
+	}
 
 	uniqueFileName := database.GenerateUniqueFileName(originalFileName)
 	// Insert file metadata into database
