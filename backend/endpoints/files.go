@@ -45,3 +45,18 @@ func returnNamedFile(c *gin.Context) {
 	}
 	c.File(filepath)
 }
+
+func downloadFile(c *gin.Context) {
+	go socketHandler.SiteActivityPulse()
+	file_directory := c.Param("file_directory")
+
+	filePath := getFilePath(file_directory)
+	if filePath == "" {
+		c.JSON(404, gin.H{
+			"error": "File not found",
+		})
+		return
+	}
+
+	c.FileAttachment(filePath, filepath.Base(filePath))
+}
