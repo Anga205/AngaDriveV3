@@ -76,6 +76,8 @@ func GetSpaceUsedGraph() ([7]string, [7]int64, error) {
 		cumulativeSize -= dailyIncrease[i]
 		fileSizes[5-i] = cumulativeSize
 	}
-
+	for i, j := 0, len(days)-1; i < j; i, j = i+1, j-1 {
+		days[i], days[j] = days[j], days[i]
+	}
 	return days, fileSizes, nil
 }

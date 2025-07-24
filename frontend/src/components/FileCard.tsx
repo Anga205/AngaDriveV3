@@ -96,6 +96,7 @@ const ConvertButton: Component<{ file: FileData }> = (props) => {
             return;
         }
         getSocket()?.send(JSON.stringify(convertRequest));
+        toast.success("Conversion started for " + props.file.original_file_name)
     };
 
     return (
@@ -183,7 +184,7 @@ const FileCard: Component<{ File: FileData }> = (props) => {
     link += "/"+props.File.original_file_name;
     const location = useLocation();
     return (
-        <div class="flex flex-col w-80 h-96 bg-neutral-950 border-neutral-800 border-1 rounded-lg hover:scale-105 transition-transform duration-200 shadow-lg">
+        <div class="flex flex-col w-80 h-96 bg-neutral-950 border-neutral-800 border-1 rounded-lg md:hover:scale-105 transition-transform duration-200 shadow-lg">
             <a class="w-full h-[calc(14%+50%+21.4%)]" href={link} target="_blank" rel="noopener noreferrer">
                 <div class="flex items-center overflow-hidden justify-center w-full h-[16.393442623%] bg-neutral-900 rounded-t-lg">
                     <p class="text-white text-2xl font-semibold text-nowrap font-sans">{props.File.original_file_name.length >17
