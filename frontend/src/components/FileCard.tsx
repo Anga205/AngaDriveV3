@@ -139,6 +139,8 @@ const RemoveFromCollectionButton: Component<{ file: FileData }> = (props) => {
 }
 
 const FileCard: Component<{ File: FileData }> = (props) => {
+    let DownloadLink = import.meta.env.VITE_DOWNLOAD_LINK ? `${window.location.protocol}//${import.meta.env.VITE_DOWNLOAD_LINK}/download/` : "http://localhost:8080/download/";
+    DownloadLink += props.File.file_directory;
     const AssetsURL = import.meta.env.VITE_ASSETS_URL ? `${window.location.protocol}//${import.meta.env.VITE_ASSETS_URL}/i/` : "http://localhost:8080/i/";
     let link = import.meta.env.DEV ? "http://localhost:8080/i/" : AssetsURL;
     link += props.File.file_directory;
@@ -195,28 +197,9 @@ const FileCard: Component<{ File: FileData }> = (props) => {
                     <CopySVG />
                 </button>
                 <div/>
-                <button class="flex items-center justify-center p-2 bg-green-700/30 hover:bg-green-700/20 rounded-xl text-green-500" onClick={async () => {
-                    try {
-                        const response = await fetch(link, { mode: "cors" });
-                        if (!response.ok) {
-                            console.error("Failed to fetch file:", response.statusText);
-                            return;
-                        }
-                        const blob = await response.blob();
-                        const blobUrl = window.URL.createObjectURL(blob);
-                        const downloadLink = document.createElement("a");
-                        downloadLink.href = blobUrl;
-                        downloadLink.download = props.File.original_file_name;
-                        document.body.appendChild(downloadLink);
-                        downloadLink.click();
-                        document.body.removeChild(downloadLink);
-                        window.URL.revokeObjectURL(blobUrl);
-                    } catch (error) {
-                        console.error("Error downloading file:", error);
-                    }
-                }}>
+                <a class="flex items-center justify-center p-2 bg-green-700/30 hover:bg-green-700/20 rounded-xl text-green-500" href={DownloadLink} target="_blank">
                     <DownloadSVG />
-                </button>
+                </a>
                 {location.pathname === "/my_drive" ? <ConvertButton file={props.File} /> : <div/>}
                 {location.pathname === "/my_drive" ? <DeleteButton file={props.File} /> : <RemoveFromCollectionButton file={props.File} />}
                 <div/>
