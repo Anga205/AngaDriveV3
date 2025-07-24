@@ -1,4 +1,3 @@
-import { Component, useContext } from "solid-js";
 import type { FileData } from "../library/types"
 import { BinSVG, CopySVG, CrossSVG, DownloadSVG, EyeSVG, FileTextSVG, RefreshSVG } from "../assets/SvgFiles";
 import { formatFileSize, getFileType } from "../library/functions";
@@ -6,40 +5,76 @@ import toast from "solid-toast";
 import { useWebSocket } from "../Websockets";
 import { useLocation } from "@solidjs/router";
 import { AppContext } from "../Context";
+import { createSignal, onCleanup, Component, Show, useContext } from "solid-js";
 
 const FilePreview: Component<{ file: FileData }> = (props) => {
-    const AssetsURL = import.meta.env.VITE_ASSETS_URL ? `${window.location.protocol}//${import.meta.env.VITE_ASSETS_URL}` : "http://localhost:8080";
-    let link = import.meta.env.DEV ? "http://localhost:8080/i/" : `${AssetsURL}/i/`;
-    const preview_size_limit = 10 * 1024 * 1024;
-    link += props.file.file_directory;
+    const [isVisible, setIsVisible] = createSignal(false);
+    let containerRef: HTMLDivElement | undefined;
 
-    const ext = props.file.original_file_name.split('.').pop()?.toLowerCase();
+    const observer = new IntersectionObserver(
+        (entries) => {
+            const entry = entries[0];
+            if (entry.isIntersecting) {
+                setIsVisible(true);
+                observer.unobserve(entry.target);
+            }
+        },
+        { threshold: 0.1 }
+    );
 
-    let previewContent;
-    if (props.file.file_size > preview_size_limit) {
-        previewContent = (
-            <FileTextSVG class="max-h-full p-4 opacity-50"/>
-        );
-    } else if (!ext) {
-        previewContent = <p class="text-white">Unsupported file type</p>;
-    } else if (["jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff"].includes(ext)) {
-        previewContent = <img src={link} loading="lazy" class="max-h-full max-w-full p-2" />;
-    } else if (["mp4", "mkv", "avi", "mov", "wmv", "flv", "webm"].includes(ext)) {
-        previewContent = <video src={link} controls class="max-h-full max-w-full" preload="metadata" />;
-    } else if (["mp3", "wav", "aac", "flac", "ogg", "wma", "m4a"].includes(ext)) {
-        previewContent = <audio src={link} controls class="w-full" />;
-    } else if (["pdf"].includes(ext)) {
-        link = import.meta.env.DEV ? "http://localhost:8080/preview/" : `${AssetsURL}/preview/`;
+    const setRef = (el: HTMLDivElement) => {
+        containerRef = el;
+        if (containerRef) {
+            observer.observe(containerRef);
+        }
+    };
+
+    onCleanup(() => {
+        if (containerRef) {
+            observer.unobserve(containerRef);
+        }
+        observer.disconnect();
+    });
+
+    const PreviewContent: Component = () => {
+        const AssetsURL = import.meta.env.VITE_ASSETS_URL ? `${window.location.protocol}//${import.meta.env.VITE_ASSETS_URL}` : "http://localhost:8080";
+        let link = import.meta.env.DEV ? "http://localhost:8080/i/" : `${AssetsURL}/i/`;
+        const preview_size_limit = 40 * 1024 * 1024;
         link += props.file.file_directory;
-        link += '.png'
-        previewContent = <img src={link} loading="lazy" class="max-h-full max-w-full p-2" />;
-    } else {
-        previewContent = (
-            <FileTextSVG class="max-h-full p-4 opacity-50"/>
-        );
-    }
 
-    return <div class="flex justify-center items-center w-full h-full opacity-70">{previewContent}</div>;
+        const ext = props.file.original_file_name.split('.').pop()?.toLowerCase();
+
+        if (props.file.file_size > preview_size_limit) {
+            return <FileTextSVG class="max-h-full p-4 opacity-50"/>;
+        }
+        if (!ext) {
+            return <p class="text-white">Unsupported file type</p>;
+        }
+        if (["jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff"].includes(ext)) {
+            return <img src={link} loading="lazy" class="max-h-full max-w-full p-2" />;
+        }
+        if (["mp4", "mkv", "avi", "mov", "wmv", "flv", "webm"].includes(ext)) {
+            return <video src={link} controls class="max-h-full max-w-full" preload="metadata" />;
+        }
+        if (["mp3", "wav", "aac", "flac", "ogg", "wma", "m4a"].includes(ext)) {
+            return <audio src={link} controls class="w-full" />;
+        }
+        if (["pdf"].includes(ext)) {
+            link = import.meta.env.DEV ? "http://localhost:8080/preview/" : `${AssetsURL}/preview/`;
+            link += props.file.file_directory;
+            link += '.png'
+            return <img src={link} loading="lazy" class="max-h-full max-w-full p-2" />;
+        }
+        return <FileTextSVG class="max-h-full p-4 opacity-50"/>;
+    };
+
+    return (
+        <div ref={setRef} class="flex justify-center items-center w-full h-full opacity-70">
+            <Show when={isVisible()} fallback={<FileTextSVG class="max-h-full p-4 opacity-50"/>}>
+                <PreviewContent />
+            </Show>
+        </div>
+    );
 };
 
 const ConvertButton: Component<{ file: FileData }> = (props) => {
