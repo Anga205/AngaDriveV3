@@ -11,7 +11,7 @@ func GetLast7DaysCounts() ([]string, []int64) {
 	dates := make([]string, 0, 7)
 	counts := make([]int64, 0, 7)
 	now := time.Now()
-	loc, _ := time.LoadLocation("Local")
+	loc, _ := time.LoadLocation("Asia/Kolkata")
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 
 	for i := -6; i <= 0; i++ {
