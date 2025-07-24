@@ -217,7 +217,10 @@ const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (pro
                     </>
                 )}
 
-                <Show when={selectedUploadFiles().length > 0 && filesPendingOrError() > 0}>
+                <Show when={
+                    (selectedUploadFiles().length > 0 && filesPendingOrError() > 0) || 
+                    (modifying() === "existing" && selectedExistingFiles().length > 0)
+                }>
                     {modifying() !== null && (
                         <button
                             onClick={() => handleSubmit(() => {})}
@@ -528,7 +531,7 @@ const CollectionPageMobile: Component = () => {
                      <p class="text-gray-400 text-lg font-semibold w-full text-center">Files</p>
                 </Show>
                 <Show when={hasFiles()}>
-                     <div class="w-full flex flex-wrap justify-center gap-4">
+                     <div class="w-full flex flex-wrap justify-center gap-4 pt-6">
                         <For each={ctx.knownCollections()[collectionId()]?.files || []}>
                             {(file) => <FileCard File={file} />}
                         </For>
