@@ -10,7 +10,7 @@ import { AppContext } from "../Context";
 const FilePreview: Component<{ file: FileData }> = (props) => {
     const AssetsURL = import.meta.env.VITE_ASSETS_URL ? `${window.location.protocol}//${import.meta.env.VITE_ASSETS_URL}` : "http://localhost:8080";
     let link = import.meta.env.DEV ? "http://localhost:8080/i/" : `${AssetsURL}/i/`;
-    const preview_size_limit = 50 * 1024 * 1024;
+    const preview_size_limit = 10 * 1024 * 1024;
     link += props.file.file_directory;
 
     const ext = props.file.original_file_name.split('.').pop()?.toLowerCase();
@@ -139,7 +139,7 @@ const RemoveFromCollectionButton: Component<{ file: FileData }> = (props) => {
 }
 
 const FileCard: Component<{ File: FileData }> = (props) => {
-    let DownloadLink = import.meta.env.VITE_DOWNLOAD_LINK ? `${window.location.protocol}//${import.meta.env.VITE_DOWNLOAD_LINK}/download/` : "http://localhost:8080/download/";
+    let DownloadLink = import.meta.env.VITE_ASSETS_URL ? `${window.location.protocol}//${import.meta.env.VITE_ASSETS_URL}/download/` : "http://localhost:8080/download/";
     DownloadLink += props.File.file_directory;
     const AssetsURL = import.meta.env.VITE_ASSETS_URL ? `${window.location.protocol}//${import.meta.env.VITE_ASSETS_URL}/i/` : "http://localhost:8080/i/";
     let link = import.meta.env.DEV ? "http://localhost:8080/i/" : AssetsURL;
