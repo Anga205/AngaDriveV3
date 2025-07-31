@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"service/database"
+	"strconv"
 	"time"
 
 	"github.com/shirou/gopsutil/cpu"
@@ -27,13 +28,22 @@ func getCPUinfo() (CPUInfo, error) {
 	}
 	return cpuInfo, nil
 }
+
 func getRAMinfo() (RAMInfo, error) {
 	v, err := mem.VirtualMemory()
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	totalRAM := v.Total
+	if envRAM := os.Getenv("RAM_AVAILABLE"); envRAM != "" {
+		if ramValue, err := strconv.ParseUint(envRAM, 10, 64); err == nil {
+			totalRAM = ramValue
+		}
+	}
+
 	ramInfo := RAMInfo{
-		TotalRAM:       v.Total,
+		TotalRAM:       totalRAM,
 		UsedRAM:        v.Used,
 		AvailableRAM:   v.Available,
 		RAMPercentUsed: v.UsedPercent,
