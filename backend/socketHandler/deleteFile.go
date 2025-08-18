@@ -5,6 +5,7 @@ import (
 	"os"
 	"service/accounts"
 	"service/database"
+	"strings"
 	"time"
 )
 
@@ -48,8 +49,17 @@ func DeleteFile(req DeleteFileRequest) error {
 		return fmt.Errorf("unauthorized delete attempt")
 	}
 	err = database.DeleteFile(fileToDelete, PulseCollectionSubscribers)
-	if getExtension(fileToDelete.OriginalFileName) == "pdf" {
+	ext := strings.ToLower(getExtension(fileToDelete.OriginalFileName))
+	if ext == "pdf" {
 		os.Remove(UPLOAD_DIR + string(os.PathSeparator) + "pdf_previews" + string(os.PathSeparator) + fileToDelete.FileDirectory + ".png")
+	} else {
+		imageExtensions := []string{"jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff"}
+		for _, imgExt := range imageExtensions {
+			if ext == imgExt {
+				os.Remove(UPLOAD_DIR + string(os.PathSeparator) + "image_previews" + string(os.PathSeparator) + fileToDelete.FileDirectory)
+				break
+			}
+		}
 	}
 	if err != nil {
 		now := time.Now()
