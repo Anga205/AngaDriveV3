@@ -51,6 +51,8 @@ const FilePreview: Component<{ file: FileData }> = (props) => {
             return <p class="text-white">Unsupported file type</p>;
         }
         if (["jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff"].includes(ext)) {
+            link = import.meta.env.DEV ? "http://localhost:8080/preview-image/" : `${AssetsURL}/preview-image/`;
+            link += props.file.file_directory;
             return <img src={link} loading="lazy" class="max-h-full max-w-full p-2" />;
         }
         if (["mp4", "mkv", "avi", "mov", "wmv", "flv", "webm"].includes(ext)) {

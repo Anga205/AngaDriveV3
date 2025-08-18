@@ -23,6 +23,11 @@ func InitEndpoints(r *gin.Engine, UPLOAD_DIR string) {
 			returnFilePreview(c)
 		}
 	})
+	r.GET("/preview-image/:file_directory", func(c *gin.Context) {
+		if c.Request.Host == vars.AssetsURL {
+			returnImagePreview(c)
+		}
+	})
 	r.GET("/download/:file_directory", func(c *gin.Context) {
 		if c.Request.Host == vars.AssetsURL {
 			downloadFile(c)
