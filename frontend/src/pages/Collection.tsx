@@ -21,6 +21,7 @@ const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (pro
     const [uploadProgressMap, setUploadProgressMap] = createSignal<Record<string, FileUploadProgressData>>({});
     const [isUploading, setIsUploading] = createSignal(false);
     const [modifying, setModifying] = createSignal<"existing" | "new" | null>(null);
+    const [isDragOver, setIsDragOver] = createSignal(false);
 
     createEffect(() => {
         if (selectedExistingFiles().length > 0) {
@@ -56,6 +57,27 @@ const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (pro
             });
         }
         if (input) input.value = '';
+    };
+
+    const addDroppedFiles = (files: FileList | File[]) => {
+        const list = Array.from(files);
+        if (list.length === 0) return;
+        const newFiles = list.map(f => ({ uniqueId: generateUUID(), file: f }));
+        setSelectedUploadFiles(prev => [...prev, ...newFiles]);
+        setUploadProgressMap(prevMap => {
+            const updatedMap = { ...prevMap };
+            newFiles.forEach(sf => {
+                if (!updatedMap[sf.uniqueId]) {
+                    updatedMap[sf.uniqueId] = {
+                        id: sf.uniqueId,
+                        name: sf.file.name,
+                        progress: 0,
+                        status: 'pending',
+                    };
+                }
+            });
+            return updatedMap;
+        });
     };
 
     const handleFileDelete = (uniqueIdToDelete: string) => {
@@ -176,7 +198,21 @@ const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (pro
                 {(modifying() === "new" || modifying() === null) && (
                     <>
                         <p class="text-white text-lg font-bold mb-2 text-center">Upload New File</p>
-                        <label for="collection-file-upload" class={`rounded-md min-h-[15vh] flex justify-center items-center cursor-pointer my-[1vh] ${selectedUploadFiles().length === 0 ? 'border-dotted border-2 border-blue-800' : ''}`}>
+                        <label
+                            for="collection-file-upload"
+                            class={`rounded-md min-h-[15vh] flex justify-center items-center cursor-pointer my-[1vh] ${selectedUploadFiles().length === 0 ? `border-2 ${isDragOver() ? 'border-blue-400' : 'border-dotted border-blue-800'}` : ''}`}
+                            onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+                            onDragEnter={(e) => { e.preventDefault(); setIsDragOver(true); }}
+                            onDragLeave={() => setIsDragOver(false)}
+                            onDrop={(e) => {
+                                e.preventDefault();
+                                setIsDragOver(false);
+                                if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+                                    addDroppedFiles(e.dataTransfer.files);
+                                    e.dataTransfer.clearData();
+                                }
+                            }}
+                        >
                             {selectedUploadFiles().length === 0 ? (
                                 <p class="text-center p-4 text-white">Drag and drop files here or click to select files</p>
                             ) : (

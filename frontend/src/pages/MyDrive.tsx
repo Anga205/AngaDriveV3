@@ -296,6 +296,7 @@ const UploadPopup: Component = () => {
     const [selectedFiles, setSelectedFiles] = createSignal<SelectableFile[]>([]);
     const [uploadProgressMap, setUploadProgressMap] = createSignal<Record<string, FileUploadProgressData>>({});
     const [isUploading, setIsUploading] = createSignal(false);
+    const [isDragOver, setIsDragOver] = createSignal(false);
 
     const handleFileChange = (event: Event) => {
         const input = event.target as HTMLInputElement;
@@ -322,6 +323,27 @@ const UploadPopup: Component = () => {
             });
         }
         if (input) input.value = ''; // Reset input
+    };
+
+    const addDroppedFiles = (files: FileList | File[]) => {
+        const list = Array.from(files);
+        if (list.length === 0) return;
+        const newFiles = list.map(f => ({ uniqueId: generateUUID(), file: f }));
+        setSelectedFiles(prev => [...prev, ...newFiles]);
+        setUploadProgressMap(prevMap => {
+            const updatedMap = { ...prevMap };
+            newFiles.forEach(sf => {
+                if (!updatedMap[sf.uniqueId]) {
+                    updatedMap[sf.uniqueId] = {
+                        id: sf.uniqueId,
+                        name: sf.file.name,
+                        progress: 0,
+                        status: 'pending',
+                    };
+                }
+            });
+            return updatedMap;
+        });
     };
 
     const handleFileDelete = (uniqueIdToDelete: string) => {
@@ -492,7 +514,21 @@ const UploadPopup: Component = () => {
                     <Dialog.Label class="text-lg font-bold">
                         Upload Files
                     </Dialog.Label>
-                    <label for="file-upload" class={`rounded-md min-h-[15vh] flex justify-center items-center cursor-pointer my-[1vh] ${selectedFiles().length === 0 ? 'border-dotted border-2 border-blue-800' : ''}`}>
+                    <label
+                        for="file-upload"
+                        class={`rounded-md min-h-[15vh] flex justify-center items-center cursor-pointer my-[1vh] ${selectedFiles().length === 0 ? `border-2 ${isDragOver() ? 'border-blue-400' : 'border-dotted border-blue-800'}` : ''}`}
+                        onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+                        onDragEnter={(e) => { e.preventDefault(); setIsDragOver(true); }}
+                        onDragLeave={() => setIsDragOver(false)}
+                        onDrop={(e) => {
+                            e.preventDefault();
+                            setIsDragOver(false);
+                            if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+                                addDroppedFiles(e.dataTransfer.files);
+                                e.dataTransfer.clearData();
+                            }
+                        }}
+                    >
                         {selectedFiles().length === 0 ? (
                             <p class="text-center p-4">Drag and drop files here or click to select files</p>
                         ) : (
