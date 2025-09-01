@@ -75,6 +75,14 @@ func setupRoutes(r *gin.Engine, distPath string) {
 			if c.Request.Host == vars.WebURL {
 				go socketHandler.SiteActivityPulse()
 				c.Data(http.StatusOK, "text/html", fileCache["/index.html"])
+			} else if route == "/" && c.Request.Host == vars.AssetsURL {
+				scheme := "http"
+				if c.Request.TLS != nil {
+					scheme = "https"
+				} else if proto := c.GetHeader("X-Forwarded-Proto"); proto != "" {
+					scheme = proto
+				}
+				c.Redirect(http.StatusTemporaryRedirect, fmt.Sprintf("%s://%s/", scheme, vars.WebURL))
 			} else {
 				c.AbortWithStatus(http.StatusNotFound)
 			}
