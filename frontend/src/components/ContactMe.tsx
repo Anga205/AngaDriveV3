@@ -4,7 +4,7 @@ import emailjs from "@emailjs/browser";
 import toast from "solid-toast";
 
 const ContactMe: Component = () => {
-    const [email, setEmail] = createSignal("");
+    const [email, setEmail] = createSignal(localStorage.getItem('email') || "");
     const [message, setMessage] = createSignal("");
 
     const isEmailValid = (email: string) => {
