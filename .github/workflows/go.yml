@@ -16,6 +16,8 @@ jobs:
       uses: actions/setup-go@v4
       with:
         go-version: '1.24'
+        cache: true
+        cache-dependency-path: backend/go.sum
 
     - name: Build
       working-directory: ./backend
