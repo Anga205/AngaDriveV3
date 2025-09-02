@@ -1,5 +1,5 @@
 import type { Accessor, Component } from "solid-js"
-import { createSignal, Show, For, createMemo, onCleanup, createEffect, useContext } from "solid-js"
+import { createSignal, Show, For, createMemo, onCleanup, createEffect, useContext, onMount } from "solid-js"
 import { DesktopTemplate } from "../components/Template"
 import { InfoSVG, UploadSVG, ErrorSVG, BinSVG, FileSVG } from "../assets/SvgFiles"
 import Navbar from "../components/Navbar";
@@ -297,42 +297,22 @@ const UploadPopup: Component = () => {
     const [uploadProgressMap, setUploadProgressMap] = createSignal<Record<string, FileUploadProgressData>>({});
     const [isUploading, setIsUploading] = createSignal(false);
     const [isDragOver, setIsDragOver] = createSignal(false);
+    const [open, setOpen] = createSignal(false);
 
-    const handleFileChange = (event: Event) => {
-        const input = event.target as HTMLInputElement;
-        if (input.files) {
-            const newFiles = Array.from(input.files).map(f => ({
-                uniqueId: generateUUID(),
-                file: f,
-            }));
-            setSelectedFiles(prev => [...prev, ...newFiles]);
-            // Initialize progress for new files
-            setUploadProgressMap(prevMap => {
-                const updatedMap = {...prevMap};
-                newFiles.forEach(sf => {
-                    if (!updatedMap[sf.uniqueId]) { // Avoid overwriting existing entries if any
-                         updatedMap[sf.uniqueId] = {
-                            id: sf.uniqueId,
-                            name: sf.file.name,
-                            progress: 0,
-                            status: 'pending',
-                        };
-                    }
-                });
-                return updatedMap;
-            });
-        }
-        if (input) input.value = ''; // Reset input
-    };
+    const getPathKey = (f: File) => ((f as any).webkitRelativePath || (f as any).path || f.name);
 
-    const addDroppedFiles = (files: FileList | File[]) => {
+    const addFiles = (files: FileList | File[]) => {
         const list = Array.from(files);
         if (list.length === 0) return;
-        const newFiles = list.map(f => ({ uniqueId: generateUUID(), file: f }));
-        setSelectedFiles(prev => [...prev, ...newFiles]);
+        const existingKeys = new Set(selectedFiles().map(sf => getPathKey(sf.file)));
+        const deduped = list
+            .filter(f => !existingKeys.has(getPathKey(f)))
+            .map(f => ({ uniqueId: generateUUID(), file: f }));
+        if (deduped.length === 0) return;
+        setSelectedFiles(prev => [...prev, ...deduped]);
         setUploadProgressMap(prevMap => {
             const updatedMap = { ...prevMap };
-            newFiles.forEach(sf => {
+            deduped.forEach(sf => {
                 if (!updatedMap[sf.uniqueId]) {
                     updatedMap[sf.uniqueId] = {
                         id: sf.uniqueId,
@@ -345,6 +325,16 @@ const UploadPopup: Component = () => {
             return updatedMap;
         });
     };
+
+    const handleFileChange = (event: Event) => {
+        const input = event.target as HTMLInputElement;
+        if (input.files) {
+            addFiles(input.files);
+        }
+        if (input) input.value = ''; // Reset input
+    };
+
+    const addDroppedFiles = (files: FileList | File[]) => addFiles(files);
 
     const handleFileDelete = (uniqueIdToDelete: string) => {
         setSelectedFiles((prev) => prev.filter(sf => sf.uniqueId !== uniqueIdToDelete));
@@ -362,6 +352,30 @@ const UploadPopup: Component = () => {
             setIsUploading(false);
         }
     };
+
+    onMount(() => {
+        const handler = (e: Event) => {
+            const ce = e as CustomEvent<{ files?: File[] | FileList }>;
+            const files = ce.detail?.files;
+            if (files && (files as any).length !== undefined) {
+                addDroppedFiles(files as File[] | FileList);
+            }
+            setOpen(true);
+        };
+        document.addEventListener("open-drive-upload", handler as EventListener);
+        // If navigation stored pending files, consume them (only if not already open)
+        queueMicrotask(() => {
+            if (!open()) {
+                const pending = (window as any).__pendingDriveUploadFiles as File[] | undefined;
+                if (pending && pending.length) {
+                    addDroppedFiles(pending);
+                    (window as any).__pendingDriveUploadFiles = undefined;
+                    setOpen(true);
+                }
+            }
+        });
+        onCleanup(() => document.removeEventListener("open-drive-upload", handler as EventListener));
+    });
 
     const handleUploadButtonClick = async () => {
         let authDetails: AuthDetails = {};
@@ -503,7 +517,7 @@ const UploadPopup: Component = () => {
 
 
     return (
-        <Dialog onOpenChange={handleDialogStateChange}>
+        <Dialog open={open()} onOpenChange={(o)=>{ setOpen(o); handleDialogStateChange(o); }}>
             <Dialog.Trigger class="cursor-pointer hover:text-gray-300 text-white flex justify-center items-center bg-blue-600 hover:bg-blue-800 p-[1vh] rounded-[1vh] font-bold md:translate-y-[4vh]">
                 <UploadSVG />
                 <span>&nbsp;Upload</span>
@@ -525,7 +539,6 @@ const UploadPopup: Component = () => {
                             setIsDragOver(false);
                             if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
                                 addDroppedFiles(e.dataTransfer.files);
-                                e.dataTransfer.clearData();
                             }
                         }}
                     >
