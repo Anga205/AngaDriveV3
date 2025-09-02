@@ -22,6 +22,7 @@ const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (pro
     const [isUploading, setIsUploading] = createSignal(false);
     const [modifying, setModifying] = createSignal<"existing" | "new" | null>(null);
     const [isDragOver, setIsDragOver] = createSignal(false);
+    const [open, setOpen] = createSignal(false);
 
     createEffect(() => {
         if (selectedExistingFiles().length > 0) {
@@ -33,40 +34,20 @@ const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (pro
         }
     });
 
-    const handleFileChange = (event: Event) => {
-        const input = event.target as HTMLInputElement;
-        if (input.files) {
-            const newFiles = Array.from(input.files).map(f => ({
-                uniqueId: generateUUID(),
-                file: f,
-            }));
-            setSelectedUploadFiles(prev => [...prev, ...newFiles]);
-            setUploadProgressMap(prevMap => {
-                const updatedMap = {...prevMap};
-                newFiles.forEach(sf => {
-                    if (!updatedMap[sf.uniqueId]) {
-                         updatedMap[sf.uniqueId] = {
-                            id: sf.uniqueId,
-                            name: sf.file.name,
-                            progress: 0,
-                            status: 'pending',
-                        };
-                    }
-                });
-                return updatedMap;
-            });
-        }
-        if (input) input.value = '';
-    };
+    const getPathKey = (f: File) => ((f as any).webkitRelativePath || (f as any).path || f.name);
 
-    const addDroppedFiles = (files: FileList | File[]) => {
+    const addFiles = (files: FileList | File[]) => {
         const list = Array.from(files);
         if (list.length === 0) return;
-        const newFiles = list.map(f => ({ uniqueId: generateUUID(), file: f }));
-        setSelectedUploadFiles(prev => [...prev, ...newFiles]);
+        const existingKeys = new Set(selectedUploadFiles().map(sf => getPathKey(sf.file)));
+        const deduped = list
+            .filter(f => !existingKeys.has(getPathKey(f)))
+            .map(f => ({ uniqueId: generateUUID(), file: f }));
+        if (deduped.length === 0) return;
+        setSelectedUploadFiles(prev => [...prev, ...deduped]);
         setUploadProgressMap(prevMap => {
             const updatedMap = { ...prevMap };
-            newFiles.forEach(sf => {
+            deduped.forEach(sf => {
                 if (!updatedMap[sf.uniqueId]) {
                     updatedMap[sf.uniqueId] = {
                         id: sf.uniqueId,
@@ -79,6 +60,41 @@ const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (pro
             return updatedMap;
         });
     };
+
+    const handleFileChange = (event: Event) => {
+        const input = event.target as HTMLInputElement;
+        if (input.files) {
+            addFiles(input.files);
+        }
+        if (input) input.value = '';
+    };
+
+    const addDroppedFiles = (files: FileList | File[]) => addFiles(files);
+
+    onMount(() => {
+        const handler = (e: Event) => {
+            const ce = e as CustomEvent<{ files?: File[] | FileList }>;
+            const files = ce.detail?.files;
+            if (files && (files as any).length !== undefined) {
+                addDroppedFiles(files as File[] | FileList);
+            }
+            setOpen(true);
+            setModifying("new");
+        };
+        document.addEventListener("open-collection-upload", handler as EventListener);
+        queueMicrotask(() => {
+            if (!open()) {
+                const pending = (window as any).__pendingCollectionUploadFiles as File[] | undefined;
+                if (pending && pending.length) {
+                    addDroppedFiles(pending);
+                    (window as any).__pendingCollectionUploadFiles = undefined;
+                    setOpen(true);
+                    setModifying("new");
+                }
+            }
+        });
+        onCleanup(() => document.removeEventListener("open-collection-upload", handler as EventListener));
+    });
 
     const handleFileDelete = (uniqueIdToDelete: string) => {
         setSelectedUploadFiles((prev) => prev.filter(sf => sf.uniqueId !== uniqueIdToDelete));
@@ -181,8 +197,9 @@ const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (pro
     }).length;
 
     return (
-        <Dialog onOpenChange={(open) => {
-            if (!open) {
+        <Dialog open={open()} onOpenChange={(o) => {
+            setOpen(o);
+            if (!o) {
                 setSelectedExistingFiles([]);
                 setSelectedUploadFiles([]);
                 setUploadProgressMap({});
@@ -209,7 +226,6 @@ const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (pro
                                 setIsDragOver(false);
                                 if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
                                     addDroppedFiles(e.dataTransfer.files);
-                                    e.dataTransfer.clearData();
                                 }
                             }}
                         >
