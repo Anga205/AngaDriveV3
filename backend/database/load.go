@@ -111,7 +111,6 @@ func loadCollectionFolders() {
 func loadTimeStamps() {
 	TimeStampsMutex.Lock()
 	defer TimeStampsMutex.Unlock()
-	defer wg.Done()
 
 	var timestamps []int64
 	err := GetDB().Model(&Activity{}).Pluck("timestamps", &timestamps).Error
@@ -186,17 +185,14 @@ func loadCollections() {
 }
 
 func LoadCache() {
-	wg.Add(9)
-
+	wg.Add(8)
 	go loadUserFiles()
 	go loadUserCollections()
 	go loadCollectionFiles()
 	go loadCollectionFolders()
-	go loadTimeStamps()
 	go loadFiles()
 	go loadCollections()
 	go loadUserAccountsByEmail()
 	go loadUserAccountsByToken()
-
 	wg.Wait()
 }

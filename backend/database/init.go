@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/gin-gonic/gin"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -58,10 +57,14 @@ func InitializeDatabase(uploadedFilesDir string) error {
 	if err != nil {
 		return fmt.Errorf("InitializeDatabase: %w", err)
 	}
-	if gin.Mode() != gin.ReleaseMode {
-		LoadCache()
-	}
 	fmt.Println("[GIN-debug] Database initialized successfully")
+	loadTimeStamps()
+	dontCache := os.Getenv("SAVE_DRIVE_RAM")
+	if dontCache == "" || dontCache != "true" {
+		fmt.Println("[GIN-debug] Loading entire database into RAM (set env variable SAVE_DRIVE_RAM=true to disable this)")
+		LoadCache()
+		fmt.Println("[GIN-debug] Database cache has been loaded")
+	}
 	return nil
 }
 
