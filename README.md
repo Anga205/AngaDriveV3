@@ -72,12 +72,15 @@ You gotta have golang installed to run main.go, the script serves up the fronten
 If you dont set them, they will default to localhost:8080
 - `ASSETS_URL`: The url from which you plan on serving up the files (ideally you want this on a separate url from your main website to stop XSS attacks)
 - `WEB_URL`: The url from which people will actually access the website
+- `SAVE_DRIVE_RAM`: optional env variable, set this to true for *slightly* more efficient RAM usage (at the cost of slightly worsened performance)
+- `GIN_MODE`: optional env variable, set this to "release" if you dont wanna get spammed by debug messages (also to make CORS policy more strict & safe)
 
 In most cases, u dont need to setup CORS stuff separately because WEB_URL is used for both the frontend routes and the backend websocket.
 #### example setup:
 ```bash
 export WEB_URL=drive.anga.pro
 export ASSETS_URL=i.anga.pro
+export GIN_MODE=release # optional
 ```
 
 ### 4. Run the code
@@ -127,12 +130,15 @@ You gotta have golang installed to run main.go, the script serves up the fronten
 If you dont set them, they will default to localhost:8080
 - `ASSETS_URL`: The url from which you plan on serving up the files (ideally you want this on a separate url from your main website to stop XSS attacks)
 - `WEB_URL`: The url from which people will actually access the website
+- `SAVE_DRIVE_RAM`: optional env variable, set this to true for *slightly* more efficient RAM usage (at the cost of slightly worsened performance)
+- `GIN_MODE`: optional env variable, set this to "release" if you dont wanna get spammed by debug messages (also to make CORS policy more strict & safe)
 
 In most cases, u dont need to setup CORS stuff separately because WEB_URL is used for both the frontend routes and the backend websocket.
 #### example setup:
 ```powershell
 $env:WEB_URL="drive.anga.pro"
 $env:ASSETS_URL="i.anga.pro"
+$env:GIN_MODE="release"
 ```
 
 ### 4. Run the code
