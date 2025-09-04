@@ -366,6 +366,8 @@ const UploadPopup: Component = () => {
             });
             return updatedMap;
         });
+        // Attempt to fill concurrency slots immediately when not paused
+        if (!isPaused()) queueMicrotask(() => pumpQueue());
     };
 
     const handleFileChange = (event: Event) => {
@@ -376,7 +378,10 @@ const UploadPopup: Component = () => {
         if (input) input.value = ''; // Reset input
     };
 
-    const addDroppedFiles = (files: FileList | File[]) => addFiles(files);
+    const addDroppedFiles = (files: FileList | File[]) => {
+        addFiles(files);
+        if (open() && !isPaused()) queueMicrotask(() => pumpQueue());
+    };
 
     const handleFileDelete = (uniqueIdToDelete: string) => {
     cancelledFiles.add(uniqueIdToDelete);
@@ -397,6 +402,7 @@ const UploadPopup: Component = () => {
             // Abort any lingering requests
             activeControllers.forEach(c => c.abort());
             activeControllers.clear();
+            cancelledFiles.clear();
         }
     };
 
@@ -424,166 +430,171 @@ const UploadPopup: Component = () => {
         onCleanup(() => document.removeEventListener("open-drive-upload", handler as EventListener));
     });
 
-    const handleUploadButtonClick = async () => {
-        let authDetails: AuthDetails = {};
+    // Concurrency-aware scheduler that always fills up to MAX_CONCURRENT_UPLOADS slots
+    let activeUploads = 0;
+
+    const waitWhilePaused = async () => {
+        while (isPaused()) {
+            await new Promise(r => setTimeout(r, 200));
+        }
+    };
+
+    const buildAuthDetails = (): AuthDetails | null => {
         const storedEmail = localStorage.getItem("email");
         const storedPassword = localStorage.getItem("password");
-
         if (storedEmail && storedPassword) {
-            authDetails = { email: storedEmail, password: storedPassword };
-        } else {
-            let token = localStorage.getItem("token");
-            if (!token) {
-                token = generateClientToken();
-                localStorage.setItem("token", token);
-            }
-            authDetails = { token };
+            return { email: storedEmail, password: storedPassword };
         }
+        let token = localStorage.getItem("token");
+        if (!token) {
+            token = generateClientToken();
+            localStorage.setItem("token", token);
+        }
+        if (!token) return null;
+        return { token };
+    };
 
-        if (!authDetails.token && (!authDetails.email || !authDetails.password)) {
-            alert("Critical authentication error. Unable to proceed.");
-             // Mark all pending files as error
-            const currentFiles = selectedFiles();
-            const newProgress: Record<string, FileUploadProgressData> = {};
-            currentFiles.forEach(sf => {
-                newProgress[sf.uniqueId] = {
-                    id: sf.uniqueId,
-                    name: sf.file.name,
-                    progress: 0,
+    const startSingleUpload = async (selectableFile: SelectableFile) => {
+        // Skip if cancelled
+        if (cancelledFiles.has(selectableFile.uniqueId)) return;
+
+        const authDetails = buildAuthDetails();
+        if (!authDetails) {
+            // Mark as error for missing auth
+            setUploadProgressMap(prev => ({
+                ...prev,
+                [selectableFile.uniqueId]: {
+                    ...prev[selectableFile.uniqueId],
                     status: 'error',
                     errorMessage: 'Authentication configuration error',
-                };
-            });
-            setUploadProgressMap(prev => ({...prev, ...newProgress}));
+                }
+            }));
             return;
         }
 
-        setIsUploading(true);
-        const filesToProcess = selectedFiles().filter(sf => {
-            const currentStatus = uploadProgressMap()[sf.uniqueId]?.status;
-            return currentStatus === 'pending' || currentStatus === 'error';
-        });
-        
-        // Ensure all files to process are marked as pending if they were in error
+        // Transition to uploading
         setUploadProgressMap(prev => {
-            const updated = { ...prev };
-            filesToProcess.forEach(sf => {
-                updated[sf.uniqueId] = {
-                    ...updated[sf.uniqueId], // Keep existing name, id
-                    status: 'pending',
-                    progress: 0, // Reset progress for retries
-                    errorMessage: undefined,
-                };
-            });
-            return updated;
-        });
-        
-        const queue = [...filesToProcess];
-        let activeUploads = 0;
-
-        const waitWhilePaused = async () => {
-            // Yield in a loop while paused
-            while (isPaused()) {
-                await new Promise(r => setTimeout(r, 200));
-            }
-        };
-
-        const processNext = async () => {
-            if (activeUploads >= MAX_CONCURRENT_UPLOADS || queue.length === 0) {
-                if (activeUploads === 0 && queue.length === 0) {
-                    setIsUploading(false);
+            if (cancelledFiles.has(selectableFile.uniqueId)) return prev;
+            return ({
+                ...prev,
+                [selectableFile.uniqueId]: {
+                    ...prev[selectableFile.uniqueId],
+                    status: 'uploading',
+                    // Keep current progress if retrying; otherwise ensure 0
+                    progress: prev[selectableFile.uniqueId]?.progress ?? 0,
                 }
-                return;
-            }
+            });
+        });
 
-            activeUploads++;
-        const selectableFile = queue.shift();
-            if (!selectableFile) {
-                activeUploads--;
-                processNext();
-                return;
-            }
-
-            // Skip if user removed this file while paused
-            if (cancelledFiles.has(selectableFile.uniqueId)) {
-                activeUploads--;
-                processNext();
-                return;
-            }
-
+        const backendUploadId = generateUUID();
+        activeUploads++;
+        try {
+            await uploadFileInChunks(
+                selectableFile,
+                backendUploadId,
+                authDetails,
+                (progress) => {
+                    setUploadProgressMap(prev => {
+                        if (cancelledFiles.has(selectableFile.uniqueId)) return prev;
+                        return ({
+                            ...prev,
+                            [selectableFile.uniqueId]: {
+                                ...prev[selectableFile.uniqueId],
+                                progress,
+                            }
+                        });
+                    });
+                },
+                undefined,
+                waitWhilePaused,
+                () => isPaused(),
+                manageController,
+                () => cancelledFiles.has(selectableFile.uniqueId)
+            );
             setUploadProgressMap(prev => {
                 if (cancelledFiles.has(selectableFile.uniqueId)) return prev;
                 return ({
                     ...prev,
                     [selectableFile.uniqueId]: {
                         ...prev[selectableFile.uniqueId],
-                        status: 'uploading',
-                        progress: 0,
+                        status: 'completed',
+                        progress: 100,
                     }
                 });
             });
-            
-            const backendUploadId = generateUUID();
-
-            try {
-                await uploadFileInChunks(
-                    selectableFile,
-                    backendUploadId,
-                    authDetails,
-                    (progress) => {
-                        setUploadProgressMap(prev => {
-                            if (cancelledFiles.has(selectableFile.uniqueId)) return prev;
-                            return ({
-                                ...prev,
-                                [selectableFile.uniqueId]: {
-                                    ...prev[selectableFile.uniqueId],
-                                    progress,
-                                }
-                            });
-                        });
-            },
-            undefined,
-            waitWhilePaused,
-            () => isPaused(),
-            manageController,
-            () => cancelledFiles.has(selectableFile.uniqueId)
-                );
-                setUploadProgressMap(prev => {
-                    if (cancelledFiles.has(selectableFile.uniqueId)) return prev;
-                    return ({
-                        ...prev,
-                        [selectableFile.uniqueId]: {
-                            ...prev[selectableFile.uniqueId],
-                            status: 'completed',
-                            progress: 100,
-                        }
-                    });
+        } catch (error: any) {
+            console.error(`Error uploading file ${selectableFile.file.name}:`, error);
+            setUploadProgressMap(prev => {
+                if (cancelledFiles.has(selectableFile.uniqueId)) return prev;
+                return ({
+                    ...prev,
+                    [selectableFile.uniqueId]: {
+                        ...prev[selectableFile.uniqueId],
+                        status: 'error',
+                        errorMessage: error?.name === 'AbortError' ? 'Paused' : (error?.message || 'Upload failed'),
+                    }
                 });
-            } catch (error: any) {
-                console.error(`Error uploading file ${selectableFile.file.name}:`, error);
-                setUploadProgressMap(prev => {
-                    if (cancelledFiles.has(selectableFile.uniqueId)) return prev;
-                    return ({
-                        ...prev,
-                        [selectableFile.uniqueId]: {
-                            ...prev[selectableFile.uniqueId],
-                            status: 'error',
-                            errorMessage: error.name === 'AbortError' ? 'Paused' : (error.message || 'Upload failed'),
-                        }
-                    });
-                });
-            } finally {
-                activeUploads--;
-                processNext();
-            }
-        };
+            });
+        } finally {
+            activeUploads--;
+            // If not paused, try to fill freed slot
+            queueMicrotask(() => pumpQueue());
+        }
+    };
 
-        for (let i = 0; i < MAX_CONCURRENT_UPLOADS && queue.length > 0; i++) {
-            processNext();
+    const pumpQueue = () => {
+        if (!open()) return; // Only process when dialog open
+        if (isPaused()) return; // Don't start new uploads while paused
+
+        // Ensure map has pending entries for any new files (in case of retries)
+        setUploadProgressMap(prev => {
+            const updated = { ...prev };
+            selectedFiles().forEach(sf => {
+                if (!updated[sf.uniqueId]) {
+                    updated[sf.uniqueId] = {
+                        id: sf.uniqueId,
+                        name: sf.file.name,
+                        progress: 0,
+                        status: 'pending',
+                    };
+                }
+            });
+            return updated;
+        });
+
+        const currentMap = uploadProgressMap();
+        const availableSlots = Math.max(0, MAX_CONCURRENT_UPLOADS - activeUploads);
+        if (availableSlots === 0) {
+            setIsUploading(true);
+            return;
         }
-        if (queue.length === 0 && activeUploads === 0) { // If no files were queued (e.g. all completed)
-            setIsUploading(false);
+
+        const candidates = selectedFiles().filter(sf => {
+            const st = currentMap[sf.uniqueId]?.status;
+            return (st === 'pending' || st === 'error') && !cancelledFiles.has(sf.uniqueId);
+        }).slice(0, availableSlots);
+
+        if (candidates.length === 0) {
+            // Nothing to start. If none running either, mark idle.
+            if (activeUploads === 0) setIsUploading(false);
+            return;
         }
+
+        setIsUploading(true);
+        candidates.forEach(sf => {
+            // Reset to pending (clears error state for retry) before starting
+            setUploadProgressMap(prev => ({
+                ...prev,
+                [sf.uniqueId]: {
+                    ...prev[sf.uniqueId],
+                    status: 'pending',
+                    progress: prev[sf.uniqueId]?.status === 'error' ? 0 : (prev[sf.uniqueId]?.progress ?? 0),
+                    errorMessage: undefined,
+                }
+            }));
+            // Kick off the upload
+            startSingleUpload(sf);
+        });
     };
 
     const filesPendingOrError = createMemo(() => {
@@ -597,10 +608,10 @@ const UploadPopup: Component = () => {
         return selectedFiles().some(sf => uploadProgressMap()[sf.uniqueId]?.status === 'uploading');
     });
 
-    // Auto-start uploads when files are added and there are pending/error items
+    // Auto-start and keep pumping while there are pending items and not paused
     createEffect(() => {
-        if (open() && selectedFiles().length > 0 && filesPendingOrError() > 0 && !isUploading() && !isPaused()) {
-            handleUploadButtonClick();
+        if (open() && selectedFiles().length > 0 && filesPendingOrError() > 0 && !isPaused()) {
+            queueMicrotask(() => pumpQueue());
         }
     });
 
@@ -651,16 +662,19 @@ const UploadPopup: Component = () => {
                     </label>
                     <Show when={selectedFiles().length > 0 && (filesPendingOrError() > 0 || anyUploading())}>
                         <button
-                            class="mt-4 w-full bg-blue-600 hover:bg-blue-800 disabled:bg-gray-600 text-white font-bold py-2 px-4 rounded"
+                            class={`mt-4 w-full ${isPaused() ? 'bg-blue-600 hover:bg-blue-800' : 'bg-yellow-600 hover:bg-yellow-800'} disabled:bg-gray-600 text-white font-bold py-2 px-4 rounded`}
                             onClick={() => {
                                 const next = !isPaused();
                                 setIsPaused(next);
                                 if (next) {
-                                    // Abort all in-flight uploads to pause immediately
+                                    // Pausing: abort all in-flight uploads to pause immediately
                                     activeControllers.forEach(c => c.abort());
+                                } else {
+                                    // Resuming: fill available slots immediately
+                                    queueMicrotask(() => pumpQueue());
                                 }
                             }}
-                disabled={false}
+                            disabled={false}
                         >
                             {isPaused() ? 'Resume' : 'Pause'}
                         </button>
