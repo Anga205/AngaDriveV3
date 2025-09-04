@@ -86,6 +86,7 @@ const FileUploadPreview: Component<{
     selectableFile: SelectableFile;
     uploadInfo?: Accessor<FileUploadProgressData | undefined>;
     onDelete: (uniqueId: string) => void;
+    canDelete?: Accessor<boolean>;
 }> = (props) => {
 
     const preview_size_limit = 100 * 1024 * 1024; // 100 MB
@@ -148,7 +149,7 @@ const FileUploadPreview: Component<{
             <button
                 class="flex items-center justify-center p-2 ml-2 bg-red-700/30 hover:bg-red-700/20 rounded-lg text-red-500 hover:text-red-700 transition-colors"
                 onClick={() => props.onDelete(props.selectableFile.uniqueId)}
-                disabled={info() && info()!.status === 'uploading'}
+                disabled={props.canDelete ? !props.canDelete() : (!!info() && info()!.status === 'uploading')}
             >
                 <BinSVG />
             </button>
@@ -172,6 +173,10 @@ async function uploadFileInChunks(
     authDetails: AuthDetails,
     updateProgress: (progress: number) => void,
     collectionId?: string,
+    waitWhilePaused?: () => Promise<void>,
+    isPaused?: () => boolean,
+    manageController?: (c: AbortController, action: 'add' | 'remove') => void,
+    shouldCancel?: () => boolean,
 ): Promise<void> {
     
     const backendUrl = import.meta.env.DEV ? 'http://localhost:8080' : '';
@@ -181,6 +186,7 @@ async function uploadFileInChunks(
     const chunkQueue = Array.from({ length: totalChunks }, (_, i) => i);
 
     const uploadChunk = async (chunkIndex: number): Promise<void> => {
+        if (shouldCancel && shouldCancel()) return;
         const start = chunkIndex * CHUNK_SIZE;
         const end = Math.min(start + CHUNK_SIZE, file.size);
         const chunkBlob = file.slice(start, end);
@@ -193,28 +199,50 @@ async function uploadFileInChunks(
         formData.append('chunk', compressedBlob, `${file.name}.gz`);
         formData.append('chunkIndex', String(chunkIndex));
 
-        const response = await fetch(`${backendUrl}/upload/${uploadSystemId}`, {
-            method: 'POST',
-            body: formData,
-        });
+        const controller = new AbortController();
+        try {
+            if (manageController) manageController(controller, 'add');
+            const response = await fetch(`${backendUrl}/upload/${uploadSystemId}`, {
+                method: 'POST',
+                body: formData,
+                signal: controller.signal,
+            });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Chunk ${chunkIndex} upload failed (${response.status}): ${errorText}`);
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Chunk ${chunkIndex} upload failed (${response.status}): ${errorText}`);
+            }
+            // This needs to be atomic for concurrent updates
+            const newUploadedCount = uploadedChunks + 1;
+            uploadedChunks = newUploadedCount;
+            updateProgress(Math.round((newUploadedCount / totalChunks) * 100));
+        } finally {
+            if (manageController) manageController(controller, 'remove');
         }
-        // This needs to be atomic for concurrent updates
-        const newUploadedCount = uploadedChunks + 1;
-        uploadedChunks = newUploadedCount;
-        updateProgress(Math.round((newUploadedCount / totalChunks) * 100));
     };
 
     const worker = async (): Promise<void> => {
         while (chunkQueue.length > 0) {
+            if (shouldCancel && shouldCancel()) return;
+            if (waitWhilePaused && isPaused && isPaused()) {
+                await waitWhilePaused();
+            }
             const chunkIndex = chunkQueue.shift();
             if (chunkIndex === undefined) {
                 break;
             }
-            await uploadChunk(chunkIndex);
+            try {
+                if (shouldCancel && shouldCancel()) return;
+                await uploadChunk(chunkIndex);
+            } catch (e: any) {
+                // If paused and a request was aborted, re-enqueue this chunk to retry after resume
+                if ((isPaused && isPaused()) && (e?.name === 'AbortError' || /aborted/i.test(String(e?.message || '')))) {
+                    chunkQueue.unshift(chunkIndex);
+                    if (waitWhilePaused) await waitWhilePaused();
+                    continue;
+                }
+                throw e;
+            }
         }
     };
 
@@ -223,6 +251,11 @@ async function uploadFileInChunks(
         uploadPromises.push(worker());
     }
     await Promise.all(uploadPromises);
+
+    // If cancelled, don't finalize; exit silently
+    if (shouldCancel && shouldCancel()) {
+        return;
+    }
 
     if (uploadedChunks !== totalChunks) {
         throw new Error("Not all chunks were uploaded successfully.");
@@ -296,8 +329,17 @@ const UploadPopup: Component = () => {
     const [selectedFiles, setSelectedFiles] = createSignal<SelectableFile[]>([]);
     const [uploadProgressMap, setUploadProgressMap] = createSignal<Record<string, FileUploadProgressData>>({});
     const [isUploading, setIsUploading] = createSignal(false);
+    const [isPaused, setIsPaused] = createSignal(false);
     const [isDragOver, setIsDragOver] = createSignal(false);
     const [open, setOpen] = createSignal(false);
+    // Track active controllers to cancel on pause
+    const activeControllers = new Set<AbortController>();
+    const manageController = (c: AbortController, action: 'add' | 'remove') => {
+        if (action === 'add') activeControllers.add(c);
+        else activeControllers.delete(c);
+    };
+    // Track files removed during pause to cancel on resume
+    const cancelledFiles = new Set<string>();
 
     const getPathKey = (f: File) => ((f as any).webkitRelativePath || (f as any).path || f.name);
 
@@ -337,6 +379,7 @@ const UploadPopup: Component = () => {
     const addDroppedFiles = (files: FileList | File[]) => addFiles(files);
 
     const handleFileDelete = (uniqueIdToDelete: string) => {
+    cancelledFiles.add(uniqueIdToDelete);
         setSelectedFiles((prev) => prev.filter(sf => sf.uniqueId !== uniqueIdToDelete));
         setUploadProgressMap(prev => {
             const updated = { ...prev };
@@ -350,6 +393,10 @@ const UploadPopup: Component = () => {
             setSelectedFiles([]);
             setUploadProgressMap({});
             setIsUploading(false);
+            setIsPaused(false);
+            // Abort any lingering requests
+            activeControllers.forEach(c => c.abort());
+            activeControllers.clear();
         }
     };
 
@@ -434,6 +481,13 @@ const UploadPopup: Component = () => {
         const queue = [...filesToProcess];
         let activeUploads = 0;
 
+        const waitWhilePaused = async () => {
+            // Yield in a loop while paused
+            while (isPaused()) {
+                await new Promise(r => setTimeout(r, 200));
+            }
+        };
+
         const processNext = async () => {
             if (activeUploads >= MAX_CONCURRENT_UPLOADS || queue.length === 0) {
                 if (activeUploads === 0 && queue.length === 0) {
@@ -443,21 +497,31 @@ const UploadPopup: Component = () => {
             }
 
             activeUploads++;
-            const selectableFile = queue.shift();
+        const selectableFile = queue.shift();
             if (!selectableFile) {
                 activeUploads--;
                 processNext();
                 return;
             }
 
-            setUploadProgressMap(prev => ({
-                ...prev,
-                [selectableFile.uniqueId]: {
-                    ...prev[selectableFile.uniqueId],
-                    status: 'uploading',
-                    progress: 0,
-                }
-            }));
+            // Skip if user removed this file while paused
+            if (cancelledFiles.has(selectableFile.uniqueId)) {
+                activeUploads--;
+                processNext();
+                return;
+            }
+
+            setUploadProgressMap(prev => {
+                if (cancelledFiles.has(selectableFile.uniqueId)) return prev;
+                return ({
+                    ...prev,
+                    [selectableFile.uniqueId]: {
+                        ...prev[selectableFile.uniqueId],
+                        status: 'uploading',
+                        progress: 0,
+                    }
+                });
+            });
             
             const backendUploadId = generateUUID();
 
@@ -467,33 +531,47 @@ const UploadPopup: Component = () => {
                     backendUploadId,
                     authDetails,
                     (progress) => {
-                        setUploadProgressMap(prev => ({
-                            ...prev,
-                            [selectableFile.uniqueId]: {
-                                ...prev[selectableFile.uniqueId],
-                                progress,
-                            }
-                        }));
-                    }
+                        setUploadProgressMap(prev => {
+                            if (cancelledFiles.has(selectableFile.uniqueId)) return prev;
+                            return ({
+                                ...prev,
+                                [selectableFile.uniqueId]: {
+                                    ...prev[selectableFile.uniqueId],
+                                    progress,
+                                }
+                            });
+                        });
+            },
+            undefined,
+            waitWhilePaused,
+            () => isPaused(),
+            manageController,
+            () => cancelledFiles.has(selectableFile.uniqueId)
                 );
-                setUploadProgressMap(prev => ({
-                    ...prev,
-                    [selectableFile.uniqueId]: {
-                        ...prev[selectableFile.uniqueId],
-                        status: 'completed',
-                        progress: 100,
-                    }
-                }));
+                setUploadProgressMap(prev => {
+                    if (cancelledFiles.has(selectableFile.uniqueId)) return prev;
+                    return ({
+                        ...prev,
+                        [selectableFile.uniqueId]: {
+                            ...prev[selectableFile.uniqueId],
+                            status: 'completed',
+                            progress: 100,
+                        }
+                    });
+                });
             } catch (error: any) {
                 console.error(`Error uploading file ${selectableFile.file.name}:`, error);
-                setUploadProgressMap(prev => ({
-                    ...prev,
-                    [selectableFile.uniqueId]: {
-                        ...prev[selectableFile.uniqueId],
-                        status: 'error',
-                        errorMessage: error.message || 'Upload failed',
-                    }
-                }));
+                setUploadProgressMap(prev => {
+                    if (cancelledFiles.has(selectableFile.uniqueId)) return prev;
+                    return ({
+                        ...prev,
+                        [selectableFile.uniqueId]: {
+                            ...prev[selectableFile.uniqueId],
+                            status: 'error',
+                            errorMessage: error.name === 'AbortError' ? 'Paused' : (error.message || 'Upload failed'),
+                        }
+                    });
+                });
             } finally {
                 activeUploads--;
                 processNext();
@@ -513,6 +591,17 @@ const UploadPopup: Component = () => {
             const status = uploadProgressMap()[sf.uniqueId]?.status;
             return status === 'pending' || status === 'error';
         }).length;
+    });
+
+    const anyUploading = createMemo(() => {
+        return selectedFiles().some(sf => uploadProgressMap()[sf.uniqueId]?.status === 'uploading');
+    });
+
+    // Auto-start uploads when files are added and there are pending/error items
+    createEffect(() => {
+        if (open() && selectedFiles().length > 0 && filesPendingOrError() > 0 && !isUploading() && !isPaused()) {
+            handleUploadButtonClick();
+        }
     });
 
 
@@ -552,6 +641,7 @@ const UploadPopup: Component = () => {
                                             selectableFile={sf}
                                             uploadInfo={() => uploadProgressMap()[sf.uniqueId]}
                                             onDelete={handleFileDelete}
+                                            canDelete={() => isPaused()}
                                         />
                                     )}
                                 </For>
@@ -559,13 +649,20 @@ const UploadPopup: Component = () => {
                         )}
                         <input id="file-upload" type="file" multiple class="hidden" onChange={handleFileChange} />
                     </label>
-                    <Show when={selectedFiles().length > 0 && filesPendingOrError() > 0}>
+                    <Show when={selectedFiles().length > 0 && (filesPendingOrError() > 0 || anyUploading())}>
                         <button
                             class="mt-4 w-full bg-blue-600 hover:bg-blue-800 disabled:bg-gray-600 text-white font-bold py-2 px-4 rounded"
-                            onClick={handleUploadButtonClick}
-                            disabled={isUploading()}
+                            onClick={() => {
+                                const next = !isPaused();
+                                setIsPaused(next);
+                                if (next) {
+                                    // Abort all in-flight uploads to pause immediately
+                                    activeControllers.forEach(c => c.abort());
+                                }
+                            }}
+                disabled={false}
                         >
-                            {isUploading() ? 'Uploading...' : `Upload ${filesPendingOrError()} File(s)`}
+                            {isPaused() ? 'Resume' : 'Pause'}
                         </button>
                     </Show>
                      <Show when={selectedFiles().length > 0 && filesPendingOrError() === 0 && !isUploading()}>
