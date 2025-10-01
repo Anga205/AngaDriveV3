@@ -26,7 +26,10 @@ func returnImagePreview(c *gin.Context) {
 	go socketHandler.SiteActivityPulse()
 
 	fileDirectory := c.Param("file_directory")
+
+	// this creates: /uploaded_files/image_previews
 	previewsDir := filepath.Join(UPLOAD_DIR, "image_previews")
+	// this creates: /uploaded_files/image_previews/<file_directory>
 	previewFile := filepath.Join(previewsDir, fileDirectory)
 
 	if _, err := os.Stat(previewFile); !os.IsNotExist(err) {
@@ -34,16 +37,14 @@ func returnImagePreview(c *gin.Context) {
 		return
 	}
 
-	if err := generateImagePreview(fileDirectory); err != nil {
+	if err := generateImagePreview(fileDirectory, previewsDir, previewFile); err != nil {
 		c.String(http.StatusInternalServerError, "Failed to generate preview: "+err.Error())
 		return
 	}
 	c.File(previewFile)
 }
 
-func generateImagePreview(fileDirectory string) error {
-	previewsDir := filepath.Join(UPLOAD_DIR, "image_previews")
-	previewFilePath := filepath.Join(previewsDir, fileDirectory)
+func generateImagePreview(fileDirectory string, previewsDir string, previewFilePath string) error {
 	if err := os.MkdirAll(previewsDir, os.ModePerm); err != nil {
 		return fmt.Errorf("failed to create previews directory: %w", err)
 	}
@@ -65,7 +66,21 @@ func generateImagePreview(fileDirectory string) error {
 		return fmt.Errorf("failed to correct image orientation: %w", err)
 	}
 
-	resizedImg := imaging.Thumbnail(img, 512, 512, imaging.Lanczos)
+	imageHeight := img.Bounds().Dy()
+	imageWidth := img.Bounds().Dx()
+
+	var newHeight, newWidth int
+	if imageHeight > imageWidth {
+		ratioOfConversion := float64(imageHeight) / 512.0
+		newWidth = int(float64(imageWidth) / ratioOfConversion)
+		newHeight = 512
+	} else {
+		ratioOfConversion := float64(imageWidth) / 512.0
+		newHeight = int(float64(imageHeight) / ratioOfConversion)
+		newWidth = 512
+	}
+
+	resizedImg := imaging.Thumbnail(img, newWidth, newHeight, imaging.Lanczos)
 
 	var buf bytes.Buffer
 	ext := strings.ToLower(filepath.Ext(fileInfo.OriginalFileName))
