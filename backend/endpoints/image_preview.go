@@ -20,6 +20,7 @@ import (
 	"github.com/rwcarlsen/goexif/exif"
 	"golang.org/x/image/bmp"
 	"golang.org/x/image/tiff"
+	_ "golang.org/x/image/webp"
 )
 
 func returnImagePreview(c *gin.Context) {
@@ -153,35 +154,40 @@ func generateImagePreview(fileDirectory string, previewsDir string, previewFileP
 }
 
 func correctImageOrientation(file *os.File) (image.Image, error) {
-	file.Seek(0, 0)
-	x, err := exif.Decode(file)
-	if err != nil {
-		// If there is an error, it might be because the image has no EXIF data.
-		// In that case, we can just decode the image normally.
-		file.Seek(0, 0)
-		img, _, err := image.Decode(file)
-		return img, err
+	if _, err := file.Seek(0, 0); err != nil {
+		return nil, err
 	}
 
-	file.Seek(0, 0)
+	// Try EXIF decode (JPEG/TIFF/etc.)
+	x, exifErr := exif.Decode(file)
+
+	// Reset for image decode
+	if _, err := file.Seek(0, 0); err != nil {
+		return nil, err
+	}
+
 	img, _, err := image.Decode(file)
 	if err != nil {
 		return nil, err
 	}
 
+	// If no EXIF, just return the image
+	if exifErr != nil || x == nil {
+		return img, nil
+	}
+
+	// Try to read orientation
 	orient, err := x.Get(exif.Orientation)
 	if err != nil {
-		return img, nil // No orientation tag, return image as is
+		return img, nil
 	}
-
 	orientation, err := orient.Int(0)
 	if err != nil {
-		return nil, err
+		return img, nil
 	}
 
+	// Apply orientation corrections
 	switch orientation {
-	case 1:
-		// Normal
 	case 2:
 		img = imaging.FlipH(img)
 	case 3:
@@ -197,5 +203,6 @@ func correctImageOrientation(file *os.File) (image.Image, error) {
 	case 8:
 		img = imaging.Rotate90(img)
 	}
+
 	return img, nil
 }
