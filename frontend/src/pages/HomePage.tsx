@@ -143,9 +143,9 @@ const HomePage: Component = () => {
     };
     const [systemInformation, setSystemInformation] = createSignal<SysInfo>({
         ram: {
-            total_ram: 0,
+            total_ram: 1,
             used_ram: 0,
-            available_ram: 1,
+            free_ram: 1,
             ram_percent_used: 0,
         },
         cpu: {

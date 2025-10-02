@@ -3,7 +3,7 @@ package info
 type RAMInfo struct {
 	TotalRAM       uint64  `json:"total_ram"`
 	UsedRAM        uint64  `json:"used_ram"`
-	AvailableRAM   uint64  `json:"available_ram"`
+	FreeRAM        uint64  `json:"free_ram"`
 	RAMPercentUsed float64 `json:"ram_percent_used"`
 }
 

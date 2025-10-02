@@ -14,7 +14,7 @@ const RAMUsage: Component<{data: RAMData}> = (props) => {
         labels: ['Completed', 'Remaining'],
         datasets: [
             {
-                data: [props.data.used_ram, props.data.available_ram], 
+                data: [props.data.used_ram, props.data.free_ram], 
                 backgroundColor: ['#04a9e7', '#404040'], 
                 borderWidth: 0, 
             },

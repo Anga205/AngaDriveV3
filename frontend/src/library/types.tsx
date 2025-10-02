@@ -1,7 +1,7 @@
 interface RAMData {
     total_ram: number;
     used_ram: number;
-    available_ram: number;
+    free_ram: number;
     ram_percent_used: number;
 }
 
