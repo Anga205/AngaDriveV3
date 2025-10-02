@@ -36,17 +36,21 @@ func getRAMinfo() (RAMInfo, error) {
 	}
 
 	totalRAM := v.Total
+	freeRAM := v.Available
+	usePercentage := v.UsedPercent
 	if envRAM := os.Getenv("RAM_AVAILABLE"); envRAM != "" {
 		if ramValue, err := strconv.ParseUint(envRAM, 10, 64); err == nil {
 			totalRAM = ramValue
+			freeRAM = max(totalRAM-v.Used, 0)
+			usePercentage = min((float64(v.Used)/float64(totalRAM))*100, 100)
 		}
 	}
 
 	ramInfo := RAMInfo{
 		TotalRAM:       totalRAM,
 		UsedRAM:        v.Used,
-		AvailableRAM:   v.Available,
-		RAMPercentUsed: v.UsedPercent,
+		FreeRAM:        freeRAM,
+		RAMPercentUsed: usePercentage,
 	}
 	return ramInfo, nil
 }
