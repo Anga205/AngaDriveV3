@@ -201,20 +201,20 @@ const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (pro
             const ce = e as CustomEvent<{ files?: File[] | FileList }>;
             const files = ce.detail?.files;
             if (files && (files as any).length !== undefined) {
+                setOpen(true);
+                setModifying("new");
                 addDroppedFiles(files as File[] | FileList);
             }
-            setOpen(true);
-            setModifying("new");
         };
         document.addEventListener("open-collection-upload", handler as EventListener);
         queueMicrotask(() => {
             if (!open()) {
                 const pending = (window as any).__pendingCollectionUploadFiles as File[] | undefined;
                 if (pending && pending.length) {
-                    addDroppedFiles(pending);
-                    (window as any).__pendingCollectionUploadFiles = undefined;
                     setOpen(true);
                     setModifying("new");
+                    addDroppedFiles(pending);
+                    (window as any).__pendingCollectionUploadFiles = undefined;
                 }
             }
         });
