@@ -411,9 +411,9 @@ const UploadPopup: Component = () => {
             const ce = e as CustomEvent<{ files?: File[] | FileList }>;
             const files = ce.detail?.files;
             if (files && (files as any).length !== undefined) {
+                setOpen(true);
                 addDroppedFiles(files as File[] | FileList);
             }
-            setOpen(true);
         };
         document.addEventListener("open-drive-upload", handler as EventListener);
         // If navigation stored pending files, consume them (only if not already open)
@@ -421,9 +421,9 @@ const UploadPopup: Component = () => {
             if (!open()) {
                 const pending = (window as any).__pendingDriveUploadFiles as File[] | undefined;
                 if (pending && pending.length) {
+                    setOpen(true);
                     addDroppedFiles(pending);
                     (window as any).__pendingDriveUploadFiles = undefined;
-                    setOpen(true);
                 }
             }
         });
