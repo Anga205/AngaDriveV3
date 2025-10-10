@@ -60,7 +60,7 @@ const FilesError: Component = () => {
 const DriveBody: Component<{ Files: Accessor<Array<FileData>> }> = (props) => {
     return (
         <div 
-            class="w-full flex justify-center flex-wrap h-full space-x-8 space-y-8 overflow-y-scroll pt-10 custom-scrollbar"
+            class="w-full flex justify-center flex-wrap h-full gap-8 overflow-y-scroll pt-10 custom-scrollbar"
         >
             <For each={props.Files()}>
             {(file) => <FileCard File={file} />}
