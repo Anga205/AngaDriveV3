@@ -163,7 +163,7 @@ const DesktopCollections = () => {
                     <p class="text-white font-black text-[4vh]">My Collections</p>
                     <Popup/>
                 </div>
-                <div class={`w-full ${userCollections().size === 0 ? 'h-full' : 'max-h-full'} flex justify-center flex-wrap space-x-8 space-y-8 overflow-y-auto pt-10 custom-scrollbar`}>
+                <div class={`w-full ${userCollections().size === 0 ? 'h-full' : 'max-h-full'} flex justify-center flex-wrap gap-8 overflow-y-auto pt-10 custom-scrollbar`}>
                     <For each={[...userCollections()].sort((a, b) => {
                         const cardA = ctx.knownCollectionCards()[a];
                         const cardB = ctx.knownCollectionCards()[b];
