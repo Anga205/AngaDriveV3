@@ -13,7 +13,7 @@ import { useWebSocket } from "../Websockets";
 
 const UserCount: Component<{isMobile: boolean; count: Accessor<number>}> = (props) => {
     return (
-        <div class={`bg-[#242424] ${props.isMobile?'flex-grow rounded-xl p-[1vw]':'h-[20vh] w-[28%] p-[1vh] rounded-[1.5vh]'} flex flex-col items-center justify-center`} style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
+        <div class={`bg-[#242424] ${props.isMobile?'grow rounded-xl p-[1vw]':'h-[20vh] w-[28%] p-[1vh] rounded-[1.5vh]'} flex flex-col items-center justify-center`} style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
             <p class={props.isMobile?"text-center font-black text-white text-[5vw]":"text-white font-semibold text-[0.9vw]"}>Users</p>
             <p class={props.isMobile?"text-center font-black text-white text-[6vw]":"text-white font-semibold text-[5vw]"}>{props.count()}</p>
         </div>
@@ -22,7 +22,7 @@ const UserCount: Component<{isMobile: boolean; count: Accessor<number>}> = (prop
 
 const FilesHosted: Component<{ isMobile: boolean; count: Accessor<number> }> = (props) => {
     return (
-        <div class={`flex justify-center items-center flex-col bg-[#242424] ${props.isMobile?'flex-grow rounded-xl p-[1vw]':'h-[20vh] w-[28%] p-[1vh] rounded-[1.5vh] overflow-hidden'}`} style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
+        <div class={`flex justify-center items-center flex-col bg-[#242424] ${props.isMobile?'grow rounded-xl p-[1vw]':'h-[20vh] w-[28%] p-[1vh] rounded-[1.5vh] overflow-hidden'}`} style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
             <p class={`text-white text-center ${props.isMobile?'font-black text-[4vw]':'font-semibold text-[0.9vw]'}`}>Files&nbsp;Hosted</p>
             <p class={`text-white text-center ${props.isMobile?'font-black text-[6vw]':'font-semibold text-[4vw]'}`}>{props.count()}</p>
         </div>
@@ -114,7 +114,7 @@ const MobileHome: Component<{ ramdata: RAMData; cpudata: CPUData; siteActivity: 
                     </div>
                 </div>
                 <div class="w-full px-[1.5vh] opacity-95">
-                    <div class="w-full aspect-[64/27] p-[1vw] bg-[#242424] rounded-xl">
+                    <div class="w-full aspect-64/27 p-[1vw] bg-[#242424] rounded-xl">
                         <p class="w-full font-black text-white text-center">
                             Space Used
                         </p>

@@ -21,10 +21,10 @@ const DefaultButton: Component<{ bgColor: string, title: string, status: boolean
             <div class="flex p-[1.3vh] px-[2vh] w-full h-full">
                 <div class="h-full flex flex-col">
                     <p class="text-white font-semibold text-[1vw]">{props.title}</p>
-                    <div class="flex-grow"/>
+                    <div class="grow"/>
                     <p class="text-gray-400 text-[0.8vw] mb-[1vh]">Default: {enabled() ? "Enabled" : "Disabled"}</p>
                 </div>
-                <div class="flex-grow"/>
+                <div class="grow"/>
                 <div class="h-full aspect-square py-[2vh] pl-[2.5vw]">
                     <props.Icon />
                 </div>
@@ -65,7 +65,7 @@ const MobileDefaults: Component<{ bgColor: string, title: string, status: boolea
             <div class={`w-full h-1 ${props.bgColor}`}/>
             <div class="w-full h-full p-1 flex flex-col space-y-[1vh] justify-center items-center">
                 <p class="font-black text-white text-[3vw]">{props.title}</p>
-                <div class="flex-grow aspect-square">
+                <div class="grow aspect-square">
                     <props.Icon />
                 </div>
                 <p class="text-gray-400 text-[2vw]">Default: {enabled() ? "Enabled" : "Disabled"}</p>

@@ -385,7 +385,7 @@ const LoginScreen: Component<{ onLoginSuccess: () => void, isMobile: boolean }> 
             {props.isMobile ? (
                 <div class="w-full h-screen bg-black flex flex-col">
                     <Navbar CurrentPage="Account" Type="mobile" />
-                    <div class="flex-grow flex items-center justify-center">
+                    <div class="grow flex items-center justify-center">
                         <Content />
                     </div>
                 </div>

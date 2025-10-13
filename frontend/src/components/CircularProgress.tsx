@@ -41,7 +41,7 @@ const RAMUsage: Component<{data: RAMData}> = (props) => {
             <div class="top-0 left-0 z-10 flex flex-col items-center justify-center w-full h-full absolute">
                 <div class="flex flex-col items-center justify-center">
                     <p class="text-white text-[3.5vw] md:text-[1.5vw]">{(props.data.used_ram / (1024 ** 3)).toFixed(2)} GB</p>
-                    <div class="bg-white w-full h-[1px]"/>
+                    <div class="bg-white w-full h-px"/>
                     <p class="text-white text-[3.5vw] md:text-[1.5vw]">{(props.data.total_ram/ (1024**3)).toFixed(2)} GB</p>
                 </div>
             </div>
