@@ -68,7 +68,7 @@ const ContactMe: Component = () => {
 
     return (
         <div class="bg-[#242424] rounded-xl flex flex-col justify-center items-center p-4 space-y-4 shadow-inner shadow-black/30 
-            w-2/3 aspect-[2/1] sm:w-[44%] sm:h-[38vh] sm:rounded-[1.5vh] sm:p-[2vh] sm:space-y-[2vh]">
+            w-2/3 aspect-2/1 sm:w-[44%] sm:h-[38vh] sm:rounded-[1.5vh] sm:p-[2vh] sm:space-y-[2vh]">
             <p class="text-white font-semibold text-[4vw] sm:text-[2vh]">Send me an Email</p>
             <input 
                 placeholder="Your Email" 

@@ -139,7 +139,7 @@ const CollectionsError: Component = () => {
                     </div>
                 )}
                 {(status() === "error" || status() === "disconnected") && (
-                    <div class={`${baseClass} border-1 bg-red-600/30 border-red-400`}>
+                    <div class={`${baseClass} border bg-red-600/30 border-red-400`}>
                         <div class="pr-[0.75vw] text-red-600 w-16 md:w-[3vw]">
                             <ErrorSVG />
                         </div>

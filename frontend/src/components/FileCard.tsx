@@ -186,7 +186,7 @@ const FileCard: Component<{ File: FileData }> = (props) => {
     link += "/"+props.File.original_file_name.replace(" ", "%20");
     const location = useLocation();
     return (
-        <div class="flex flex-col w-80 h-96 bg-neutral-950 border-neutral-800 border-1 rounded-lg md:hover:scale-105 transition-transform duration-200 shadow-lg">
+        <div class="flex flex-col w-80 h-96 bg-neutral-950 border-neutral-800 border rounded-lg md:hover:scale-105 transition-transform duration-200 shadow-lg">
             <a class="w-full h-[calc(14%+50%+21.4%)]" href={link} target="_blank" rel="noopener noreferrer">
                 <div class="flex items-center overflow-hidden justify-center w-full h-[16.393442623%] bg-neutral-900 rounded-t-lg">
                     <p class="text-white text-2xl font-semibold text-nowrap font-sans">{props.File.original_file_name.length >17
@@ -196,7 +196,7 @@ const FileCard: Component<{ File: FileData }> = (props) => {
                 <div class="flex justify-center items-center w-full h-[58.5480093677%] overflow-hidden">
                     <FilePreview file={props.File}/>
                 </div>
-                <div class="flex w-full space-x-2 p-2 text-xs border-b-1 border-neutral-800 h-[25.0585480094%]">
+                <div class="flex w-full space-x-2 p-2 text-xs border-b border-neutral-800 h-[25.0585480094%]">
                     <div class="flex flex-col items-end w-1/2 h-full text-neutral-700 font-sans">
                         <p>Type:</p>
                         <p>Uploaded Name:</p>
