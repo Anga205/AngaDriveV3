@@ -32,8 +32,19 @@ const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (pro
     };
 
     // Concurrency-aware scheduler state
-    let activeUploads = 0;
+    const [activeUploadsCount, setActiveUploadsCount] = createSignal(0);
     const MAX_CONCURRENT_UPLOADS = 3;
+
+    // Debounced queue pumping to avoid microtask storms when many files are pending
+    let pumpScheduled = false;
+    const requestPump = () => {
+        if (pumpScheduled) return;
+        pumpScheduled = true;
+        queueMicrotask(() => {
+            pumpScheduled = false;
+            pumpQueue();
+        });
+    };
 
     const waitWhilePaused = async () => {
         while (isPaused()) {
@@ -67,7 +78,7 @@ const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (pro
             });
         });
 
-        activeUploads++;
+        setActiveUploadsCount(c => c + 1);
         try {
             await uploadFileInChunks(
                 sf,
@@ -95,8 +106,8 @@ const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (pro
                 return ({ ...prev, [sf.uniqueId]: { ...prev[sf.uniqueId], status: 'error', errorMessage: error?.message || 'Upload failed' } });
             });
         } finally {
-            activeUploads--;
-            queueMicrotask(() => pumpQueue());
+            setActiveUploadsCount(c => Math.max(0, c - 1));
+            requestPump();
         }
     };
 
@@ -104,31 +115,20 @@ const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (pro
         if (!open()) return;
         if (isPaused()) return;
 
-        // Ensure progress map entries exist
-        setUploadProgressMap(prev => {
-            const updated = { ...prev };
-            selectedUploadFiles().forEach(sf => {
-                if (!updated[sf.uniqueId]) {
-                    updated[sf.uniqueId] = { id: sf.uniqueId, name: sf.file.name, progress: 0, status: 'pending' };
-                }
-            });
-            return updated;
-        });
-
         const currentMap = uploadProgressMap();
-        const available = Math.max(0, MAX_CONCURRENT_UPLOADS - activeUploads);
+        const available = Math.max(0, MAX_CONCURRENT_UPLOADS - activeUploadsCount());
         if (available === 0) {
             setIsUploading(true);
             return;
         }
 
         const candidates = selectedUploadFiles().filter(sf => {
-            const st = currentMap[sf.uniqueId]?.status;
+            const st = currentMap[sf.uniqueId]?.status ?? 'pending';
             return (st === 'pending' || st === 'error') && !cancelledFiles.has(sf.uniqueId);
         }).slice(0, available);
 
         if (candidates.length === 0) {
-            if (activeUploads === 0) setIsUploading(false);
+            if (activeUploadsCount() === 0) setIsUploading(false);
             return;
         }
 
@@ -183,7 +183,7 @@ const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (pro
             });
             return updatedMap;
         });
-        if (!isPaused()) queueMicrotask(() => pumpQueue());
+        if (!isPaused()) requestPump();
     };
 
     const handleFileChange = (event: Event) => {
@@ -194,7 +194,7 @@ const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (pro
         if (input) input.value = '';
     };
 
-    const addDroppedFiles = (files: FileList | File[]) => { addFiles(files); if (open() && !isPaused()) queueMicrotask(() => pumpQueue()); };
+    const addDroppedFiles = (files: FileList | File[]) => { addFiles(files); if (open() && !isPaused()) requestPump(); };
 
     onMount(() => {
         const handler = (e: Event) => {
@@ -241,7 +241,7 @@ const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (pro
                 return status === 'pending' || status === 'error';
             }).length;
             if (pendingCount > 0 && !isPaused()) {
-                queueMicrotask(() => pumpQueue());
+                requestPump();
             }
         }
     });
@@ -263,7 +263,7 @@ const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (pro
                 }));
             }
         } else if (modifying() === "new") {
-            queueMicrotask(() => pumpQueue());
+            requestPump();
         }
         setSelectedExistingFiles([]);
         // Don't close automatically for uploads, let user see progress.
@@ -296,6 +296,7 @@ const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (pro
                 activeControllers.forEach(c => c.abort());
                 activeControllers.clear();
                 cancelledFiles.clear();
+                pumpScheduled = false;
             }
         }}>
             <Dialog.Trigger class={`cursor-pointer hover:text-gray-300 text-white flex justify-center items-center bg-blue-600 hover:bg-blue-800 p-[0.2vh] px-[1vh] rounded-[1vh] font-bold ${!props.isMobile && 'translate-y-[4vh]'}`}>
@@ -383,7 +384,7 @@ const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (pro
                                 activeControllers.forEach(c => c.abort());
                             } else {
                                 // Resume: pump queue immediately
-                                queueMicrotask(() => pumpQueue());
+                                requestPump();
                             }
                         }}
                     >
