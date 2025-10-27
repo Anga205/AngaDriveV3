@@ -1,12 +1,14 @@
 import type { Component } from "solid-js";
-import { createSignal } from "solid-js";
+import { createSignal, useContext } from "solid-js";
 import { useLocation, useNavigate } from "@solidjs/router";
 import Navbar from "./Navbar";
 import type { Pages } from "../library/types";
+import { AppContext } from "../Context";
 
 const DesktopTemplate: Component<{ CurrentPage: Pages; children: any }> = (props) => {
     const navigate = useNavigate();
     const location = useLocation();
+    const ctx = useContext(AppContext)!;
     const [isDragOver, setIsDragOver] = createSignal(false);
 
     const handleDrop = (e: DragEvent) => {
@@ -28,8 +30,8 @@ const DesktopTemplate: Component<{ CurrentPage: Pages; children: any }> = (props
         };
 
         if (path !== "/my_drive") {
-            // Navigation case: stash pending and navigate. Target page will consume and open.
-            (window as any).__pendingDriveUploadFiles = files;
+            // Navigation case: stash pending in context and navigate. Target page will consume and open.
+            ctx.setPendingDriveUploadFiles?.(files);
             navigate("/my_drive");
         } else {
             openDriveUpload();

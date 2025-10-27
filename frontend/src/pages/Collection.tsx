@@ -9,6 +9,7 @@ import Dialog from "@corvu/dialog";
 import Dropdown from "../components/Dropdown";
 import { getCollection, generateUUID } from "../library/functions";
 import { Toaster } from "solid-toast";
+import toast from "solid-toast";
 import { CollectionCardData } from "../library/types";
 import { uploadFileInChunks, FileUploadPreview, SelectableFile, FileUploadProgressData } from "./MyDrive";
 import Navbar from "../components/Navbar";
@@ -24,6 +25,9 @@ const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (pro
     const [modifying, setModifying] = createSignal<"existing" | "new" | null>(null);
     const [isDragOver, setIsDragOver] = createSignal(false);
     const [open, setOpen] = createSignal(false);
+    const [flashPaste, setFlashPaste] = createSignal(false);
+    // Manage highlight timeout to avoid memory leaks and race conditions on rapid pastes
+    let pasteHighlightTimeout: number | undefined;
     const activeControllers = new Set<AbortController>();
     const cancelledFiles = new Set<string>();
     const manageController = (c: AbortController, action: 'add' | 'remove') => {
@@ -207,6 +211,59 @@ const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (pro
             setModifying("new");
         };
         document.addEventListener("open-collection-upload", handler as EventListener);
+
+        // Paste-to-upload handler: allow Ctrl+V to paste files/images from clipboard with robust handling
+        const pasteHandler = (e: ClipboardEvent) => {
+            try {
+                // Avoid duplicate handling if a global handler already processed
+                if (e.defaultPrevented) return;
+
+                // Ignore when focused on inputs/textarea/contenteditable
+                const ae = document.activeElement as HTMLElement | null;
+                if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) return;
+
+                const dt = e.clipboardData;
+                if (!dt) return;
+
+                const fromFiles = dt.files ? Array.from(dt.files) : [];
+                const fromItems = dt.items ? Array.from(dt.items)
+                    .filter(it => it.kind === 'file')
+                    .map(it => it.getAsFile())
+                    .filter((f): f is File => !!f && f.size > 0) : [];
+                const seen = new Set<string>();
+                const files: File[] = [];
+                for (const f of [...fromFiles, ...fromItems]) {
+                    const key = `${f.name}|${f.size}|${f.type}|${(f as any).lastModified ?? ''}`;
+                    if (!seen.has(key)) { seen.add(key); files.push(f); }
+                }
+
+                if (files.length === 0) {
+                    // Gracefully ignore text-only pastes outside inputs
+                    return;
+                }
+
+                // Prevent default so browser doesn't insert pasted image blobs into DOM
+                e.preventDefault();
+
+                addDroppedFiles(files);
+                setOpen(true);
+                setModifying('new');
+
+                // UX feedback
+                try {
+                    toast.success(`Pasted ${files.length} file${files.length > 1 ? 's' : ''}`);
+                } catch (toastErr) {
+                    console.error('Paste toast failed:', toastErr);
+                }
+                setFlashPaste(true);
+                if (pasteHighlightTimeout) clearTimeout(pasteHighlightTimeout);
+                pasteHighlightTimeout = window.setTimeout(() => setFlashPaste(false), 1200);
+            } catch (err) {
+                console.error('Error handling paste in Collection AddFilePopup:', err);
+            }
+        };
+        document.addEventListener('paste', pasteHandler);
+
         queueMicrotask(() => {
             if (!open()) {
                 const pending = (window as any).__pendingCollectionUploadFiles as File[] | undefined;
@@ -218,7 +275,11 @@ const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (pro
                 }
             }
         });
-        onCleanup(() => document.removeEventListener("open-collection-upload", handler as EventListener));
+        onCleanup(() => {
+            document.removeEventListener("open-collection-upload", handler as EventListener);
+            document.removeEventListener('paste', pasteHandler);
+            if (pasteHighlightTimeout) clearTimeout(pasteHighlightTimeout);
+        });
     });
 
     const handleFileDelete = (uniqueIdToDelete: string) => {
@@ -310,7 +371,7 @@ const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (pro
                         <p class="text-white text-lg font-bold mb-2 text-center">Upload New File</p>
                         <label
                             for="collection-file-upload"
-                            class={`rounded-md min-h-[15vh] flex justify-center items-center cursor-pointer my-[1vh] ${selectedUploadFiles().length === 0 ? `border-2 ${isDragOver() ? 'border-blue-400' : 'border-dotted border-blue-800'}` : ''}`}
+                            class={`rounded-md min-h-[15vh] flex justify-center items-center cursor-pointer my-[1vh] ${selectedUploadFiles().length === 0 ? `border-2 ${isDragOver() ? 'border-blue-400' : 'border-dotted border-blue-800'}` : ''}${flashPaste() ? ' ring-2 ring-blue-500 animate-pulse' : ''}`}
                             onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
                             onDragEnter={(e) => { e.preventDefault(); setIsDragOver(true); }}
                             onDragLeave={() => setIsDragOver(false)}

@@ -41,7 +41,7 @@ const FilesError: Component = () => {
                     </div>
                 )}
                 {(status() === "error" || status() === "disconnected") && (
-                    <div class={`${baseClass} border-1 bg-red-600/30 border-red-400`}>
+                    <div class={`${baseClass} border bg-red-600/30 border-red-400`}>
                         <div class="pr-[0.75vw] text-red-600 w-16 md:w-[3vw]">
                             <ErrorSVG />
                         </div>
@@ -129,7 +129,7 @@ const FileUploadPreview: Component<{
                     <p class="text-gray-400 text-xs">{formatFileSize(file.size)}</p>
                 </div>
             </div>
-            <div class="flex-grow ml-4 min-w-[100px]">
+            <div class="grow ml-4 min-w-[100px]">
                 <Show when={info() && (info()!.status === 'uploading' || info()!.status === 'pending')}>
                     <div class="w-full bg-gray-700 rounded-full h-2.5">
                         <div
@@ -326,6 +326,7 @@ async function uploadFileInChunks(
 
 
 const UploadPopup: Component = () => {
+    const ctx = useContext(AppContext)!;
     const [selectedFiles, setSelectedFiles] = createSignal<SelectableFile[]>([]);
     const [uploadProgressMap, setUploadProgressMap] = createSignal<Record<string, FileUploadProgressData>>({});
     const [isUploading, setIsUploading] = createSignal(false);
@@ -419,11 +420,15 @@ const UploadPopup: Component = () => {
         // If navigation stored pending files, consume them (only if not already open)
         queueMicrotask(() => {
             if (!open()) {
-                const pending = (window as any).__pendingDriveUploadFiles as File[] | undefined;
-                if (pending && pending.length) {
-                    addDroppedFiles(pending);
-                    (window as any).__pendingDriveUploadFiles = undefined;
-                    setOpen(true);
+                try {
+                    const pending = ctx.pendingDriveUploadFiles?.() || null;
+                    if (pending && pending.length) {
+                        addDroppedFiles(pending);
+                        ctx.setPendingDriveUploadFiles?.(null);
+                        setOpen(true);
+                    }
+                } catch (err) {
+                    console.error('Error consuming pending drive upload files from context:', err);
                 }
             }
         });
