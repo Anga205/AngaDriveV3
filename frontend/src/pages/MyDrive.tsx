@@ -326,6 +326,7 @@ async function uploadFileInChunks(
 
 
 const UploadPopup: Component = () => {
+    const ctx = useContext(AppContext)!;
     const [selectedFiles, setSelectedFiles] = createSignal<SelectableFile[]>([]);
     const [uploadProgressMap, setUploadProgressMap] = createSignal<Record<string, FileUploadProgressData>>({});
     const [isUploading, setIsUploading] = createSignal(false);
@@ -419,11 +420,15 @@ const UploadPopup: Component = () => {
         // If navigation stored pending files, consume them (only if not already open)
         queueMicrotask(() => {
             if (!open()) {
-                const pending = (window as any).__pendingDriveUploadFiles as File[] | undefined;
-                if (pending && pending.length) {
-                    addDroppedFiles(pending);
-                    (window as any).__pendingDriveUploadFiles = undefined;
-                    setOpen(true);
+                try {
+                    const pending = ctx.pendingDriveUploadFiles?.() || null;
+                    if (pending && pending.length) {
+                        addDroppedFiles(pending);
+                        ctx.setPendingDriveUploadFiles?.(null);
+                        setOpen(true);
+                    }
+                } catch (err) {
+                    console.error('Error consuming pending drive upload files from context:', err);
                 }
             }
         });
