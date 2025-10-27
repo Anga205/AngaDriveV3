@@ -42,7 +42,7 @@ const DesktopNavbar: Component<{ CurrentPage: Pages }> = (props) => {
                     <GitHubSVG />
                 </a>
             </div>
-            <div class="flex-grow" />
+            <div class="grow" />
             <div class="w-full p-[16%]" onClick={() => {navigate("/account")}}>
                 <div class="hover:bg-black p-[20%] rounded-full">
                     <UserSVG />
@@ -130,7 +130,7 @@ const MobileNavbar: Component<{ CurrentPage: Pages }> = (props) => {
                                         </div>
                                         <span class="font-bold">GitHub</span>
                                     </button>
-                                    <div class="flex-grow" />
+                                    <div class="grow" />
                                     <button
                                         class={`mb-5 w-full text-left px-4 py-2 flex items-center space-x-4 rounded-lg ${
                                             props.CurrentPage === "Account" ? "bg-black text-white" : "hover:bg-[#242424] text-white"

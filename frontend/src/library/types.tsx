@@ -72,6 +72,9 @@ type AppContextType = {
     setKnownCollections: (value: KnownCollections | ((prev: KnownCollections) => KnownCollections)) => void;
     knownCollectionCards: () => KnownCollectionCards;
     setKnownCollectionCards: (value: KnownCollectionCards | ((prev: KnownCollectionCards) => KnownCollectionCards)) => void;
+    // Pending files for My Drive uploads when navigation is required
+    pendingDriveUploadFiles?: () => File[] | null;
+    setPendingDriveUploadFiles?: (value: File[] | null | ((prev: File[] | null) => File[] | null)) => void;
 };
 
 export type {RAMData, CPUData, SysInfo, GraphData, IncomingData, SocketStatus, Pages, FileData, CollectionCardData, AppContextType, KnownCollections, KnownCollectionCards};
