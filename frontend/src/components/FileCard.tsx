@@ -10,30 +10,72 @@ import { createSignal, onCleanup, Component, Show, useContext } from "solid-js";
 const FilePreview: Component<{ file: FileData }> = (props) => {
     const [isVisible, setIsVisible] = createSignal(false);
     let containerRef: HTMLDivElement | undefined;
+    let observer: IntersectionObserver | undefined;
 
-    const observer = new IntersectionObserver(
-        (entries) => {
-            const entry = entries[0];
-            if (entry.isIntersecting) {
-                setIsVisible(true);
-                observer.unobserve(entry.target);
-            }
-        },
-        { threshold: 0.1 }
-    );
+    // Find the nearest scrollable ancestor to use as the IntersectionObserver root
+    const getScrollParent = (node: HTMLElement | null): HTMLElement | null => {
+        let el: HTMLElement | null = node?.parentElement || null;
+        while (el) {
+            const style = getComputedStyle(el);
+            const overflowY = style.overflowY;
+            const overflow = style.overflow;
+            const isScrollable = [overflowY, overflow].some((v) => v === "auto" || v === "scroll" || v === "overlay");
+            if (isScrollable) return el;
+            el = el.parentElement;
+        }
+        return null;
+    };
+
+    const isInView = (el: HTMLElement, rootEl: HTMLElement | null): boolean => {
+        const rootRect = rootEl ? rootEl.getBoundingClientRect() : document.documentElement.getBoundingClientRect();
+        const rect = el.getBoundingClientRect();
+        return (
+            rect.bottom > rootRect.top &&
+            rect.top < rootRect.bottom &&
+            rect.right > rootRect.left &&
+            rect.left < rootRect.right
+        );
+    };
 
     const setRef = (el: HTMLDivElement) => {
         containerRef = el;
-        if (containerRef) {
-            observer.observe(containerRef);
-        }
+        if (!containerRef) return;
+
+        const rootEl = getScrollParent(containerRef);
+
+        // Create observer with the correct root (scroll container or viewport)
+        observer = new IntersectionObserver(
+            (entries) => {
+                const entry = entries[0];
+                if (entry.isIntersecting) {
+                    setIsVisible(true);
+                    observer?.unobserve(entry.target as Element);
+                }
+            },
+            { root: rootEl, threshold: 0.01 }
+        );
+
+        // Defer observe to the next frame to avoid Chromium initial layout race
+        requestAnimationFrame(() => {
+            if (!containerRef) return;
+            observer?.observe(containerRef);
+        });
+
+        // Fallback manual check (Chromium sometimes doesn't fire until scroll in nested scrollers)
+        requestAnimationFrame(() => {
+            if (!isVisible() && containerRef && isInView(containerRef, rootEl)) {
+                setIsVisible(true);
+                observer?.unobserve(containerRef);
+            }
+        });
     };
 
     onCleanup(() => {
         if (containerRef) {
-            observer.unobserve(containerRef);
+            observer?.unobserve(containerRef);
         }
-        observer.disconnect();
+        observer?.disconnect();
+        observer = undefined;
     });
 
     const PreviewContent: Component = () => {
