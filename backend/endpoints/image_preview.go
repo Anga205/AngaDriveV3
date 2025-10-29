@@ -17,6 +17,7 @@ import (
 
 	"github.com/disintegration/imaging"
 	"github.com/gin-gonic/gin"
+	"github.com/jdeng/goheif"
 	"github.com/rwcarlsen/goexif/exif"
 	"golang.org/x/image/bmp"
 	"golang.org/x/image/tiff"
@@ -62,9 +63,20 @@ func generateImagePreview(fileDirectory string, previewsDir string, previewFileP
 	}
 	defer file.Close()
 
-	img, err := correctImageOrientation(file)
-	if err != nil {
-		return fmt.Errorf("failed to correct image orientation: %w", err)
+	var img image.Image
+
+	ext := strings.ToLower(filepath.Ext(originalFilePath))
+	switch ext {
+	case ".heic", ".heif":
+		img, err = decodeHEIC(file)
+		if err != nil {
+			return fmt.Errorf("failed to decode HEIC/HEIF: %w", err)
+		}
+	default:
+		img, err = correctImageOrientation(file)
+		if err != nil {
+			return fmt.Errorf("failed to correct image orientation: %w", err)
+		}
 	}
 
 	imageHeight := img.Bounds().Dy()
@@ -84,14 +96,13 @@ func generateImagePreview(fileDirectory string, previewsDir string, previewFileP
 	resizedImg := imaging.Thumbnail(img, newWidth, newHeight, imaging.Lanczos)
 
 	var buf bytes.Buffer
-	ext := strings.ToLower(filepath.Ext(fileInfo.OriginalFileName))
 
 	switch ext {
 	case ".jpg", ".jpeg":
 		if err := jpeg.Encode(&buf, resizedImg, nil); err != nil {
 			return fmt.Errorf("failed to encode jpeg: %w", err)
 		}
-	case ".png":
+	case ".png", ".heic", ".heif": // HEIC will be encoded as PNG preview
 		if err := png.Encode(&buf, resizedImg); err != nil {
 			return fmt.Errorf("failed to encode png: %w", err)
 		}
@@ -151,6 +162,65 @@ func generateImagePreview(fileDirectory string, previewsDir string, previewFileP
 	}
 
 	return nil
+}
+
+func decodeHEIC(file *os.File) (image.Image, error) {
+	if _, err := file.Seek(0, 0); err != nil {
+		return nil, err
+	}
+
+	// Decode HEIC image
+	img, err := goheif.Decode(file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode HEIC: %w", err)
+	}
+
+	// Extract EXIF metadata (contains orientation)
+	if _, err := file.Seek(0, 0); err != nil {
+		return nil, err
+	}
+
+	exifData, err := goheif.ExtractExif(file)
+	if err != nil || exifData == nil {
+		// No EXIF, return as-is
+		return img, nil
+	}
+
+	x, err := exif.Decode(bytes.NewReader(exifData))
+	if err != nil || x == nil {
+		return img, nil
+	}
+
+	// Try reading orientation
+	orientTag, err := x.Get(exif.Orientation)
+	if err != nil {
+		return img, nil
+	}
+
+	orientation, err := orientTag.Int(0)
+	if err != nil {
+		return img, nil
+	}
+
+	// Apply same orientation corrections
+	switch orientation {
+	case 2:
+		img = imaging.FlipH(img)
+	case 3:
+		img = imaging.Rotate180(img)
+	case 4:
+		img = imaging.FlipV(img)
+	case 5:
+		img = imaging.Transpose(img)
+	case 6:
+		img = imaging.Rotate270(img)
+	case 7:
+		img = imaging.Transverse(img)
+	case 8:
+		img = imaging.Rotate90(img)
+	}
+
+	return img, nil
 }
 
 func correctImageOrientation(file *os.File) (image.Image, error) {

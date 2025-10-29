@@ -9,6 +9,7 @@ require (
 	github.com/gin-gonic/gin v1.10.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
+	github.com/jdeng/goheif v0.0.0-20251001174315-babb64285736
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd
 	github.com/shirou/gopsutil v3.21.11+incompatible
