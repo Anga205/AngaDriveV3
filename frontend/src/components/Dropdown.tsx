@@ -49,7 +49,7 @@ const Dropdown: Component<DropdownProps> = (props) => {
     return (
         <div class="relative" ref={dropdownRef}>
             <div onClick={toggleDropdown} class="w-full p-2 rounded-lg bg-neutral-700 text-white focus-within:ring-2 focus-within:ring-green-500 flex justify-between items-center cursor-pointer">
-                <div class="flex flex-wrap gap-2 items-center flex-grow">
+                <div class="flex flex-wrap gap-2 items-center grow">
                     {props.selected.length === 0 ? (
                         <span class="text-gray-400">{props.placeholderText || "Select items"}</span>
                     ) : (
@@ -71,7 +71,7 @@ const Dropdown: Component<DropdownProps> = (props) => {
                         </For>
                     )}
                 </div>
-                <svg class={`w-4 h-4 transition-transform flex-shrink-0 ${isOpen() ? 'transform rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                <svg class={`w-4 h-4 transition-transform shrink-0 ${isOpen() ? 'transform rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
             </div>
             {isOpen() && (
                 <div class="absolute z-10 w-full mt-1 bg-neutral-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">

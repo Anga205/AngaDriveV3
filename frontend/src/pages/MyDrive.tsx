@@ -10,6 +10,7 @@ import FileCard from "../components/FileCard";
 import { Toaster, toast } from 'solid-toast';
 import { AppContext } from "../Context";
 import { formatFileSize, truncateFileName, generateClientToken, generateUUID } from "../library/functions";
+import Select from "../components/Select";
 
 const FilesError: Component = () => {
     const baseClass = "flex items-center p-[1vh] rounded-[1vh] w-full";
@@ -694,14 +695,70 @@ const UploadPopup: Component = () => {
 };
 
 const DesktopDrive: Component<{Files: Accessor<Array<FileData>>}> = (props) => {
+    // Sorting state and options
+    const sortOptions = [
+        { id: 'time_desc', name: 'Time: Newest first' },
+        { id: 'time_asc', name: 'Time: Old first' },
+        { id: 'name_asc', name: 'Name: Alphabetical' },
+        { id: 'name_desc', name: 'Name: Reverse alphabetical' },
+        { id: 'size_desc', name: 'Size: Largest first' },
+        { id: 'size_asc', name: 'Size: Smallest first' },
+    ];
+    const [selectedSort, setSelectedSort] = createSignal<string[]>(['time_desc']);
+
+    const sortedFiles = createMemo(() => {
+        const files = props.Files() || [];
+        const sel = selectedSort()[0] || 'time_desc';
+        const arr = files.slice();
+
+        // Reusable comparator helpers
+        const byTimeAsc = (a: FileData, b: FileData) => a.timestamp - b.timestamp;
+        const byTimeDesc = (a: FileData, b: FileData) => b.timestamp - a.timestamp;
+        const byNameAsc = (a: FileData, b: FileData) => a.original_file_name.localeCompare(b.original_file_name, undefined, { sensitivity: 'variant' });
+        const byNameDesc = (a: FileData, b: FileData) => b.original_file_name.localeCompare(a.original_file_name, undefined, { sensitivity: 'variant' });
+        const bySizeAsc = (a: FileData, b: FileData) => a.file_size - b.file_size;
+        const bySizeDesc = (a: FileData, b: FileData) => b.file_size - a.file_size;
+        const byPathAsc = (a: FileData, b: FileData) => a.file_directory.localeCompare(b.file_directory);
+
+        const chain = (...comparators: Array<(a: FileData, b: FileData) => number>) =>
+            (a: FileData, b: FileData) => {
+                for (const cmp of comparators) {
+                    const res = cmp(a, b);
+                    if (res !== 0) return res;
+                }
+                return 0;
+            };
+
+        const comparatorMap: Record<string, (a: FileData, b: FileData) => number> = {
+            time_desc: chain(byTimeDesc, byPathAsc),
+            time_asc: chain(byTimeAsc, byPathAsc),
+            name_asc: chain(byNameAsc, byTimeAsc, byPathAsc),
+            name_desc: chain(byNameDesc, byTimeDesc, byPathAsc),
+            size_desc: chain(bySizeDesc, byTimeDesc, byPathAsc),
+            size_asc: chain(bySizeAsc, byTimeAsc, byPathAsc),
+        };
+
+        return arr.sort(comparatorMap[sel] || comparatorMap.time_desc);
+    });
+
     return (
         <DesktopTemplate CurrentPage="Files">
             <div class="flex flex-col w-full h-full px-[2vh] p-[1vh] space-y-10">
                 <div class="w-full flex justify-between items-center">
                     <p class="text-white font-black text-[4vh]">My Files</p>
-                    <UploadPopup />
+                    <div class="flex items-center gap-3">
+                        <div class="min-w-[230px] md:translate-y-[4vh] z-5">
+                            <Select
+                                options={sortOptions}
+                                selected={selectedSort()}
+                                onChange={(s) => setSelectedSort(s.length ? [s[s.length - 1]] : [])}
+                                placeholderText="Sort By"
+                            />
+                        </div>
+                        <UploadPopup />
+                    </div>
                 </div>
-                {props.Files().length === 0 ? <FilesError /> : <DriveBody Files={props.Files} />}
+                {props.Files().length === 0 ? <FilesError /> : <DriveBody Files={() => sortedFiles()} />}
             </div>
         </DesktopTemplate>
     )
