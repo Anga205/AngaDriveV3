@@ -71,11 +71,23 @@ func processRequest[T any, R any](conn *websocket.Conn, data json.RawMessage, ha
 
 // sendJSON safely sends a JSON message to a websocket connection.
 func sendJSON(conn *websocket.Conn, v interface{}) {
-	ActiveWebsockets[conn].Mutex.Lock()
-	defer ActiveWebsockets[conn].Mutex.Unlock()
-	if err := conn.WriteJSON(v); err != nil {
-		fmt.Printf("Error writing to websocket: %v\n", err)
+	// Safely read the connection data; the conn may have been removed already
+	ActiveWebsocketsMutex.RLock()
+	wsData, ok := ActiveWebsockets[conn]
+	defer ActiveWebsocketsMutex.RUnlock()
+
+	if ok && wsData.Mutex != nil {
+		wsData.Mutex.Lock()
+		defer wsData.Mutex.Unlock()
+		if err := conn.WriteJSON(v); err != nil {
+			fmt.Printf("Error writing to websocket: %v\n", err)
+		}
+		return
 	}
+	// No per-connection state: drop the message to avoid concurrent writes without a mutex.
+	// This situation typically means the connection is closing/closed or was not initialized yet.
+	// Intentionally NOT writing to the socket here to preserve the single-writer contract.
+	fmt.Printf("Skipping websocket write: no per-connection state for %p\n", conn)
 }
 
 // messageHandlers maps message types to their handlers.

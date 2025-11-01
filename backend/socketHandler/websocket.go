@@ -128,10 +128,15 @@ func reader(conn *websocket.Conn, done chan bool) {
 }
 
 func updateConnAuth(conn *websocket.Conn, req AuthInfo) {
-	ActiveWebsockets[conn].Mutex.Lock()
-	defer ActiveWebsockets[conn].Mutex.Unlock()
-
-	data := ActiveWebsockets[conn]
+	ActiveWebsocketsMutex.RLock()
+	data, ok := ActiveWebsockets[conn]
+	ActiveWebsocketsMutex.RUnlock()
+	if !ok || data.Mutex == nil {
+		// Connection state no longer available; nothing to update
+		return
+	}
+	data.Mutex.Lock()
+	defer data.Mutex.Unlock()
 	if req.Email != "" && req.Password != "" && accounts.Authenticate(req.Email, req.Password) {
 		accountInfo, _ := database.FindUserByEmail(req.Email)
 		data.UserInfo.Token = ""
@@ -142,5 +147,10 @@ func updateConnAuth(conn *websocket.Conn, req AuthInfo) {
 		data.UserInfo.Email = ""
 		data.UserInfo.HashedPassword = ""
 	}
-	ActiveWebsockets[conn] = data
+	ActiveWebsocketsMutex.Lock()
+	// Double-check still present before writing back
+	if _, stillOK := ActiveWebsockets[conn]; stillOK {
+		ActiveWebsockets[conn] = data
+	}
+	ActiveWebsocketsMutex.Unlock()
 }
