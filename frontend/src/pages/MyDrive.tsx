@@ -681,6 +681,36 @@ const UploadPopup: Component = () => {
 };
 
 const DesktopDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: SelectOption[]; selectedSort: Accessor<string[]>; setSelectedSort: (value: string[]) => void; sortedFiles: Accessor<Array<FileData>>}> = (props) => {
+    // Lazy load files using IntersectionObserver
+    const [visibleCount, setVisibleCount] = createSignal(50);
+    let desktopScrollRef: HTMLDivElement | undefined;
+    let desktopSentinelRef: HTMLDivElement | undefined;
+    let desktopObserver: IntersectionObserver | undefined;
+
+    // Reset visible count whenever the sorted list changes
+    createEffect(() => {
+        const total = props.sortedFiles().length;
+        setVisibleCount(Math.min(50, total));
+    });
+
+    onMount(() => {
+        desktopObserver = new IntersectionObserver(
+            (entries) => {
+                for (const entry of entries) {
+                    if (entry.isIntersecting) {
+                        const total = props.sortedFiles().length;
+                        if (visibleCount() < total) {
+                            setVisibleCount(Math.min(visibleCount() + 20, total));
+                        }
+                    }
+                }
+            },
+            { root: desktopScrollRef, rootMargin: "0px 0px 200px 0px", threshold: 0 }
+        );
+        if (desktopSentinelRef) desktopObserver.observe(desktopSentinelRef);
+    });
+
+    onCleanup(() => desktopObserver?.disconnect());
 
     return (
         <DesktopTemplate CurrentPage="Files">
@@ -701,10 +731,12 @@ const DesktopDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: Se
                         <UploadPopup />
                     </div>
                 </div>
-                <div class="w-full flex justify-center flex-wrap h-full gap-8 overflow-y-scroll pt-10 custom-scrollbar">
-                    <For each={props.sortedFiles()}  fallback={<FilesError />}>
+                <div ref={(el) => (desktopScrollRef = el)} class="w-full flex justify-center flex-wrap h-full gap-8 overflow-y-scroll pt-10 custom-scrollbar">
+                    <For each={props.sortedFiles().slice(0, visibleCount())}  fallback={<FilesError />}>
                     {(file) => <FileCard File={file} />}
                     </For>
+                    {/* Sentinel for lazy loading */}
+                    <div ref={(el) => (desktopSentinelRef = el)} class="w-full h-px" />
                 </div>
             </div>
         </DesktopTemplate>
@@ -712,6 +744,36 @@ const DesktopDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: Se
 }
 
 const MobileDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: SelectOption[]; selectedSort: Accessor<string[]>; setSelectedSort: (value: string[]) => void; sortedFiles: () => Array<FileData>}> = (props) => {
+    // Lazy load for mobile as well
+    const [visibleCount, setVisibleCount] = createSignal(50);
+    let mobileScrollRef: HTMLDivElement | undefined;
+    let mobileSentinelRef: HTMLDivElement | undefined;
+    let mobileObserver: IntersectionObserver | undefined;
+
+    createEffect(() => {
+        const total = props.sortedFiles().length;
+        setVisibleCount(Math.min(50, total));
+    });
+
+    onMount(() => {
+        mobileObserver = new IntersectionObserver(
+            (entries) => {
+                for (const entry of entries) {
+                    if (entry.isIntersecting) {
+                        const total = props.sortedFiles().length;
+                        if (visibleCount() < total) {
+                            setVisibleCount(Math.min(visibleCount() + 20, total));
+                        }
+                    }
+                }
+            },
+            { root: mobileScrollRef, rootMargin: "0px 0px 200px 0px", threshold: 0 }
+        );
+        if (mobileSentinelRef) mobileObserver.observe(mobileSentinelRef);
+    });
+
+    onCleanup(() => mobileObserver?.disconnect());
+
     return (
         <div class="flex flex-col w-full max-h-screen h-screen bg-black">
             <Navbar CurrentPage="Files" Type="mobile"/>
@@ -730,12 +792,14 @@ const MobileDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: Sel
                 </Show>
                 <UploadPopup/>
             </div>
-            <div class="w-full px-4 mt-4 max-h-full h-full flex flex-wrap items-center space-y-4 space-x-4 justify-center overflow-y-auto">
-                <For each={props.sortedFiles()} fallback={<FilesError />}>
+            <div ref={(el) => (mobileScrollRef = el)} class="w-full px-4 mt-4 max-h-full h-full flex flex-wrap items-center space-y-4 space-x-4 justify-center overflow-y-auto">
+                <For each={props.sortedFiles().slice(0, visibleCount())} fallback={<FilesError />}>
                     {(file) => (
                         <FileCard File={file} />
                     )}
                 </For>
+                {/* Sentinel for lazy loading */}
+                <div ref={(el) => (mobileSentinelRef = el)} class="w-full h-px" />
                 <div class="w-full h-[2vh]"/>
             </div>
         </div>

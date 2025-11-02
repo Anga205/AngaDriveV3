@@ -180,6 +180,11 @@ func GithubImportHandler(req ImportGithubRepoRequest) (string, error) {
 		}
 		collectionUpdate, _ := database.GetCollection(rootCollection.ID)
 		go CollectionPulse(true, collectionUpdate)
+		go FileCountPulse()
+		genericUserPulse(userToken, map[string]interface{}{
+			"type": "notification",
+			"data": "Import Completed Successfully!",
+		})
 		return folderToCloneTo, nil
 	case <-ctx.Done():
 		// If the context is done, it means the operation timed out
