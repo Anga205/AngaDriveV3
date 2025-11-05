@@ -225,7 +225,10 @@ const FileCard: Component<{ File: FileData }> = (props) => {
     let link = import.meta.env.DEV ? "http://localhost:8080/i/" : AssetsURL;
     link += props.File.file_directory;
     link = link.split('.').slice(0, -1).join('.');
-    link += "/"+props.File.original_file_name.replace(" ", "%20");
+    link += "/"+props.File.original_file_name;
+    while (link.includes(" ")) {
+        link = link.replace(" ", "%20");
+    }
     const location = useLocation();
     return (
         <div class="flex flex-col w-80 h-96 bg-neutral-950 border-neutral-800 border rounded-lg md:hover:scale-105 transition-transform duration-200 shadow-lg">
