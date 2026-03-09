@@ -7,20 +7,22 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+const X = info.X
+
 var (
-	Last7Days    [7]string
-	SpaceUsedArr [7]int64
+	LastXDays    [X]string
+	SpaceUsedArr [X]int64
 )
 
 func SpaceUsedPulse() {
-	new_Last7Days, new_SpaceUsedArr, err := info.GetSpaceUsedGraph()
+	new_LastXDays, new_SpaceUsedArr, err := info.GetSpaceUsedGraph()
 	if err != nil {
 		return
 	}
-	if Last7Days == new_Last7Days && SpaceUsedArr == new_SpaceUsedArr {
+	if LastXDays == new_LastXDays && SpaceUsedArr == new_SpaceUsedArr {
 		return
 	}
-	Last7Days = new_Last7Days
+	LastXDays = new_LastXDays
 	SpaceUsedArr = new_SpaceUsedArr
 	var connectionsToUpdate []connInfo
 	ActiveWebsocketsMutex.RLock()
@@ -40,7 +42,7 @@ func SpaceUsedPulse() {
 			err := conn.WriteJSON(map[string]any{
 				"type": "graph_data",
 				"data": GraphData{
-					XAxis:       Last7Days[:],
+					XAxis:       LastXDays[:],
 					YAxis:       SpaceUsedArr[:],
 					Label:       "Space Used",
 					BeginAtZero: false,

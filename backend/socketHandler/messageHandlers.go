@@ -159,7 +159,7 @@ func handleEnableHomepageUpdates(conn *websocket.Conn, data json.RawMessage) {
 	ActiveWebsockets[conn] = wsData
 	ActiveWebsocketsMutex.Unlock()
 
-	x_axis, y_axis := info.GetLast7DaysCounts()
+	x_axis, y_axis := info.GetLastXDaysCounts()
 	siteActivityData := GraphData{
 		XAxis:       x_axis,
 		YAxis:       y_axis,
@@ -176,7 +176,7 @@ func handleEnableHomepageUpdates(conn *websocket.Conn, data json.RawMessage) {
 		})
 	sendJSON(conn, map[string]interface{}{
 		"type": "graph_data",
-		"data": GraphData{XAxis: Last7Days[:], YAxis: SpaceUsedArr[:], Label: "Space Used", BeginAtZero: false},
+		"data": GraphData{XAxis: LastXDays[:], YAxis: SpaceUsedArr[:], Label: "Space Used", BeginAtZero: false},
 	})
 	sendJSON(conn, map[string]interface{}{
 		"type": "user_count",
