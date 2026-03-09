@@ -5,41 +5,35 @@ import (
 	"time"
 )
 
-func BeginningOfToday() (int64, error) {
+func BeginningOfToday() int64 {
 	timeZone := "Asia/Kolkata"
 	loc, _ := time.LoadLocation(timeZone)
 	now := time.Now().In(loc)
 	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
-	return startOfDay.Unix(), nil
+	return startOfDay.Unix()
 }
 
-func Past7Days() ([7]string, error) {
+func PastXDays() [X]string {
 	timeZone := "Asia/Kolkata"
 	loc, _ := time.LoadLocation(timeZone)
 	now := time.Now().In(loc)
-	var days [7]string
-	for i := 0; i < 7; i++ {
+	var days [X]string
+	for i := 0; i < X; i++ {
 		days[i] = now.AddDate(0, 0, -i).Format("Jan 2")
 	}
-	return days, nil
+	return days
 }
 
-func GetSpaceUsedGraph() ([7]string, [7]int64, error) {
-	startOfToday, err := BeginningOfToday()
-	if err != nil {
-		return [7]string{}, [7]int64{}, err
-	}
+func GetSpaceUsedGraph() ([X]string, [X]int64, error) {
+	startOfToday := BeginningOfToday()
 
-	days, err := Past7Days()
-	if err != nil {
-		return [7]string{}, [7]int64{}, err
-	}
-
+	days := PastXDays()
 	fileInfo, _ := database.GetAllFileSizesAndTimes()
 
-	var fileSizes [7]int64
+	// this is the per day file sizes array that this function will eventually return. Last element is today, first element is $x days ago
+	var fileSizes [X]int64
 
-	var dailyIncrease [8]int64
+	var dailyIncrease [X + 1]int64
 	const daySeconds = 60 * 60 * 24
 
 	for _, file := range fileInfo {
@@ -49,7 +43,7 @@ func GetSpaceUsedGraph() ([7]string, [7]int64, error) {
 		}
 
 		found := false
-		for i := 1; i <= 6; i++ {
+		for i := 1; i <= X-1; i++ {
 			if file.Time >= startOfToday-int64(i)*daySeconds {
 				dailyIncrease[i] += file.Size
 				found = true
@@ -57,24 +51,24 @@ func GetSpaceUsedGraph() ([7]string, [7]int64, error) {
 			}
 		}
 		if !found {
-			// Older than 6 days ago
-			dailyIncrease[7] += file.Size
+			// Older than $x days ago
+			dailyIncrease[X] += file.Size
 		}
 	}
 
-	// Calculate the cumulative total size for each of the last 7 days.
-	// fileSizes[6] will be the total size today.
-	// fileSizes[0] will be the total size 6 days ago.
+	// Calculate the cumulative total size for each of the last $x days.
+	// fileSizes[$x-1] will be the total size today.
+	// fileSizes[0] will be the total size $x days ago.
 	var cumulativeSize int64
 	for _, size := range dailyIncrease {
 		cumulativeSize += size
 	}
-	fileSizes[6] = cumulativeSize
+	fileSizes[X-1] = cumulativeSize
 
 	// Calculate totals for previous days by subtracting the daily increases.
-	for i := 0; i < 6; i++ {
+	for i := 0; i < X-1; i++ {
 		cumulativeSize -= dailyIncrease[i]
-		fileSizes[5-i] = cumulativeSize
+		fileSizes[X-2-i] = cumulativeSize
 	}
 	for i, j := 0, len(days)-1; i < j; i, j = i+1, j-1 {
 		days[i], days[j] = days[j], days[i]
