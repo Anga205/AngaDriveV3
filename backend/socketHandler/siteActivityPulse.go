@@ -11,7 +11,7 @@ import (
 
 func SiteActivityPulse() {
 	database.PushTimeStamp(time.Now().Unix())
-	x_axis, y_axis := info.GetLast7DaysCounts()
+	x_axis, y_axis := info.GetLastXDaysCounts()
 	graphData := GraphData{
 		XAxis:       x_axis,
 		YAxis:       y_axis,
