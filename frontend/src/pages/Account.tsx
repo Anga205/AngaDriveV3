@@ -124,7 +124,7 @@ const LoginCard: Component<{ onSignUpClick: () => void; onLoginSuccess: () => vo
     };
 
     return (
-        <div class="flex flex-col items-center p-6 border-2 border-gray-500 rounded-lg w-[90vw] max-w-[350px] bg-gray-900 shadow-lg overflow-hidden">
+        <div class="flex flex-col items-center p-6 border-2 border-gray-500 rounded-lg w-[90vw] max-w-87.5 bg-gray-900 shadow-lg overflow-hidden">
             <p class="font-bold text-[3.5vh] mb-6">Login</p>
             <div class="w-full mb-4">
                 <p class="text-[1.8vh] mb-1">Enter Email ID:</p>
@@ -299,7 +299,7 @@ const RegisterCard: Component<{ onLoginClick: () => void; onRegisterSuccess: () 
         );
     };
     return (
-        <div class="flex flex-col items-center p-6 border-2 border-gray-500 rounded-lg w-[90vw] max-w-[350px] bg-gray-900 shadow-lg overflow-hidden">
+        <div class="flex flex-col items-center p-6 border-2 border-gray-500 rounded-lg w-[90vw] max-w-87.5 bg-gray-900 shadow-lg overflow-hidden">
             <p class="font-bold text-[3.5vh] mb-6">Register</p>
             <div class="w-full mb-4">
                 <p class="text-[1.8vh] mb-1">Display Name:</p>

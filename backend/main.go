@@ -18,6 +18,7 @@ func main() {
 	r.Use(gzip.Gzip(gzip.BestCompression))
 	// FOR DEVELOPMENT ONLY
 	if gin.Mode() != gin.ReleaseMode {
+		// TURN OFF CORS FOR DEVELOPMENT
 		r.Use(func(c *gin.Context) {
 			c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 			c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")

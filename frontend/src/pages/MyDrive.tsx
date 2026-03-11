@@ -116,7 +116,7 @@ const FileUploadPreview: Component<{
                     <p class="text-gray-400 text-xs">{formatFileSize(file.size)}</p>
                 </div>
             </div>
-            <div class="grow ml-4 min-w-[100px]">
+            <div class="grow ml-4 min-w-25">
                 <Show when={info() && (info()!.status === 'uploading' || info()!.status === 'pending')}>
                     <div class="w-full bg-gray-700 rounded-full h-2.5">
                         <div

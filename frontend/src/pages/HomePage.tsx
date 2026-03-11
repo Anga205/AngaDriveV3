@@ -39,7 +39,7 @@ const DesktopHome: Component<{ ramdata: RAMData; cpudata: CPUData; siteActivity:
                         <DefaultsButtons />
                         <div class="h-[71.5vh] space-y-[1.5vh] pb-[1.5vh]">
                             <div class="w-full h-5/12 max-h-5/12 bg-[#242424] flex flex-col rounded-[1.5vh] pt-[2.5vh] p-[1.65vh] overflow-hidden justify-center items-center" style="box-shadow: inset -4px 4px 6px rgba(0, 0, 0, 0.3);">
-                                <p class="text-white font-semibold text-[2vh]">Site Activity Over Past Week</p>
+                                <p class="text-white font-semibold text-[2vh]">Site Activity Over Past Month</p>
                                 <GraphComponent GraphData={props.siteActivity}/>
                             </div>
                             <div class="w-full h-7/12 flex space-x-[1.5vh]">
@@ -95,7 +95,7 @@ const MobileHome: Component<{ ramdata: RAMData; cpudata: CPUData; siteActivity: 
                 <MobileButtons />
                 <div class="w-full px-[1.5vh]">
                     <div class="w-full bg-[#242424] aspect-video rounded-xl p-[1vw] opacity-95">
-                        <p class="text-center font-black text-white text-[4vw]">Site Activity Over Past Week</p>
+                        <p class="text-center font-black text-white text-[4vw]">Site Activity Over Past Month</p>
                         <GraphComponent GraphData={props.siteActivity}/>
                     </div>
                 </div>
