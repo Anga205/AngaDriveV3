@@ -10,8 +10,8 @@ func GetLastXDaysCounts() ([]string, []int64) {
 	timestamps := database.TimeStamps
 	dates := make([]string, 0, X)
 	counts := make([]int64, 0, X)
-	now := time.Now()
 	loc, _ := time.LoadLocation("Asia/Kolkata")
+	now := time.Now().In(loc)
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 
 	for i := -X + 1; i <= 0; i++ {
