@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"service/database"
 	"service/endpoints"
 	"service/info"
@@ -19,6 +20,7 @@ func main() {
 	// FOR DEVELOPMENT ONLY
 	if gin.Mode() != gin.ReleaseMode {
 		// TURN OFF CORS FOR DEVELOPMENT
+		fmt.Println("=============== RUNNING IN DEV MODE, CORS DISABLED ===============")
 		r.Use(func(c *gin.Context) {
 			c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 			c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
