@@ -11,7 +11,6 @@
         "@emailjs/browser": "^4.4.1",
         "@solidjs/router": "^0.15.3",
         "@tailwindcss/vite": "^4.0.17",
-        "@thisbeyond/solid-select": "^0.16.0",
         "@zag-js/password-input": "^1.15.0",
         "@zag-js/solid": "^1.15.0",
         "@zag-js/toast": "^1.10.0",
@@ -242,8 +241,6 @@
     "@tailwindcss/oxide-win32-x64-msvc": ["@tailwindcss/oxide-win32-x64-msvc@4.3.3", "", { "os": "win32", "cpu": "x64" }, "sha512-yJ0pwIVc/nYeGoV02WtsN8KYyLQv7kyI2wDnkezyJlGGjkd4QLwDGAwl47YpPJeuI0M0ObaXGSPjvWDPeTPggw=="],
 
     "@tailwindcss/vite": ["@tailwindcss/vite@4.3.3", "", { "dependencies": { "@tailwindcss/node": "4.3.3", "@tailwindcss/oxide": "4.3.3", "tailwindcss": "4.3.3" }, "peerDependencies": { "vite": "^5.2.0 || ^6 || ^7 || ^8" } }, "sha512-yYU8cogLeSh/ms2jh8Fj7jaba/EWa7Ja6GoUqYZaraEuCI5YS6ms6ObZgjjedm+jm6XZjdNRWBpPP6Z86oOxcw=="],
-
-    "@thisbeyond/solid-select": ["@thisbeyond/solid-select@0.16.0", "", { "peerDependencies": { "solid-js": "^1.8" } }, "sha512-Ig4qTISjVJBBJK4yvxhHIO8rDr0ujmhcChF1ot3fHOM8K4fWrwXBSKLJ1npAUO504x+Ig0MKNPO6y6iS2NPJsA=="],
 
     "@types/babel__core": ["@types/babel__core@7.20.5", "", { "dependencies": { "@babel/parser": "^7.20.7", "@babel/types": "^7.20.7", "@types/babel__generator": "*", "@types/babel__template": "*", "@types/babel__traverse": "*" } }, "sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA=="],
 

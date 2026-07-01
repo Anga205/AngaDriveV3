@@ -70,6 +70,7 @@ You gotta have golang installed to run main.go, the script serves up the fronten
 
 ### 3. Set Environment Variables
 If you dont set them, they will default to localhost:8080
+- `PORT`: optional env variable, set this to the port you want the backend to run on (default is 8080)
 - `ASSETS_URL`: The url from which you plan on serving up the files (ideally you want this on a separate url from your main website to stop XSS attacks)
 - `WEB_URL`: The url from which people will actually access the website
 - `SAVE_DRIVE_RAM`: optional env variable, set this to true for *slightly* more efficient RAM usage (at the cost of slightly worsened performance)
@@ -79,6 +80,7 @@ If you dont set them, they will default to localhost:8080
 In most cases, u dont need to setup CORS stuff separately because WEB_URL is used for both the frontend routes and the backend websocket.
 #### example setup:
 ```bash
+export PORT=8080 # optional
 export WEB_URL=drive.anga.codes
 export ASSETS_URL=i.anga.codes
 export GIN_MODE=release # optional
@@ -130,6 +132,7 @@ You gotta have golang installed to run main.go, the script serves up the fronten
 
 ### 3. Set Environment Variables
 If you dont set them, they will default to localhost:8080
+- `PORT`: optional env variable, set this to the port you want the backend to run on (default is 8080)
 - `ASSETS_URL`: The url from which you plan on serving up the files (ideally you want this on a separate url from your main website to stop XSS attacks)
 - `WEB_URL`: The url from which people will actually access the website
 - `SAVE_DRIVE_RAM`: optional env variable, set this to true for *slightly* more efficient RAM usage (at the cost of slightly worsened performance)
@@ -139,6 +142,7 @@ If you dont set them, they will default to localhost:8080
 In most cases, u dont need to setup CORS stuff separately because WEB_URL is used for both the frontend routes and the backend websocket.
 #### example setup:
 ```powershell
+$env:PORT="8080" # optional
 $env:WEB_URL="drive.anga.codes"
 $env:ASSETS_URL="i.anga.codes"
 $env:GIN_MODE="release"
