@@ -113,10 +113,10 @@ const Select: Component<SelectProps> = (props) => {
   // style helpers
   const btnClasses = () =>
     props.buttonClass ??
-    "w-full min-w-[230px] inline-flex items-center justify-between gap-2 rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-600 disabled:opacity-50";
+    "w-full min-w-[230px] flex h-full items-center justify-between gap-2 rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-white hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-blue-600 disabled:opacity-50";
   const listClasses = () =>
     props.listClass ??
-    "absolute z-50 mt-1 w-full max-h-60 overflow-auto rounded-md border border-gray-700 bg-gray-900 p-1 shadow-lg";
+    "absolute z-50 mt-1 w-full max-h-60 overflow-auto rounded-md border border-neutral-700 bg-neutral-900 p-1 shadow-lg";
 
   return (
     <div class={props.class} style={{ position: "relative" }}>
@@ -160,7 +160,7 @@ const Select: Component<SelectProps> = (props) => {
                 aria-selected={isSelected() ? "true" : "false"}
                 data-index={idx}
                 class={`flex cursor-pointer select-none items-center rounded px-2 py-1 text-sm text-white outline-none ${
-                  isActive() ? "bg-blue-600/30" : isSelected() ? "bg-gray-800" : "hover:bg-gray-800"
+                  isActive() ? "bg-blue-600/30" : isSelected() ? "bg-neutral-800" : "hover:bg-neutral-800"
                 }`}
                 onMouseEnter={() => setActiveIndex(idx)}
                 onMouseDown={(e) => {
