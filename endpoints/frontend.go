@@ -15,11 +15,8 @@ import (
 
 func compileFrontend() error {
 	fmt.Println("[GIN-debug] Building the dist directory...")
-	if err := os.Chdir(".."); err != nil {
-		return fmt.Errorf("[compileFrontend] error changing to parent directory: %w", err)
-	}
-	if err := os.Chdir("frontend"); err != nil {
-		return fmt.Errorf("[compileFrontend] error changing to 'frontend' directory: %w", err)
+	if err := os.Chdir("web"); err != nil {
+		return fmt.Errorf("[compileFrontend] error changing to 'web' directory: %w", err)
 	}
 	if _, err := os.Stat("node_modules"); os.IsNotExist(err) {
 		fmt.Println("node_modules not found, running 'bun install'...")
@@ -35,13 +32,10 @@ func compileFrontend() error {
 		return fmt.Errorf("[compileFrontend] error running 'bun run build': %w", err)
 	}
 	if err := os.Chdir(".."); err != nil {
-		return fmt.Errorf("[compileFrontend] error changing to parent directory: %w", err)
+		return fmt.Errorf("[compileFrontend] error changing to 'parent' directory: %w", err)
 	}
-	if err := os.Rename("frontend/dist", "backend/dist"); err != nil {
+	if err := os.Rename("web/dist", "./dist"); err != nil {
 		return fmt.Errorf("[compileFrontend] error moving dist directory: %w", err)
-	}
-	if err := os.Chdir("backend"); err != nil {
-		return fmt.Errorf("[compileFrontend] error changing to 'backend' directory: %w", err)
 	}
 	fmt.Println("[GIN-debug] Build completed and dist directory moved to backend.")
 	return nil
