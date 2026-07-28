@@ -380,13 +380,47 @@ const UploadPopup: Component = () => {
             return updated;
         });
     };
+
+    const hasActiveUploads = createMemo(() => {
+        const map = uploadProgressMap();
+        return selectedFiles().some(sf => {
+            const status = map[sf.uniqueId]?.status;
+            return status === 'uploading' || status === 'pending';
+        });
+    });
+
+    const allUploadsComplete = createMemo(() => {
+        const files = selectedFiles();
+        if (files.length === 0) return false;
+
+        const map = uploadProgressMap();
+        return files.every(sf => {
+            const status = map[sf.uniqueId]?.status;
+            return status === 'completed' || status === 'error';
+        });
+    });
+
+    const canClosePopup = createMemo(() => !hasActiveUploads() || isPaused());
+    const shouldPreserveUploadStateOnClose = createMemo(() => isPaused() && selectedFiles().length > 0 && !allUploadsComplete());
     
     const handleDialogStateChange = (isOpen: boolean) => {
-        if (!isOpen) { // Reset when dialog closes, or on open if preferred
+        if (!isOpen) {
+            if (!canClosePopup()) {
+                toast.error('Uploads are still in progress. Pause them before closing the upload popup.');
+                setOpen(true);
+                return;
+            }
+
+            if (shouldPreserveUploadStateOnClose()) {
+                return;
+            }
+
+            // Reset when dialog closes
             setSelectedFiles([]);
             setUploadProgressMap({});
             setIsUploading(false);
             setIsPaused(false);
+            setIsDragOver(false);
             // Abort any lingering requests
             activeControllers.forEach(c => c.abort());
             activeControllers.clear();
@@ -671,7 +705,7 @@ const UploadPopup: Component = () => {
                             {isPaused() ? 'Resume' : 'Pause'}
                         </button>
                     </Show>
-                     <Show when={selectedFiles().length > 0 && filesPendingOrError() === 0 && !isUploading()}>
+                    <Show when={selectedFiles().length > 0 && filesPendingOrError() === 0 && !isUploading() && allUploadsComplete()}>
                         <p class="mt-4 text-center text-green-500">All selected files uploaded!</p>
                     </Show>
                 </Dialog.Content>
@@ -719,7 +753,7 @@ const DesktopDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: Se
                     <p class="text-white font-black text-[4vh]">My Files</p>
                     <div class="flex items-center gap-3">
                         <Show when={props.Files().length >= 2}>
-                            <div class="min-w-[230px] md:translate-y-[4vh] z-5">
+                            <div class="min-w-57.5 md:translate-y-[4vh] z-5">
                                 <Select
                                     options={props.sortOptions}
                                     selected={props.selectedSort()}
