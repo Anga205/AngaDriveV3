@@ -6,12 +6,12 @@ import DatabaseZap from "lucide-solid/icons/database-zap"
 import File from "lucide-solid/icons/file"
 import Github from "lucide-solid/icons/github"
 import AlignJustify from "lucide-solid/icons/align-justify"
-import ArrowDownToLine from "lucide-solid/icons/arrow-down-to-line"
 import RotateCcw from "lucide-solid/icons/rotate-ccw"
 import House from "lucide-solid/icons/house"    
 import Butterfly from "./butterfly.svg"
 import Anga from "./anga.svg"
 import OctagonX from "lucide-solid/icons/octagon-x"
+import ArrowDownToLine from "lucide-solid/icons/arrow-down-to-line"
 
 const FileTextSVG: Component<{ class?: string }> = (props) => {
     return (
@@ -117,7 +117,7 @@ const BinSVG: Component = () => {
 
 const DownloadSVG: Component = () => {
     return (
-        <ArrowDownToLine class="w-full h-auto"/>
+        <ArrowDownToLine />
     )
 }
 
