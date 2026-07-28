@@ -644,7 +644,7 @@ const UploadPopup: Component = () => {
 
     return (
         <Dialog open={open()} onOpenChange={(o)=>{ setOpen(o); handleDialogStateChange(o); }}>
-            <Dialog.Trigger class="cursor-pointer hover:text-gray-300 text-white flex justify-center items-center bg-blue-600 hover:bg-blue-800 p-[1vh] rounded-[1vh] font-bold md:translate-y-[4vh]">
+            <Dialog.Trigger class="h-full min-w-fit flex items-center justify-center gap-2 cursor-pointer hover:text-gray-300 text-white bg-blue-600 hover:bg-blue-800 p-[1vh] rounded-[0.6vh] font-bold">
                 <UploadSVG />
                 <span>&nbsp;Upload</span>
             </Dialog.Trigger>
@@ -751,16 +751,15 @@ const DesktopDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: Se
             <div class="flex flex-col w-full h-full px-[2vh] p-[1vh] space-y-10">
                 <div class="w-full flex justify-between items-center">
                     <p class="text-white font-black text-[4vh]">My Files</p>
-                    <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-3 md:translate-y-[4vh] h-12">
                         <Show when={props.Files().length >= 2}>
-                            <div class="min-w-57.5 md:translate-y-[4vh] z-5">
-                                <Select
-                                    options={props.sortOptions}
-                                    selected={props.selectedSort()}
-                                    onChange={(s) => props.setSelectedSort(s.length ? [s[s.length - 1]] : [])}
-                                    placeholderText="Sort By"
-                                />
-                            </div>
+                            <Select
+                                options={props.sortOptions}
+                                selected={props.selectedSort()}
+                                onChange={(s) => props.setSelectedSort(s.length ? [s[s.length - 1]] : [])}
+                                placeholderText="Sort By"
+                                class="h-full"
+                            />
                         </Show>
                         <UploadPopup />
                     </div>

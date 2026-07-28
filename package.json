@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@thisbeyond/solid-select": "^0.16.0"
+  }
+}
