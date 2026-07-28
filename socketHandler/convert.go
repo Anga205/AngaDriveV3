@@ -121,13 +121,21 @@ func performConversion(inputFile database.FileData) {
 		})
 		return
 	}
+
 	cmd := exec.Command("ffmpeg",
 		"-i", inputFilePath,
 		"-c:v", "libx264",
-		"-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2", // force even dimensions
-		"-preset", "ultrafast",
-		"-crf", "18",
-		"-c:a", "copy",
+		"-profile:v", "baseline",
+		"-level", "3.1",
+		"-pix_fmt", "yuv420p",
+		"-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
+		"-preset", "medium",
+		"-crf", "20",
+		"-movflags", "+faststart",
+		"-c:a", "aac",
+		"-b:a", "128k",
+		"-ar", "44100",
+		"-ac", "2",
 		outputFilePath,
 	)
 
