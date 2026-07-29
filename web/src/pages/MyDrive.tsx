@@ -1,5 +1,6 @@
 import type { Accessor, Component } from "solid-js"
 import { createSignal, Show, For, createMemo, onCleanup, createEffect, useContext, onMount } from "solid-js"
+import Search from "lucide-solid/icons/search";
 import { DesktopTemplate } from "../components/Template"
 import { InfoSVG, UploadSVG, ErrorSVG, BinSVG, FileSVG } from "../assets/SvgFiles"
 import Navbar from "../components/Navbar";
@@ -714,12 +715,21 @@ const UploadPopup: Component = () => {
     );
 };
 
-const DesktopDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: SelectOption[]; selectedSort: Accessor<string[]>; setSelectedSort: (value: string[]) => void; sortedFiles: Accessor<Array<FileData>>}> = (props) => {
+const DesktopDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: SelectOption[]; selectedSort: Accessor<string[]>; setSelectedSort: (value: string[]) => void; sortedFiles: Accessor<Array<FileData>>; searchQuery?: Accessor<string>; setSearch?: (v: string) => void}> = (props) => {
     // Lazy load files using IntersectionObserver
     const [visibleCount, setVisibleCount] = createSignal(50);
     let desktopScrollRef: HTMLDivElement | undefined;
     let desktopSentinelRef: HTMLDivElement | undefined;
     let desktopObserver: IntersectionObserver | undefined;
+    const ctx = useContext(AppContext)!;
+
+    const displayedFiles = createMemo(() => {
+        const base = props.sortedFiles() || [];
+        const visible = base.slice(0, visibleCount());
+        const loaded = Array.from(ctx.loadedFiles?.() || new Set<string>());
+        const extras = base.filter(f => loaded.includes(f.file_directory) && !visible.some(v => v.file_directory === f.file_directory));
+        return [...visible, ...extras];
+    });
 
     // Reset visible count whenever the sorted list changes
     createEffect(() => {
@@ -752,6 +762,19 @@ const DesktopDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: Se
                 <div class="w-full flex justify-between items-center">
                     <p class="text-white font-black text-[4vh]">My Files</p>
                     <div class="flex items-center gap-3 md:translate-y-[4vh] h-12">
+                        <div class="hidden md:block w-80">
+                            <div class="relative">
+                                <input
+                                    class="w-full bg-neutral-900 placeholder-neutral-500 text-neutral-200 rounded-lg px-3 py-2 pr-10 border border-neutral-800 focus:outline-none"
+                                    placeholder="Search files by name or path"
+                                    value={props.searchQuery ? props.searchQuery() : ''}
+                                    onInput={(e) => props.setSearch ? props.setSearch((e.target as HTMLInputElement).value) : null}
+                                />
+                                <div class="absolute right-2 top-2 text-neutral-400">
+                                    <Search class="w-5 h-5" />
+                                </div>
+                            </div>
+                        </div>
                         <Show when={props.Files().length >= 2}>
                             <Select
                                 options={props.sortOptions}
@@ -765,7 +788,7 @@ const DesktopDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: Se
                     </div>
                 </div>
                 <div ref={(el) => (desktopScrollRef = el)} class="w-full flex justify-center flex-wrap h-full gap-8 overflow-y-scroll pt-10 custom-scrollbar">
-                    <For each={props.sortedFiles().slice(0, visibleCount())}  fallback={<FilesError />}>
+                    <For each={displayedFiles()}  fallback={<FilesError />}>
                     {(file) => <FileCard File={file} />}
                     </For>
                     {/* Sentinel for lazy loading */}
@@ -776,12 +799,22 @@ const DesktopDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: Se
     )
 }
 
-const MobileDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: SelectOption[]; selectedSort: Accessor<string[]>; setSelectedSort: (value: string[]) => void; sortedFiles: () => Array<FileData>}> = (props) => {
+const MobileDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: SelectOption[]; selectedSort: Accessor<string[]>; setSelectedSort: (value: string[]) => void; sortedFiles: () => Array<FileData>; searchQuery?: Accessor<string>; setSearch?: (v: string) => void}> = (props) => {
     // Lazy load for mobile as well
     const [visibleCount, setVisibleCount] = createSignal(50);
     let mobileScrollRef: HTMLDivElement | undefined;
     let mobileSentinelRef: HTMLDivElement | undefined;
     let mobileObserver: IntersectionObserver | undefined;
+
+    const ctx = useContext(AppContext)!;
+
+    const displayedFiles = createMemo(() => {
+        const base = props.sortedFiles() || [];
+        const visible = base.slice(0, visibleCount());
+        const loaded = Array.from(ctx.loadedFiles?.() || new Set<string>());
+        const extras = base.filter(f => loaded.includes(f.file_directory) && !visible.some(v => v.file_directory === f.file_directory));
+        return [...visible, ...extras];
+    });
 
     createEffect(() => {
         const total = props.sortedFiles().length;
@@ -812,7 +845,20 @@ const MobileDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: Sel
             <Navbar CurrentPage="Files" Type="mobile"/>
             <div class="h-[6vh]"/>
             <p class="text-white font-black text-[4vh] px-3">My&nbsp;Files</p>
-            <div class="flex justify-end items-center gap-3 px-3">
+            <div class="flex justify-between items-center gap-3 px-3">
+                <div class="flex items-center w-2/3">
+                    <div class="relative w-full">
+                        <input
+                            class="w-full bg-neutral-900 placeholder-neutral-500 text-neutral-200 rounded-lg px-3 py-2 pr-10 border border-neutral-800 focus:outline-none"
+                            placeholder="Search files by name or path"
+                            value={props.searchQuery ? props.searchQuery() : ''}
+                            onInput={(e) => props.setSearch ? props.setSearch((e.target as HTMLInputElement).value) : null}
+                        />
+                        <div class="absolute right-2 top-2 text-neutral-400">
+                            <Search class="w-5 h-5" />
+                        </div>
+                    </div>
+                </div>
                 <Show when={props.Files().length >= 2}>
                     <div class="z-5">
                         <Select
@@ -826,7 +872,7 @@ const MobileDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: Sel
                 <UploadPopup/>
             </div>
             <div ref={(el) => (mobileScrollRef = el)} class="w-full px-4 mt-4 max-h-full h-full flex flex-wrap items-center space-y-4 space-x-4 justify-center overflow-y-auto">
-                <For each={props.sortedFiles().slice(0, visibleCount())} fallback={<FilesError />}>
+                <For each={displayedFiles()} fallback={<FilesError />}>
                     {(file) => (
                         <FileCard File={file} />
                     )}
@@ -891,6 +937,9 @@ const MyDrive: Component = () => {
     // Sorting state and options
     const [selectedSort, setSelectedSort] = createSignal<string[]>(['time_desc']);
 
+    // Live search state
+    const [searchQuery, setSearchQuery] = createSignal<string>('');
+
     const sortedFiles = createMemo(() => {
         const files = ctx.files() || [];
         const sel = selectedSort()[0] || 'time_desc';
@@ -926,10 +975,27 @@ const MyDrive: Component = () => {
         return arr.sort(comparatorMap[sel] || comparatorMap.time_desc);
     });
 
+    // Filtered files based on live search (name or directory)
+    const filteredFiles = createMemo(() => {
+        const q = searchQuery().trim().toLowerCase();
+        if (!q) return sortedFiles();
+        return sortedFiles().filter(f => (f.original_file_name || '').toLowerCase().includes(q) || (f.file_directory || '').toLowerCase().includes(q));
+    });
+
+    // Clear persisted loaded files whenever the user changes search or sort
+    createEffect(() => {
+        // depend on selectedSort and searchQuery
+        selectedSort();
+        searchQuery();
+        try {
+            ctx.setLoadedFiles?.(new Set());
+        } catch (e) {}
+    });
+
     return (
         <>
             <title>My Files | DriveV3</title>
-            {isMobile() ? <MobileDrive Files={ctx.files} sortOptions={sortOptions} selectedSort={selectedSort} setSelectedSort={setSelectedSort} sortedFiles={sortedFiles}/> : <DesktopDrive Files={ctx.files} sortOptions={sortOptions} selectedSort={selectedSort} setSelectedSort={setSelectedSort} sortedFiles={sortedFiles}/>}
+            {isMobile() ? <MobileDrive Files={ctx.files} sortOptions={sortOptions} selectedSort={selectedSort} setSelectedSort={setSelectedSort} sortedFiles={filteredFiles} searchQuery={searchQuery} setSearch={setSearchQuery}/> : <DesktopDrive Files={ctx.files} sortOptions={sortOptions} selectedSort={selectedSort} setSelectedSort={setSelectedSort} sortedFiles={filteredFiles} searchQuery={searchQuery} setSearch={setSearchQuery}/>} 
             <Toaster
             position="bottom-right"
             gutter={8}

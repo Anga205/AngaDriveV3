@@ -8,7 +8,8 @@ import { AppContext } from "../Context";
 import { createSignal, onCleanup, Component, Show, useContext } from "solid-js";
 
 const FilePreview: Component<{ file: FileData }> = (props) => {
-    const [isVisible, setIsVisible] = createSignal(false);
+    const ctx = useContext(AppContext)!;
+    const [isVisible, setIsVisible] = createSignal<boolean>(ctx.loadedFiles?.()?.has(props.file.file_directory) || false);
     let containerRef: HTMLDivElement | undefined;
     let observer: IntersectionObserver | undefined;
 
@@ -49,6 +50,16 @@ const FilePreview: Component<{ file: FileData }> = (props) => {
                 const entry = entries[0];
                 if (entry.isIntersecting) {
                     setIsVisible(true);
+                    // Persist that this file was loaded for the session
+                    try {
+                        ctx.setLoadedFiles?.((prev) => {
+                            const next = new Set(prev || new Set());
+                            next.add(props.file.file_directory);
+                            return next;
+                        });
+                    } catch (e) {
+                        // ignore if context not available
+                    }
                     observer?.unobserve(entry.target as Element);
                 }
             },
@@ -65,6 +76,13 @@ const FilePreview: Component<{ file: FileData }> = (props) => {
         requestAnimationFrame(() => {
             if (!isVisible() && containerRef && isInView(containerRef, rootEl)) {
                 setIsVisible(true);
+                try {
+                    ctx.setLoadedFiles?.((prev) => {
+                        const next = new Set(prev || new Set());
+                        next.add(props.file.file_directory);
+                        return next;
+                    });
+                } catch (e) {}
                 observer?.unobserve(containerRef);
             }
         });
