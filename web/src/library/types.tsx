@@ -75,6 +75,9 @@ type AppContextType = {
     // Pending files for My Drive uploads when navigation is required
     pendingDriveUploadFiles?: () => File[] | null;
     setPendingDriveUploadFiles?: (value: File[] | null | ((prev: File[] | null) => File[] | null)) => void;
+    // Files that have been observed/loaded in this session (file_directory keys)
+    loadedFiles?: () => Set<string>;
+    setLoadedFiles?: (value: Set<string> | ((prev: Set<string>) => Set<string>)) => void;
 };
 
 export type {RAMData, CPUData, SysInfo, GraphData, IncomingData, SocketStatus, Pages, FileData, CollectionCardData, AppContextType, KnownCollections, KnownCollectionCards};

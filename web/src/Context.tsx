@@ -10,6 +10,7 @@ const ContextProvider: ParentComponent = (props) => {
   const [knownCollections, setKnownCollections] = createSignal<KnownCollections>({});
   const [knownCollectionCards, setKnownCollectionCards] = createSignal<KnownCollectionCards>({});
   const [pendingDriveUploadFiles, setPendingDriveUploadFiles] = createSignal<File[] | null>(null);
+  const [loadedFiles, setLoadedFiles] = createSignal<Set<string>>(new Set());
   const contextValue: AppContextType = {
     files: files,
     setFiles: setFiles,
@@ -21,6 +22,8 @@ const ContextProvider: ParentComponent = (props) => {
     setKnownCollectionCards: setKnownCollectionCards,
     pendingDriveUploadFiles,
     setPendingDriveUploadFiles,
+    loadedFiles,
+    setLoadedFiles,
   };
 
   return (
