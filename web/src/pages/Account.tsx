@@ -1,12 +1,12 @@
 import { Accessor, Component, createEffect, createSignal, onMount, useContext, onCleanup } from "solid-js";
 import Dialog from '@corvu/dialog';
 import { toast, Toaster } from "solid-toast";
-import { useWebSocket } from "../Websockets";
+import { useWebSocket } from "@/Websockets";
 import bcrypt from "bcryptjs";
-import { DesktopTemplate } from "../components/Template";
-import { AppContext } from "../Context";
-import { fetchFilesAndCollections, formatFileSize, handleLogout } from "../library/functions";
-import Navbar from "../components/Navbar";
+import { DesktopTemplate } from "@/components/Template";
+import { AppContext } from "@/Context";
+import { fetchFilesAndCollections, formatFileSize, handleLogout } from "@/library/functions";
+import Navbar from "@/components/Navbar";
 
 const isEmailValid = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

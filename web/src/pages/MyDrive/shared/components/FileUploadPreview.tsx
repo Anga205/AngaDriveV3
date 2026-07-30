@@ -1,6 +1,6 @@
 import { Accessor, Component, createMemo, createSignal, onCleanup, Show } from "solid-js";
-import { BinSVG, FileSVG } from "../../../../assets/SvgFiles";
-import { formatFileSize, truncateFileName } from "../../../../library/functions";
+import { BinSVG, FileSVG } from "@/assets/SvgFiles";
+import { formatFileSize, truncateFileName } from "@/library/functions";
 import { FileUploadProgressData, SelectableFile } from "../types";
 
 const FileUploadPreview: Component<{

@@ -1,9 +1,9 @@
 import type { Component } from "solid-js"
 import { createSignal, createMemo, onCleanup, createEffect, useContext } from "solid-js"
-import { useWebSocket } from "../../Websockets";
-import { FileData } from "../../library/types";
+import { useWebSocket } from "@/Websockets";
+import { FileData } from "@/library/types";
 import { Toaster, toast } from 'solid-toast';
-import { AppContext } from "../../Context";
+import { AppContext } from "@/Context";
 import DesktopDrive from "./Desktop/DriveDesktop";
 import MobileDrive from "./Mobile/DriveMobile";
 

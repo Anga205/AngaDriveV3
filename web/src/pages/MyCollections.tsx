@@ -1,13 +1,13 @@
 import { Accessor, Component, createEffect, createSignal, useContext } from 'solid-js';
-import { DesktopTemplate } from '../components/Template';
-import Navbar from '../components/Navbar';
+import { DesktopTemplate } from '@/components/Template';
+import Navbar from '@/components/Navbar';
 import Dialog from '@corvu/dialog';
-import { useWebSocket } from '../Websockets';
+import { useWebSocket } from '@/Websockets';
 import toast, { Toaster } from 'solid-toast';
 import { For } from 'solid-js';
-import { AppContext } from '../Context';
-import { ErrorSVG, InfoSVG } from '../assets/SvgFiles';
-import CollectionCard from '../components/CollectionCard';
+import { AppContext } from '@/Context';
+import { ErrorSVG, InfoSVG } from '@/assets/SvgFiles';
+import CollectionCard from '@/components/CollectionCard';
 
 const Popup = () => {
     const [newCollectionName, setNewCollectionName] = createSignal<string>('');

@@ -1,10 +1,10 @@
 import Dialog from "@corvu/dialog";
-import { AppContext } from "../../../../Context";
+import { AppContext } from "@/Context";
 import type { Component } from "solid-js"
 import { createSignal, Show, For, createMemo, onCleanup, createEffect, useContext, onMount } from "solid-js"
-import { UploadSVG} from "../../../../assets/SvgFiles"
+import { UploadSVG} from "@/assets/SvgFiles"
 import { toast } from 'solid-toast';
-import { generateClientToken, generateUUID } from "../../../../library/functions";
+import { generateClientToken, generateUUID } from "@/library/functions";
 import type { SelectableFile, FileUploadProgressData, AuthDetails } from "../types";
 import FileUploadPreview from "./FileUploadPreview";
 
