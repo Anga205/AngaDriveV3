@@ -32,10 +32,6 @@ const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (pro
     let pasteHighlightTimeout: number | undefined;
     const activeControllers = new Set<AbortController>();
     const cancelledFiles = new Set<string>();
-    const manageController = (c: AbortController, action: 'add' | 'remove') => {
-        if (action === 'add') activeControllers.add(c);
-        else activeControllers.delete(c);
-    };
 
     // Concurrency-aware scheduler state
     const [activeUploadsCount, setActiveUploadsCount] = createSignal(0);
@@ -99,12 +95,11 @@ const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (pro
                 props.collectionId,
                 waitWhilePaused,
                 () => isPaused(),
-                manageController,
                 () => cancelledFiles.has(sf.uniqueId)
             );
             setUploadProgressMap(prev => {
                 if (cancelledFiles.has(sf.uniqueId)) return prev;
-                return ({ ...prev, [sf.uniqueId]: { ...prev[sf.uniqueId], status: 'completed', progress: 100 } });
+                return ({ ...prev, [sf.uniqueId]: { ...prev[sf.uniqueId], status: 'completed' } });
             });
         } catch (error: any) {
             setUploadProgressMap(prev => {

@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run"
   },
   "dependencies": {
     "@corvu/dialog": "^0.2.4",
@@ -31,8 +32,10 @@
   },
   "devDependencies": {
     "@types/spark-md5": "^3.0.5",
+    "jsdom": "^30.0.1",
     "typescript": "~5.7.2",
     "vite": "^6.2.0",
-    "vite-plugin-solid": "^2.11.2"
+    "vite-plugin-solid": "^2.11.2",
+    "vitest": "^2.1.8"
   }
 }

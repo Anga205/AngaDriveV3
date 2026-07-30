@@ -7,10 +7,10 @@ import { toast } from 'solid-toast';
 import { generateClientToken, generateUUID } from "@/library/functions";
 import type { SelectableFile, FileUploadProgressData, AuthDetails } from "../types";
 import FileUploadPreview from "./FileUploadPreview";
+import { UploadProgressTracker, canSendFinalize } from "./uploadProgressState";
 
-const CHUNK_SIZE = 7 * 1024 * 1024; // 7MB chunk size
+const CHUNK_SIZE = 7 * 1024 * 1024; // 7MB compressed chunk size
 const MAX_CONCURRENT_UPLOADS = 3;
-const MAX_CONCURRENT_CHUNKS_PER_FILE = 6;
 
 async function uploadFileInChunks(
     selectableFile: SelectableFile,
@@ -20,152 +20,250 @@ async function uploadFileInChunks(
     collectionId?: string,
     waitWhilePaused?: () => Promise<void>,
     isPaused?: () => boolean,
-    manageController?: (c: AbortController, action: 'add' | 'remove') => void,
     shouldCancel?: () => boolean,
 ): Promise<void> {
-    
-    const backendUrl = import.meta.env.DEV ? 'http://localhost:8080' : '';
     const file = selectableFile.file;
-    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-    let uploadedChunks = 0;
-    const chunkQueue = Array.from({ length: totalChunks }, (_, i) => i);
+    const fileId = selectableFile.uniqueId;
+    const encoding = 'gzip-stream-v1';
+    const baseUrl = import.meta.env.DEV ? 'http://localhost:8080' : window.location.origin;
+    const wsUrl = `${baseUrl.replace(/^http/, 'ws')}/upload/ws/${uploadSystemId}`;
 
-    const uploadChunk = async (chunkIndex: number): Promise<void> => {
-        if (shouldCancel && shouldCancel()) return;
-        const start = chunkIndex * CHUNK_SIZE;
-        const end = Math.min(start + CHUNK_SIZE, file.size);
-        const chunkBlob = file.slice(start, end);
+    const tracker = new UploadProgressTracker(file.size);
+    let chunkIndexCursor = 0;
+    let serverCompleted = false;
+    let ws: WebSocket | null = null;
+    let socketReady: Promise<void> | null = null;
+    let socketReject: ((error: Error) => void) | null = null;
+    const pendingChunkAcks = new Map<number, { resolve: () => void; reject: (error: Error) => void }>();
+    const acknowledgedChunkIndexes = new Set<number>();
+    const allAcksWaiters: Array<{ resolve: () => void; reject: (error: Error) => void }> = [];
 
-        // Compress the chunk using the Compression Streams API
-        const stream = new Blob([chunkBlob]).stream().pipeThrough(new CompressionStream('gzip'));
-        const compressedBlob = await new Response(stream).blob();
+    const emitProgress = (reason: string) => {
+        const progress = tracker.getProgress();
+        updateProgress(progress);
+        const snapshot = tracker.getSnapshot();
+        console.debug('[UPLOAD_PROGRESS]', {
+            file: file.name,
+            event: reason,
+            ackedChunks: snapshot.totalChunksAcknowledged,
+            totalChunks: snapshot.totalChunksGenerated,
+            ackedBytes: snapshot.acknowledgedCompressedBytes,
+            totalCompressedBytes: snapshot.totalCompressedBytes,
+            compressionFinished: snapshot.compressionFinished,
+            serverCompleted: snapshot.serverCompleted,
+            progress,
+        });
+    };
 
-        const formData = new FormData();
-        formData.append('chunk', compressedBlob, `${file.name}.gz`);
-        formData.append('chunkIndex', String(chunkIndex));
-
-        const controller = new AbortController();
-        try {
-            if (manageController) manageController(controller, 'add');
-            const response = await fetch(`${backendUrl}/upload/${uploadSystemId}`, {
-                method: 'POST',
-                body: formData,
-                signal: controller.signal,
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Chunk ${chunkIndex} upload failed (${response.status}): ${errorText}`);
-            }
-            // This needs to be atomic for concurrent updates
-            const newUploadedCount = uploadedChunks + 1;
-            uploadedChunks = newUploadedCount;
-            updateProgress(Math.round((newUploadedCount / totalChunks) * 100));
-        } finally {
-            if (manageController) manageController(controller, 'remove');
+    const failPendingAcks = (error: Error) => {
+        pendingChunkAcks.forEach((pending) => pending.reject(error));
+        pendingChunkAcks.clear();
+        while (allAcksWaiters.length > 0) {
+            allAcksWaiters.pop()?.reject(error);
         }
     };
 
-    const worker = async (): Promise<void> => {
-        while (chunkQueue.length > 0) {
-            if (shouldCancel && shouldCancel()) return;
+    const notifyIfAllAcksSettled = () => {
+        if (!canSendFinalize(tracker.getSnapshot())) return;
+        while (allAcksWaiters.length > 0) {
+            allAcksWaiters.pop()?.resolve();
+        }
+    };
+
+    const waitForAllChunkAcks = async (): Promise<void> => {
+        if (canSendFinalize(tracker.getSnapshot())) return;
+        await new Promise<void>((resolve, reject) => {
+            allAcksWaiters.push({ resolve, reject });
+        });
+    };
+
+    const ensureSocket = (): Promise<WebSocket> => {
+        if (ws && ws.readyState === WebSocket.OPEN) return Promise.resolve(ws);
+        if (socketReady) return socketReady.then(() => ws as WebSocket);
+
+        socketReady = new Promise((resolve, reject) => {
+            socketReject = reject;
+            ws = new WebSocket(wsUrl);
+            ws.binaryType = 'arraybuffer';
+            ws.onopen = () => {
+                ws?.send(JSON.stringify({
+                    type: 'INIT',
+                    uploadId: uploadSystemId,
+                    fileId,
+                    fileName: file.name,
+                    fileSize: file.size,
+                    totalChunks: 0,
+                    encoding,
+                    auth: authDetails,
+                }));
+                resolve();
+            };
+            ws.onmessage = (event) => {
+                const payload = typeof event.data === 'string' ? JSON.parse(event.data) : null;
+                if (!payload) return;
+                if (payload.type === 'CHUNK_ACK') {
+                    const ackChunkIndex = Number(payload.chunkIndex ?? -1);
+                    const ackBytes = Number(payload.payloadBytes || 0);
+                    if (Number.isFinite(ackChunkIndex) && ackChunkIndex >= 0 && pendingChunkAcks.has(ackChunkIndex)) {
+                        pendingChunkAcks.get(ackChunkIndex)?.resolve();
+                        pendingChunkAcks.delete(ackChunkIndex);
+                    }
+                    if (!acknowledgedChunkIndexes.has(ackChunkIndex)) {
+                        acknowledgedChunkIndexes.add(ackChunkIndex);
+                        tracker.recordChunkAcknowledged(Number.isFinite(ackBytes) && ackBytes > 0 ? ackBytes : 0);
+                        emitProgress('CHUNK_ACK');
+                    }
+                    notifyIfAllAcksSettled();
+                    return;
+                }
+                if (payload.type === 'FILE_COMPLETE') {
+                    serverCompleted = true;
+                    tracker.markServerCompleted();
+                    emitProgress('FILE_COMPLETE');
+                    return;
+                }
+                if (payload.type === 'UPLOAD_ERROR') {
+                    const error = new Error(payload.message || 'Upload error');
+                    failPendingAcks(error);
+                    socketReject?.(error);
+                    throw error;
+                }
+            };
+            ws.onerror = () => {
+                const error = new Error('Upload socket error');
+                failPendingAcks(error);
+                socketReject?.(error);
+            };
+            ws.onclose = () => {
+                if (!serverCompleted && shouldCancel?.() !== true) {
+                    const error = new Error('Upload socket closed before completion');
+                    failPendingAcks(error);
+                    socketReject?.(error);
+                }
+            };
+        });
+
+        return socketReady.then(() => ws as WebSocket);
+    };
+
+    const sendChunkFrame = async (chunkIndex: number, chunkBytes: Uint8Array): Promise<void> => {
+        const socket = await ensureSocket();
+        const checksum = await crypto.subtle.digest('SHA-256', chunkBytes);
+        const checksumHex = Array.from(new Uint8Array(checksum)).map(byte => byte.toString(16).padStart(2, '0')).join('');
+
+        const encoder = new TextEncoder();
+        const uploadIdBytes = encoder.encode(uploadSystemId);
+        const fileIdBytes = encoder.encode(fileId);
+        const encodingBytes = encoder.encode(encoding);
+
+        const headerLen = 1 + 4 + 8 + 4 + 4 + 4 + 64;
+        const frame = new Uint8Array(headerLen + uploadIdBytes.length + fileIdBytes.length + encodingBytes.length + chunkBytes.length);
+        const view = new DataView(frame.buffer);
+        frame[0] = 1;
+        view.setUint32(1, chunkIndex, true);
+        view.setBigUint64(5, BigInt(chunkBytes.length), true);
+        view.setUint32(13, uploadIdBytes.length, true);
+        view.setUint32(17, fileIdBytes.length, true);
+        view.setUint32(21, encodingBytes.length, true);
+
+        let offset = 25;
+        const checksumBytes = encoder.encode(checksumHex);
+        frame.set(checksumBytes, offset);
+        offset += 64;
+        frame.set(uploadIdBytes, offset);
+        offset += uploadIdBytes.length;
+        frame.set(fileIdBytes, offset);
+        offset += fileIdBytes.length;
+        frame.set(encodingBytes, offset);
+        offset += encodingBytes.length;
+        frame.set(chunkBytes, offset);
+
+        if (socket.readyState !== WebSocket.OPEN) {
+            throw new Error('Upload socket is not open');
+        }
+        const ackPromise = new Promise<void>((resolve, reject) => {
+            pendingChunkAcks.set(chunkIndex, { resolve, reject });
+        });
+        socket.send(frame.buffer.slice(frame.byteOffset, frame.byteOffset + frame.byteLength));
+        await ackPromise;
+    };
+
+    const compressionTask = async () => {
+        const reader = file.stream().pipeThrough(new CompressionStream('gzip')).getReader();
+        let buffer = new Uint8Array(0);
+        while (true) {
+            if (shouldCancel?.()) return;
             if (waitWhilePaused && isPaused && isPaused()) {
                 await waitWhilePaused();
             }
-            const chunkIndex = chunkQueue.shift();
-            if (chunkIndex === undefined) {
-                break;
-            }
-            try {
-                if (shouldCancel && shouldCancel()) return;
-                await uploadChunk(chunkIndex);
-            } catch (e: any) {
-                // If paused and a request was aborted, re-enqueue this chunk to retry after resume
-                if ((isPaused && isPaused()) && (e?.name === 'AbortError' || /aborted/i.test(String(e?.message || '')))) {
-                    chunkQueue.unshift(chunkIndex);
-                    if (waitWhilePaused) await waitWhilePaused();
-                    continue;
+
+            const result = await reader.read();
+            if (result.done) break;
+
+            const next = new Uint8Array(buffer.length + result.value.length);
+            next.set(buffer, 0);
+            next.set(result.value, buffer.length);
+            buffer = next;
+
+            while (buffer.length >= CHUNK_SIZE) {
+                const slice = buffer.slice(0, CHUNK_SIZE);
+                buffer = buffer.slice(CHUNK_SIZE);
+                tracker.recordChunkGenerated(slice.length);
+                emitProgress('CHUNK_GENERATED');
+                if (waitWhilePaused && isPaused && isPaused()) {
+                    await waitWhilePaused();
                 }
-                throw e;
+                await sendChunkFrame(chunkIndexCursor, slice);
+                chunkIndexCursor += 1;
+                if (shouldCancel?.()) return;
             }
+        }
+
+        if (buffer.length > 0) {
+            tracker.recordChunkGenerated(buffer.length);
+            emitProgress('FINAL_CHUNK_GENERATED');
+            await sendChunkFrame(chunkIndexCursor, buffer);
+            chunkIndexCursor += 1;
+        }
+
+        tracker.markCompressionFinished();
+        emitProgress('COMPRESSION_FINISHED');
+        await waitForAllChunkAcks();
+
+        if (shouldCancel?.()) return;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+                type: 'FINALIZE',
+                uploadId: uploadSystemId,
+                fileId,
+                fileName: file.name,
+                totalChunks: tracker.getSnapshot().totalChunksGenerated,
+                encoding,
+                fileSize: file.size,
+                collectionId,
+                auth: authDetails,
+            }));
         }
     };
 
-    const uploadPromises: Promise<void>[] = [];
-    for (let i = 0; i < Math.min(MAX_CONCURRENT_CHUNKS_PER_FILE, totalChunks); i++) {
-        uploadPromises.push(worker());
-    }
-    await Promise.all(uploadPromises);
-
-    // If cancelled, don't finalize; exit silently
-    if (shouldCancel && shouldCancel()) {
-        return;
-    }
-
-    if (uploadedChunks !== totalChunks) {
-        throw new Error("Not all chunks were uploaded successfully.");
-    }
-
-    let finalizeFormData = new FormData();
-    finalizeFormData.append('totalChunks', String(totalChunks));
-    finalizeFormData.append('originalFileName', file.name);
-    if (collectionId) {
-        finalizeFormData.append('collectionId', collectionId);
-    }
-
-    if (authDetails.token) {
-        finalizeFormData.append('token', authDetails.token);
-    } else if (authDetails.email && authDetails.password) {
-        finalizeFormData.append('email', authDetails.email);
-        finalizeFormData.append('password', authDetails.password);
-    } else {
-        throw new Error("No authentication details provided for finalization.");
-    }
-
-    const successResponse = await fetch(`${backendUrl}/upload/success/${uploadSystemId}`, {
-        method: 'POST',
-        body: finalizeFormData,
-    });
-
-    if (!successResponse.ok) {
-        let responseText = await successResponse.text();
-        let errorData;
-        try {
-            errorData = JSON.parse(responseText);
-        } catch {
-            errorData = { message: `Finalization failed with status ${successResponse.status}: ${responseText}` };
-        }
-        if ((successResponse.status === 401) && (responseText === "Invalid email or password")) {
-            localStorage.removeItem("email");
-            localStorage.removeItem("password");
-            localStorage.removeItem("display_name");
-            if (!localStorage.getItem("token")) {
-                localStorage.setItem("token", generateClientToken());
-            }
-            finalizeFormData = new FormData();
-            finalizeFormData.append('totalChunks', String(totalChunks));
-            finalizeFormData.append('originalFileName', file.name);
-            finalizeFormData.append('token', localStorage.getItem("token") || "");
-            if (collectionId) {
-                finalizeFormData.append('collectionId', collectionId);
-            }
-            const retryResponse = await fetch(`${backendUrl}/upload/success/${uploadSystemId}`, {
-                method: 'POST',
-                body: finalizeFormData,
-            });
-            if (!retryResponse.ok) {
-                let retryResponseText = await retryResponse.text();
-                let retryErrorData;
-                try {
-                    retryErrorData = JSON.parse(retryResponseText);
-                } catch {
-                    retryErrorData = { message: `Retry finalization failed with status ${retryResponse.status}: ${retryResponseText}` };
+    try {
+        await compressionTask();
+        if (shouldCancel?.()) return;
+        await new Promise<void>((resolve, reject) => {
+            const interval = setInterval(() => {
+                if (serverCompleted) {
+                    clearInterval(interval);
+                    resolve();
+                    return;
                 }
-                throw new Error(`Retry finalization failed: ${retryErrorData.message || retryResponse.statusText}`);
-            }
-            return; // Successfully retried finalization
-        }
-        throw new Error(`Finalization failed: ${errorData.message || successResponse.statusText}`);
+                if (shouldCancel?.()) {
+                    clearInterval(interval);
+                    reject(new Error('Upload cancelled'));
+                }
+            }, 50);
+        });
+    } catch (error: any) {
+        throw new Error(error?.message || 'WebSocket upload failed');
     }
 }
 
@@ -177,12 +275,7 @@ const UploadPopup: Component = () => {
     const [isPaused, setIsPaused] = createSignal(false);
     const [isDragOver, setIsDragOver] = createSignal(false);
     const [open, setOpen] = createSignal(false);
-    // Track active controllers to cancel on pause
     const activeControllers = new Set<AbortController>();
-    const manageController = (c: AbortController, action: 'add' | 'remove') => {
-        if (action === 'add') activeControllers.add(c);
-        else activeControllers.delete(c);
-    };
     // Track files removed during pause to cancel on resume
     const cancelledFiles = new Set<string>();
 
@@ -391,7 +484,6 @@ const UploadPopup: Component = () => {
                 undefined,
                 waitWhilePaused,
                 () => isPaused(),
-                manageController,
                 () => cancelledFiles.has(selectableFile.uniqueId)
             );
             setUploadProgressMap(prev => {
@@ -401,7 +493,6 @@ const UploadPopup: Component = () => {
                     [selectableFile.uniqueId]: {
                         ...prev[selectableFile.uniqueId],
                         status: 'completed',
-                        progress: 100,
                     }
                 });
             });
@@ -452,10 +543,13 @@ const UploadPopup: Component = () => {
             return;
         }
 
-        const candidates = selectedFiles().filter(sf => {
-            const st = currentMap[sf.uniqueId]?.status;
-            return (st === 'pending' || st === 'error') && !cancelledFiles.has(sf.uniqueId);
-        }).slice(0, availableSlots);
+        const candidates = [...selectedFiles()]
+            .filter(sf => {
+                const st = currentMap[sf.uniqueId]?.status;
+                return (st === 'pending' || st === 'error') && !cancelledFiles.has(sf.uniqueId);
+            })
+            .sort((a, b) => a.file.size - b.file.size)
+            .slice(0, availableSlots);
 
         if (candidates.length === 0) {
             // Nothing to start. If none running either, mark idle.
