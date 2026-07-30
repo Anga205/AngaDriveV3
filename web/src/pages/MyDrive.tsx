@@ -760,36 +760,37 @@ const DesktopDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: Se
 
     return (
         <DesktopTemplate CurrentPage="Files">
-            <div class="flex flex-col w-full h-full px-[2vh] p-[1vh] space-y-10">
+            <div class="flex flex-col w-full h-full px-[2vh] p-[1vh]">
                 <div class="w-full flex justify-between items-center">
                     <p class="text-white font-black text-[4vh]">My Files</p>
-                    <div class="flex items-center gap-3 md:translate-y-[4vh] h-12">
-                        <div class="hidden md:block w-80">
-                            <div class="relative">
-                                <input
-                                    class="w-full bg-neutral-900 placeholder-neutral-500 text-neutral-200 rounded-lg px-3 py-2 pr-10 border border-neutral-800 focus:outline-none"
-                                    placeholder="Search files by name or path"
-                                    value={props.searchQuery ? props.searchQuery() : ''}
-                                    onInput={(e) => props.setSearch ? props.setSearch((e.target as HTMLInputElement).value) : null}
-                                />
-                                <div class="absolute right-2 top-2 text-neutral-400">
-                                    <Search class="w-5 h-5" />
-                                </div>
+                </div>
+                <div class="flex width-full justify-end gap-3 h-12">
+                    <div class="hidden md:block w-80">
+                        <div class="relative">
+                            <input
+                                class="w-full bg-neutral-900 placeholder-neutral-500 text-neutral-200 rounded-lg px-3 py-2 pr-10 border border-neutral-800 focus:outline-none"
+                                placeholder="Search files by name or path"
+                                value={props.searchQuery ? props.searchQuery() : ''}
+                                onInput={(e) => props.setSearch ? props.setSearch((e.target as HTMLInputElement).value) : null}
+                            />
+                            <div class="absolute right-2 top-2 text-neutral-400">
+                                <Search class="w-5 h-5" />
                             </div>
                         </div>
-                        <Show when={props.Files().length >= 2}>
-                            <Select
-                                options={props.sortOptions}
-                                selected={props.selectedSort()}
-                                onChange={(s) => props.setSelectedSort(s.length ? [s[s.length - 1]] : [])}
-                                placeholderText="Sort By"
-                                class="h-full"
-                            />
-                        </Show>
-                        <UploadPopup />
                     </div>
+                    <Show when={props.Files().length >= 2}>
+                        <Select
+                            options={props.sortOptions}
+                            selected={props.selectedSort()}
+                            onChange={(s) => props.setSelectedSort(s.length ? [s[s.length - 1]] : [])}
+                            placeholderText="Sort By"
+                            class="h-full"
+                        />
+                    </Show>
+                    <UploadPopup />
                 </div>
-                <div ref={(el) => (desktopScrollRef = el)} class="w-full flex justify-center flex-wrap h-full gap-8 overflow-y-scroll pt-10 custom-scrollbar">
+                <div class="h-5"/>
+                <div ref={(el) => (desktopScrollRef = el)} class="w-full flex justify-center flex-wrap h-full gap-8 overflow-y-scroll custom-scrollbar">
                     <For each={displayedFiles()}  fallback={<FilesError />}>
                     {(file) => <FileCard File={file} />}
                     </For>
@@ -847,31 +848,35 @@ const MobileDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: Sel
             <Navbar CurrentPage="Files" Type="mobile"/>
             <div class="h-[6vh]"/>
             <p class="text-white font-black text-[4vh] px-3">My&nbsp;Files</p>
-            <div class="flex justify-between items-center gap-3 px-3">
-                <div class="flex items-center w-2/3">
-                    <div class="relative w-full">
-                        <input
-                            class="w-full bg-neutral-900 placeholder-neutral-500 text-neutral-200 rounded-lg px-3 py-2 pr-10 border border-neutral-800 focus:outline-none"
-                            placeholder="Search files by name or path"
-                            value={props.searchQuery ? props.searchQuery() : ''}
-                            onInput={(e) => props.setSearch ? props.setSearch((e.target as HTMLInputElement).value) : null}
-                        />
-                        <div class="absolute right-2 top-2 text-neutral-400">
-                            <Search class="w-5 h-5" />
+            <div class="flex flex-col justify-between items-center gap-3 px-3">
+                <Show when={props.Files().length >= 2}>
+                    <div class="flex items-center w-full">
+                        <div class="relative w-full">
+                            <input
+                                class="w-full bg-neutral-900 placeholder-neutral-500 text-neutral-200 rounded-lg px-3 py-2 pr-10 border border-neutral-800 focus:outline-none"
+                                placeholder="Search files by name or path"
+                                value={props.searchQuery ? props.searchQuery() : ''}
+                                onInput={(e) => props.setSearch ? props.setSearch((e.target as HTMLInputElement).value) : null}
+                            />
+                            <div class="absolute right-2 top-2 text-neutral-400">
+                                <Search class="w-5 h-5" />
+                            </div>
                         </div>
                     </div>
-                </div>
-                <Show when={props.Files().length >= 2}>
-                    <div class="z-5">
-                        <Select
-                            options={props.sortOptions}
-                            selected={props.selectedSort()}
-                            onChange={(s) => props.setSelectedSort(s.length ? [s[s.length - 1]] : [])}
-                            placeholderText="Sort By"
-                        />
-                    </div>
                 </Show>
-                <UploadPopup/>
+                <div class={`flex gap-3 w-full ${props.Files().length >= 2 ? 'justify-between' : 'justify-end'}`}>
+                    <Show when={props.Files().length >= 2}>
+                        <div class="z-5 h-full">
+                            <Select
+                                options={props.sortOptions}
+                                selected={props.selectedSort()}
+                                onChange={(s) => props.setSelectedSort(s.length ? [s[s.length - 1]] : [])}
+                                placeholderText="Sort By"
+                            />
+                        </div>
+                    </Show>
+                    <UploadPopup/>
+                </div>
             </div>
             <div ref={(el) => (mobileScrollRef = el)} class="w-full px-4 mt-4 max-h-full h-full flex flex-wrap items-center space-y-4 space-x-4 justify-center overflow-y-auto">
                 <For each={displayedFiles()} fallback={<FilesError />}>

@@ -119,7 +119,7 @@ const Select: Component<SelectProps> = (props) => {
     "absolute z-50 mt-1 w-full max-h-60 overflow-auto rounded-md border border-neutral-700 bg-neutral-900 p-1 shadow-lg";
 
   return (
-    <div class={props.class} style={{ position: "relative" }}>
+    <div class={props.class} style={{ position: "relative" , height: "100%"}}>
       <button
         ref={buttonRef}
         type="button"
