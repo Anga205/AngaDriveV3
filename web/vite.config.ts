@@ -11,10 +11,19 @@ export default defineConfig({
     viteSingleFile(),
     svg()
   ],
+
+  build: {
+    target: "es2022",
+    minify: "esbuild",
+    cssMinify: true,
+    sourcemap: false,
+  },
+
   server: {
     port: 3000,
     allowedHosts: ['port3000.angadbhalla.com'],
   },
+
   resolve: {
     alias: {
       '@': '/src',

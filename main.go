@@ -7,7 +7,6 @@ import (
 	"angadrive/socketHandler"
 	"fmt"
 
-	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 )
 
@@ -16,7 +15,6 @@ func main() {
 	UPLOAD_DIR := "uploaded_files"
 
 	r := gin.Default()
-	r.Use(gzip.Gzip(gzip.BestCompression))
 	// FOR DEVELOPMENT ONLY
 	if gin.Mode() != gin.ReleaseMode {
 		// TURN OFF CORS FOR DEVELOPMENT

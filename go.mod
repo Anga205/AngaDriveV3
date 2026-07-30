@@ -3,9 +3,9 @@ module angadrive
 go 1.24
 
 require (
+	github.com/andybalholm/brotli v1.1.0
 	github.com/disintegration/imaging v1.6.2
 	github.com/gen2brain/go-fitz v1.22.0
-	github.com/gin-contrib/gzip v1.2.3
 	github.com/gin-gonic/gin v1.10.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
