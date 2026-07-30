@@ -1,12 +1,12 @@
 import { For, Show, Accessor, Component, createEffect, createMemo, createSignal, onCleanup, onMount, useContext } from "solid-js";
-import { FileData } from "../../../library/types";
-import Select, { SelectOption } from "../../../components/Select";
-import { AppContext } from "../../../Context";
-import Navbar from "../../../components/Navbar";
+import { FileData } from "@/library/types";
+import Select, { SelectOption } from "@/components/Select";
+import { AppContext } from "@/Context";
+import Navbar from "@/components/Navbar";
 import Search from "lucide-solid/icons/search";
 import { UploadPopup } from "../shared/components/UploadPopUp";
 import FilesError from "../shared/components/FilesError";
-import FileCard from "../../../components/FileCard";
+import FileCard from "@/components/FileCard";
 
 const MobileDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: SelectOption[]; selectedSort: Accessor<string[]>; setSelectedSort: (value: string[]) => void; sortedFiles: () => Array<FileData>; searchQuery?: Accessor<string>; setSearch?: (v: string) => void}> = (props) => {
     // Lazy load for mobile as well

@@ -1,6 +1,6 @@
 import { Component } from "solid-js";
-import { useWebSocket } from "../../../../Websockets";
-import { ErrorSVG, InfoSVG } from "../../../../assets/SvgFiles";
+import { useWebSocket } from "@/Websockets";
+import { ErrorSVG, InfoSVG } from "@/assets/SvgFiles";
 
 
 const FilesError: Component = () => {

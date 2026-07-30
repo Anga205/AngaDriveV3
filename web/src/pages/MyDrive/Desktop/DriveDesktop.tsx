@@ -1,13 +1,13 @@
 import type { Accessor, Component } from "solid-js"
-import { DesktopTemplate } from "../../../components/Template"
+import { DesktopTemplate } from "@/components/Template"
 import { createSignal, Show, For, createMemo, onCleanup, createEffect, useContext, onMount } from "solid-js"
-import Select, { SelectOption } from "../../../components/Select";
-import { AppContext } from "../../../Context";
-import { FileData } from "../../../library/types";
+import Select, { SelectOption } from "@/components/Select";
+import { AppContext } from "@/Context";
+import { FileData } from "@/library/types";
 import Search from "lucide-solid/icons/search";
 import { UploadPopup } from "../shared/components/UploadPopUp";
 import FilesError from "../shared/components/FilesError";
-import FileCard from "../../../components/FileCard";
+import FileCard from "@/components/FileCard";
 
 const DesktopDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: SelectOption[]; selectedSort: Accessor<string[]>; setSelectedSort: (value: string[]) => void; sortedFiles: Accessor<Array<FileData>>; searchQuery?: Accessor<string>; setSearch?: (v: string) => void}> = (props) => {
     // Lazy load files using IntersectionObserver

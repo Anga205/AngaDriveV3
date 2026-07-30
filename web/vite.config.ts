@@ -14,5 +14,10 @@ export default defineConfig({
   server: {
     port: 3000,
     allowedHosts: ['port3000.angadbhalla.com'],
-  }
+  },
+  resolve: {
+    alias: {
+      '@': '/src',
+    }
+  },
 })

@@ -1,20 +1,20 @@
 import { Component, For, useContext, createSignal, createEffect, Show, onMount, onCleanup } from "solid-js";
-import { DesktopTemplate } from "../components/Template";
+import { DesktopTemplate } from "@/components/Template";
 import { useNavigate, useSearchParams } from "@solidjs/router";
-import { AppContext } from "../Context";
-import { useWebSocket } from "../Websockets";
-import FileCard from "../components/FileCard";
-import CollectionCard from "../components/CollectionCard";
+import { AppContext } from "@/Context";
+import { useWebSocket } from "@/Websockets";
+import FileCard from "@/components/FileCard";
+import CollectionCard from "@/components/CollectionCard";
 import Dialog from "@corvu/dialog";
-import Dropdown from "../components/Dropdown";
-import { getCollection, generateUUID } from "../library/functions";
+import Dropdown from "@/components/Dropdown";
+import { getCollection, generateUUID } from "@/library/functions";
 import { Toaster } from "solid-toast";
 import toast from "solid-toast";
-import { CollectionCardData } from "../library/types";
+import { CollectionCardData } from "@/library/types";
 import { uploadFileInChunks } from "./MyDrive/shared/components/UploadPopUp";
 import FileUploadPreview from "./MyDrive/shared/components/FileUploadPreview";
 import type { SelectableFile, FileUploadProgressData } from "./MyDrive/shared/types"
-import Navbar from "../components/Navbar";
+import Navbar from "@/components/Navbar";
 
 const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (props) => {
     const ctx = useContext(AppContext)!;
