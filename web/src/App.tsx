@@ -2,7 +2,7 @@ import { Router, Route, useLocation, useNavigate } from "@solidjs/router";
 import type { RouteSectionProps } from "@solidjs/router";
 import type { Component } from "solid-js";
 import HomePage from "./pages/HomePage";
-import { MyDrive } from "./pages/MyDrive";
+import { MyDrive } from "./pages/MyDrive/MyDrive";
 import { useWebSocket, WebSocketProvider } from "./Websockets";
 import MyCollections from "./pages/MyCollections";
 import Account from "./pages/Account";
