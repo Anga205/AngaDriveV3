@@ -11,7 +11,9 @@ import { getCollection, generateUUID } from "../library/functions";
 import { Toaster } from "solid-toast";
 import toast from "solid-toast";
 import { CollectionCardData } from "../library/types";
-import { uploadFileInChunks, FileUploadPreview, SelectableFile, FileUploadProgressData } from "./MyDrive";
+import { uploadFileInChunks } from "./MyDrive/shared/components/UploadPopUp";
+import FileUploadPreview from "./MyDrive/shared/components/FileUploadPreview";
+import type { SelectableFile, FileUploadProgressData } from "./MyDrive/shared/types"
 import Navbar from "../components/Navbar";
 
 const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (props) => {
