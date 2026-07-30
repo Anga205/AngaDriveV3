@@ -67,12 +67,9 @@ const MyDrive: Component = () => {
         const sel = selectedSort()[0] || 'time_desc';
         const arr = files.slice();
 
-        // Reusable comparator helpers
-        const byTimeAsc = (a: FileData, b: FileData) => a.timestamp - b.timestamp;
         const byTimeDesc = (a: FileData, b: FileData) => b.timestamp - a.timestamp;
-        const byNameAsc = (a: FileData, b: FileData) => a.original_file_name.localeCompare(b.original_file_name, undefined, { sensitivity: 'variant' });
-        const byNameDesc = (a: FileData, b: FileData) => b.original_file_name.localeCompare(a.original_file_name, undefined, { sensitivity: 'variant' });
-        const bySizeAsc = (a: FileData, b: FileData) => a.file_size - b.file_size;
+        const byNameDesc = (a: FileData, b: FileData) =>
+            b.original_file_name.localeCompare(a.original_file_name, undefined, { sensitivity: 'variant' });
         const bySizeDesc = (a: FileData, b: FileData) => b.file_size - a.file_size;
         const byPathAsc = (a: FileData, b: FileData) => a.file_directory.localeCompare(b.file_directory);
 
@@ -87,14 +84,16 @@ const MyDrive: Component = () => {
 
         const comparatorMap: Record<string, (a: FileData, b: FileData) => number> = {
             time_desc: chain(byTimeDesc, byPathAsc),
-            time_asc: chain(byTimeAsc, byPathAsc),
-            name_asc: chain(byNameAsc, byTimeAsc, byPathAsc),
+            time_asc: chain(byTimeDesc, byPathAsc),
             name_desc: chain(byNameDesc, byTimeDesc, byPathAsc),
+            name_asc: chain(byNameDesc, byTimeDesc, byPathAsc),
             size_desc: chain(bySizeDesc, byTimeDesc, byPathAsc),
-            size_asc: chain(bySizeAsc, byTimeAsc, byPathAsc),
+            size_asc: chain(bySizeDesc, byTimeDesc, byPathAsc),
         };
 
-        return arr.sort(comparatorMap[sel] || comparatorMap.time_desc);
+        const result = arr.sort(comparatorMap[sel] || comparatorMap.time_desc);
+
+        return sel.endsWith('_asc') ? result.reverse() : result;
     });
 
     // Filtered files based on live search (name or directory)
@@ -111,26 +110,46 @@ const MyDrive: Component = () => {
         searchQuery();
         try {
             ctx.setLoadedFiles?.(new Set());
-        } catch (e) {}
+        } catch (e) { }
     });
 
     return (
         <>
             <title>My Files | DriveV3</title>
-            {isMobile() ? <MobileDrive Files={ctx.files} sortOptions={sortOptions} selectedSort={selectedSort} setSelectedSort={setSelectedSort} sortedFiles={filteredFiles} searchQuery={searchQuery} setSearch={setSearchQuery}/> : <DesktopDrive Files={ctx.files} sortOptions={sortOptions} selectedSort={selectedSort} setSelectedSort={setSelectedSort} sortedFiles={filteredFiles} searchQuery={searchQuery} setSearch={setSearchQuery}/>} 
+            {
+                isMobile() ?
+                    <MobileDrive
+                        Files={ctx.files}
+                        sortOptions={sortOptions}
+                        selectedSort={selectedSort}
+                        setSelectedSort={setSelectedSort}
+                        sortedFiles={filteredFiles}
+                        searchQuery={searchQuery}
+                        setSearch={setSearchQuery}
+                    /> :
+                    <DesktopDrive
+                        Files={ctx.files}
+                        sortOptions={sortOptions}
+                        selectedSort={selectedSort}
+                        setSelectedSort={setSelectedSort}
+                        sortedFiles={filteredFiles}
+                        searchQuery={searchQuery}
+                        setSearch={setSearchQuery}
+                    />
+            }
             <Toaster
-            position="bottom-right"
-            gutter={8}
-            containerClassName=""
-            containerStyle={{}}
-            toastOptions={{
-                className: '',
-                duration: 2000,
-                style: {
-                background: '#363636',
-                color: '#fff',
-                },
-            }}
+                position="bottom-right"
+                gutter={8}
+                containerClassName=""
+                containerStyle={{}}
+                toastOptions={{
+                    className: '',
+                    duration: 2000,
+                    style: {
+                        background: '#363636',
+                        color: '#fff',
+                    },
+                }}
             />
         </>
     )
