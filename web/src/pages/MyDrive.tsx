@@ -95,9 +95,9 @@ const FileUploadPreview: Component<{
     });
 
     return (
-        <div class="flex items-center justify-between p-3 bg-gray-900 rounded-lg shadow-lg hover:shadow-xl transition-shadow">
-            <div class="flex items-center space-x-4">
-                <div class="w-12 h-12 flex items-center justify-center bg-gray-800 rounded-md overflow-hidden">
+        <div class="flex flex-col sm:flex-row items-center justify-between p-3 bg-neutral-800 rounded-lg shadow-lg hover:shadow-xl transition-shadow w-full sm:w-auto min-h-20 sm:min-h-16 overflow-hidden">
+            <div class="flex items-center space-x-4 w-full sm:w-auto">
+                <div class="w-12 h-12 flex items-center justify-center rounded-md overflow-hidden">
                     {(() => {
                         const url = objectUrl();
                         if (ext && ["pdf"].includes(ext)) {
@@ -112,30 +112,30 @@ const FileUploadPreview: Component<{
                         return <FileSVG />;
                     })()}
                 </div>
-                <div class="flex flex-col">
-                    <p class="text-white text-sm font-medium">{truncateFileName(file.name)}</p>
-                    <p class="text-gray-400 text-xs">{formatFileSize(file.size)}</p>
+                <div class="flex flex-col w-full sm:w-auto">
+                    <p class="text-white text-sm font-medium truncate max-w-50">{truncateFileName(file.name)}</p>
+                    <p class="text-neutral-400 text-xs">{formatFileSize(file.size)}</p>
                 </div>
             </div>
-            <div class="grow ml-4 min-w-25">
+            <div class="grow w-full sm:w-auto mt-3 sm:mt-0 sm:ml-4 min-w-25">
                 <Show when={info() && (info()!.status === 'uploading' || info()!.status === 'pending')}>
-                    <div class="w-full bg-gray-700 rounded-full h-2.5">
+                    <div class="w-full bg-neutral-700 rounded-full h-2.5">
                         <div
                             class="bg-blue-600 h-2.5 rounded-full transition-all duration-100 ease-linear"
                             style={{ width: `${info() ? info()!.progress : 0}%` }}
                         ></div>
                     </div>
-                    <p class="text-xs text-gray-400 mt-1 text-right">{info()!.status === 'pending' ? 'Pending...' : `${info()!.progress}%`}</p>
+                    <p class="text-xs text-neutral-400 mt-1 text-right sm:text-left">{info()!.status === 'pending' ? 'Pending...' : `${info()!.progress}%`}</p>
                 </Show>
                 <Show when={info() && info()!.status === 'completed'}>
-                    <p class="text-sm font-semibold text-green-500 text-right">Uploaded!</p>
+                    <p class="text-sm font-semibold text-green-500 text-right sm:text-left md:text-right">Uploaded!</p>
                 </Show>
                 <Show when={info() && info()!.status === 'error'}>
-                    <p class="text-sm font-semibold text-red-500 text-right" title={info()!.errorMessage}>Error</p>
+                    <p class="text-sm font-semibold text-red-500 text-right sm:text-left" title={info()!.errorMessage}>Error</p>
                 </Show>
             </div>
             <button
-                class="flex items-center justify-center p-2 ml-2 bg-red-700/30 hover:bg-red-700/20 rounded-lg text-red-500 hover:text-red-700 transition-colors"
+                class="flex items-center justify-center p-2 mt-3 sm:mt-0 sm:ml-2 bg-red-700/30 hover:bg-red-700/20 rounded-lg text-red-500 hover:text-red-700 transition-colors w-full sm:w-auto h-10"
                 onClick={() => props.onDelete(props.selectableFile.uniqueId)}
                 disabled={props.canDelete ? !props.canDelete() : (!!info() && info()!.status === 'uploading')}
             >
@@ -645,13 +645,13 @@ const UploadPopup: Component = () => {
 
     return (
         <Dialog open={open()} onOpenChange={(o)=>{ setOpen(o); handleDialogStateChange(o); }}>
-            <Dialog.Trigger class="h-full min-w-fit flex items-center justify-center gap-2 cursor-pointer hover:text-gray-300 text-white bg-blue-600 hover:bg-blue-800 p-[1vh] rounded-[0.6vh] font-bold">
+            <Dialog.Trigger class="h-full min-w-fit flex items-center justify-center gap-2 cursor-pointer hover:text-neutral-300 text-white bg-blue-600 hover:bg-blue-800 p-[1vh] rounded-[0.6vh] font-bold">
                 <UploadSVG />
                 <span>&nbsp;Upload</span>
             </Dialog.Trigger>
             <Dialog.Portal>
                 <Dialog.Overlay class="fixed inset-0 z-50 bg-black/50 data-open:animate-in data-open:fade-in-0% data-closed:animate-out data-closed:fade-out-0%" />
-                <Dialog.Content class="bg-[#0f0f0f] text-white fixed left-1/2 top-1/2 z-50 min-w-[clamp(320px,80vw,600px)] w-auto max-w-[90vw] -translate-x-1/2 -translate-y-1/2 rounded-lg border-2 border-gray-900 bg-corvu-100 px-6 py-5 data-open:animate-in data-open:fade-in-0% data-open:zoom-in-95% data-open:slide-in-from-top-10% data-closed:animate-out data-closed:fade-out-0% data-closed:zoom-out-95% data-closed:slide-out-to-top-10%">
+                <Dialog.Content class="bg-[#0f0f0f] text-white fixed left-1/2 top-1/2 z-50 min-w-[clamp(320px,80vw,600px)] w-auto max-w-[90vw] -translate-x-1/2 -translate-y-1/2 rounded-lg border-2 border-neutral-900 bg-corvu-100 px-6 py-5 data-open:animate-in data-open:fade-in-0% data-open:zoom-in-95% data-open:slide-in-from-top-10% data-closed:animate-out data-closed:fade-out-0% data-closed:zoom-out-95% data-closed:slide-out-to-top-10%">
                     <Dialog.Label class="text-lg font-bold">
                         Upload Files
                     </Dialog.Label>
@@ -672,24 +672,26 @@ const UploadPopup: Component = () => {
                         {selectedFiles().length === 0 ? (
                             <p class="text-center p-4">Drag and drop files here or click to select files</p>
                         ) : (
-                            <div class="flex flex-col w-full space-y-2 max-h-[50vh] overflow-y-auto custom-scrollbar p-1">
-                                <For each={selectedFiles()}>
-                                    {(sf) => (
-                                        <FileUploadPreview
-                                            selectableFile={sf}
-                                            uploadInfo={() => uploadProgressMap()[sf.uniqueId]}
-                                            onDelete={handleFileDelete}
-                                            canDelete={() => isPaused()}
-                                        />
-                                    )}
-                                </For>
+                            <div class="w-full space-y-2 max-h-[50vh] overflow-y-auto custom-scrollbar p-1">
+                                <div class="w-full space-y-2">
+                                    <For each={selectedFiles()}>
+                                        {(sf) => (
+                                            <FileUploadPreview
+                                                selectableFile={sf}
+                                                uploadInfo={() => uploadProgressMap()[sf.uniqueId]}
+                                                onDelete={handleFileDelete}
+                                                canDelete={() => isPaused()}
+                                            />
+                                        )}
+                                    </For>
+                                </div>
                             </div>
                         )}
                         <input id="file-upload" type="file" multiple class="hidden" onChange={handleFileChange} />
                     </label>
                     <Show when={selectedFiles().length > 0 && (filesPendingOrError() > 0 || anyUploading())}>
                         <button
-                            class={`mt-4 w-full ${isPaused() ? 'bg-blue-600 hover:bg-blue-800' : 'bg-yellow-600 hover:bg-yellow-800'} disabled:bg-gray-600 text-white font-bold py-2 px-4 rounded`}
+                            class={`mt-4 w-full ${isPaused() ? 'bg-blue-600 hover:bg-blue-800' : 'bg-yellow-600 hover:bg-yellow-800'} disabled:bg-neutral-600 text-white font-bold py-2 px-4 rounded`}
                             onClick={() => {
                                 const next = !isPaused();
                                 setIsPaused(next);
