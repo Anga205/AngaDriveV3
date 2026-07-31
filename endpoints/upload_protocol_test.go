@@ -88,16 +88,20 @@ func TestCheckMissingChunksTracksResumeState(t *testing.T) {
 	}
 }
 
-func TestUploadProgressRemainsBelow100UntilFileComplete(t *testing.T) {
+func TestUploadProgressReaches100WhenDataReceivedOrComplete(t *testing.T) {
 	progressBeforeComplete := computeUploadProgress(75, 100, false)
 	if progressBeforeComplete >= 100 {
-		t.Fatalf("progress should remain below 100 before server FILE_COMPLETE; got %d", progressBeforeComplete)
+		t.Fatalf("progress should remain below 100 before server data received; got %d", progressBeforeComplete)
 	}
 	if progressBeforeComplete != 75 {
 		t.Fatalf("expected 75 before completion, got %d", progressBeforeComplete)
 	}
+	progressDataReceived := computeUploadProgress(100, 100, false)
+	if progressDataReceived != 100 {
+		t.Fatalf("progress should reach 100 when all data is received; got %d", progressDataReceived)
+	}
 	progressAfterComplete := computeUploadProgress(100, 100, true)
 	if progressAfterComplete != 100 {
-		t.Fatalf("progress should reach 100 only after FILE_COMPLETE; got %d", progressAfterComplete)
+		t.Fatalf("progress should reach 100 on FILE_COMPLETE; got %d", progressAfterComplete)
 	}
 }

@@ -2,7 +2,7 @@ import Dialog from "@corvu/dialog";
 import { AppContext } from "@/Context";
 import type { Component } from "solid-js"
 import { createSignal, Show, For, createMemo, onCleanup, createEffect, useContext, onMount } from "solid-js"
-import { UploadSVG} from "@/assets/SvgFiles"
+import { UploadSVG } from "@/assets/SvgFiles"
 import { toast } from 'solid-toast';
 import { generateClientToken, generateUUID } from "@/library/functions";
 import type { SelectableFile, FileUploadProgressData, AuthDetails } from "../types";
@@ -11,12 +11,14 @@ import { UploadProgressTracker, canSendFinalize } from "./uploadProgressState";
 
 const CHUNK_SIZE = 7 * 1024 * 1024; // 7MB compressed chunk size
 const MAX_CONCURRENT_UPLOADS = 3;
+const PIPELINE_WINDOW_SIZE = 4; // Bounded window allowing up to 4 in-flight chunks
 
 async function uploadFileInChunks(
     selectableFile: SelectableFile,
     uploadSystemId: string,
     authDetails: AuthDetails,
     updateProgress: (progress: number) => void,
+    onDataReceived?: () => void,
     collectionId?: string,
     waitWhilePaused?: () => Promise<void>,
     isPaused?: () => boolean,
@@ -31,16 +33,23 @@ async function uploadFileInChunks(
     const tracker = new UploadProgressTracker(file.size);
     let chunkIndexCursor = 0;
     let serverCompleted = false;
+    let dataReceivedNotified = false;
     let ws: WebSocket | null = null;
     let socketReady: Promise<void> | null = null;
     let socketReject: ((error: Error) => void) | null = null;
+    const inFlightChunks = new Set<number>();
     const pendingChunkAcks = new Map<number, { resolve: () => void; reject: (error: Error) => void }>();
     const acknowledgedChunkIndexes = new Set<number>();
     const allAcksWaiters: Array<{ resolve: () => void; reject: (error: Error) => void }> = [];
+    const windowAvailableWaiters: Array<() => void> = [];
 
     const emitProgress = (reason: string) => {
         const progress = tracker.getProgress();
         updateProgress(progress);
+        if (tracker.isDataReceived() && !dataReceivedNotified) {
+            dataReceivedNotified = true;
+            onDataReceived?.();
+        }
         const snapshot = tracker.getSnapshot();
         console.debug('[UPLOAD_PROGRESS]', {
             file: file.name,
@@ -50,6 +59,7 @@ async function uploadFileInChunks(
             ackedBytes: snapshot.acknowledgedCompressedBytes,
             totalCompressedBytes: snapshot.totalCompressedBytes,
             compressionFinished: snapshot.compressionFinished,
+            dataReceived: snapshot.dataReceived,
             serverCompleted: snapshot.serverCompleted,
             progress,
         });
@@ -58,6 +68,7 @@ async function uploadFileInChunks(
     const failPendingAcks = (error: Error) => {
         pendingChunkAcks.forEach((pending) => pending.reject(error));
         pendingChunkAcks.clear();
+        inFlightChunks.clear();
         while (allAcksWaiters.length > 0) {
             allAcksWaiters.pop()?.reject(error);
         }
@@ -68,6 +79,20 @@ async function uploadFileInChunks(
         while (allAcksWaiters.length > 0) {
             allAcksWaiters.pop()?.resolve();
         }
+    };
+
+    const notifyWindowSlot = () => {
+        while (inFlightChunks.size < PIPELINE_WINDOW_SIZE && windowAvailableWaiters.length > 0) {
+            const waiter = windowAvailableWaiters.shift();
+            waiter?.();
+        }
+    };
+
+    const waitForWindowSlot = async (): Promise<void> => {
+        if (inFlightChunks.size < PIPELINE_WINDOW_SIZE) return;
+        await new Promise<void>((resolve) => {
+            windowAvailableWaiters.push(resolve);
+        });
     };
 
     const waitForAllChunkAcks = async (): Promise<void> => {
@@ -104,9 +129,13 @@ async function uploadFileInChunks(
                 if (payload.type === 'CHUNK_ACK') {
                     const ackChunkIndex = Number(payload.chunkIndex ?? -1);
                     const ackBytes = Number(payload.payloadBytes || 0);
-                    if (Number.isFinite(ackChunkIndex) && ackChunkIndex >= 0 && pendingChunkAcks.has(ackChunkIndex)) {
-                        pendingChunkAcks.get(ackChunkIndex)?.resolve();
-                        pendingChunkAcks.delete(ackChunkIndex);
+                    if (Number.isFinite(ackChunkIndex) && ackChunkIndex >= 0) {
+                        inFlightChunks.delete(ackChunkIndex);
+                        if (pendingChunkAcks.has(ackChunkIndex)) {
+                            pendingChunkAcks.get(ackChunkIndex)?.resolve();
+                            pendingChunkAcks.delete(ackChunkIndex);
+                        }
+                        notifyWindowSlot();
                     }
                     if (!acknowledgedChunkIndexes.has(ackChunkIndex)) {
                         acknowledgedChunkIndexes.add(ackChunkIndex);
@@ -114,6 +143,11 @@ async function uploadFileInChunks(
                         emitProgress('CHUNK_ACK');
                     }
                     notifyIfAllAcksSettled();
+                    return;
+                }
+                if (payload.type === 'DATA_RECEIVED') {
+                    tracker.markDataReceived();
+                    emitProgress('DATA_RECEIVED');
                     return;
                 }
                 if (payload.type === 'FILE_COMPLETE') {
@@ -135,7 +169,7 @@ async function uploadFileInChunks(
                 socketReject?.(error);
             };
             ws.onclose = () => {
-                if (!serverCompleted && shouldCancel?.() !== true) {
+                if (!serverCompleted && !tracker.isDataReceived() && shouldCancel?.() !== true) {
                     const error = new Error('Upload socket closed before completion');
                     failPendingAcks(error);
                     socketReject?.(error);
@@ -147,8 +181,10 @@ async function uploadFileInChunks(
     };
 
     const sendChunkFrame = async (chunkIndex: number, chunkBytes: Uint8Array): Promise<void> => {
+        await waitForWindowSlot();
         const socket = await ensureSocket();
-        const checksum = await crypto.subtle.digest('SHA-256', chunkBytes);
+        // Fix: Cast buffer to ArrayBuffer to satisfy BufferSource type for crypto.subtle.digest
+        const checksum = await crypto.subtle.digest('SHA-256', chunkBytes.buffer as ArrayBuffer);
         const checksumHex = Array.from(new Uint8Array(checksum)).map(byte => byte.toString(16).padStart(2, '0')).join('');
 
         const encoder = new TextEncoder();
@@ -181,11 +217,12 @@ async function uploadFileInChunks(
         if (socket.readyState !== WebSocket.OPEN) {
             throw new Error('Upload socket is not open');
         }
-        const ackPromise = new Promise<void>((resolve, reject) => {
-            pendingChunkAcks.set(chunkIndex, { resolve, reject });
+        inFlightChunks.add(chunkIndex);
+        pendingChunkAcks.set(chunkIndex, {
+            resolve: () => { },
+            reject: () => { },
         });
         socket.send(frame.buffer.slice(frame.byteOffset, frame.byteOffset + frame.byteLength));
-        await ackPromise;
     };
 
     const compressionTask = async () => {
@@ -229,6 +266,10 @@ async function uploadFileInChunks(
         tracker.markCompressionFinished();
         emitProgress('COMPRESSION_FINISHED');
         await waitForAllChunkAcks();
+
+        // All chunks ACKed -> DATA_RECEIVED on client side
+        tracker.markDataReceived();
+        emitProgress('ALL_CHUNKS_ACKED');
 
         if (shouldCancel?.()) return;
         if (ws && ws.readyState === WebSocket.OPEN) {
@@ -322,7 +363,7 @@ const UploadPopup: Component = () => {
     };
 
     const handleFileDelete = (uniqueIdToDelete: string) => {
-    cancelledFiles.add(uniqueIdToDelete);
+        cancelledFiles.add(uniqueIdToDelete);
         setSelectedFiles((prev) => prev.filter(sf => sf.uniqueId !== uniqueIdToDelete));
         setUploadProgressMap(prev => {
             const updated = { ...prev };
@@ -346,13 +387,13 @@ const UploadPopup: Component = () => {
         const map = uploadProgressMap();
         return files.every(sf => {
             const status = map[sf.uniqueId]?.status;
-            return status === 'completed' || status === 'error';
+            return status === 'completed' || status === 'processing' || status === 'error';
         });
     });
 
     const canClosePopup = createMemo(() => !hasActiveUploads() || isPaused());
     const shouldPreserveUploadStateOnClose = createMemo(() => isPaused() && selectedFiles().length > 0 && !allUploadsComplete());
-    
+
     const handleDialogStateChange = (isOpen: boolean) => {
         if (!isOpen) {
             if (!canClosePopup()) {
@@ -481,6 +522,20 @@ const UploadPopup: Component = () => {
                         });
                     });
                 },
+                () => {
+                    // onDataReceived callback: server has all data, 100% upload complete
+                    setUploadProgressMap(prev => {
+                        if (cancelledFiles.has(selectableFile.uniqueId)) return prev;
+                        return ({
+                            ...prev,
+                            [selectableFile.uniqueId]: {
+                                ...prev[selectableFile.uniqueId],
+                                status: prev[selectableFile.uniqueId]?.status === 'completed' ? 'completed' : 'processing',
+                                progress: 100,
+                            }
+                        });
+                    });
+                },
                 undefined,
                 waitWhilePaused,
                 () => isPaused(),
@@ -493,6 +548,7 @@ const UploadPopup: Component = () => {
                     [selectableFile.uniqueId]: {
                         ...prev[selectableFile.uniqueId],
                         status: 'completed',
+                        progress: 100,
                     }
                 });
             });
@@ -594,7 +650,7 @@ const UploadPopup: Component = () => {
 
 
     return (
-        <Dialog open={open()} onOpenChange={(o)=>{ setOpen(o); handleDialogStateChange(o); }}>
+        <Dialog open={open()} onOpenChange={(o) => { setOpen(o); handleDialogStateChange(o); }}>
             <Dialog.Trigger class="h-full min-w-fit flex items-center justify-center gap-2 cursor-pointer hover:text-neutral-300 text-white bg-blue-600 hover:bg-blue-800 p-[1vh] rounded-[0.6vh] font-bold">
                 <UploadSVG />
                 <span>&nbsp;Upload</span>

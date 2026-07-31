@@ -92,6 +92,20 @@ const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (pro
                         return ({ ...prev, [sf.uniqueId]: { ...prev[sf.uniqueId], progress } });
                     });
                 },
+                () => {
+                    // onDataReceived callback
+                    setUploadProgressMap(prev => {
+                        if (cancelledFiles.has(sf.uniqueId)) return prev;
+                        return ({
+                            ...prev,
+                            [sf.uniqueId]: {
+                                ...prev[sf.uniqueId],
+                                status: prev[sf.uniqueId]?.status === 'completed' ? 'completed' : 'processing',
+                                progress: 100,
+                            }
+                        });
+                    });
+                },
                 props.collectionId,
                 waitWhilePaused,
                 () => isPaused(),
@@ -99,7 +113,7 @@ const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (pro
             );
             setUploadProgressMap(prev => {
                 if (cancelledFiles.has(sf.uniqueId)) return prev;
-                return ({ ...prev, [sf.uniqueId]: { ...prev[sf.uniqueId], status: 'completed' } });
+                return ({ ...prev, [sf.uniqueId]: { ...prev[sf.uniqueId], status: 'completed', progress: 100 } });
             });
         } catch (error: any) {
             setUploadProgressMap(prev => {

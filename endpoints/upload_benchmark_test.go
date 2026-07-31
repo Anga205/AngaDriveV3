@@ -37,8 +37,8 @@ func benchmarkChunkSequence(sizeMB int, chunkSize int) ([]byte, [][]byte) {
 func BenchmarkLegacyChunkAssembly(b *testing.B) {
 	payload, compressedChunks := benchmarkChunkSequence(8, 7*1024*1024)
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		baseDir := b.TempDir()
 		for j, chunk := range compressedChunks {
 			path := filepath.Join(baseDir, fmt.Sprintf("%d.part", j))
@@ -69,8 +69,8 @@ func BenchmarkLegacyChunkAssembly(b *testing.B) {
 func BenchmarkStreamingGzipAssembly(b *testing.B) {
 	payload, compressedChunks := benchmarkChunkSequence(8, 7*1024*1024)
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		baseDir := b.TempDir()
 		for j, chunk := range compressedChunks {
 			path := filepath.Join(baseDir, fmt.Sprintf("%d.part", j))

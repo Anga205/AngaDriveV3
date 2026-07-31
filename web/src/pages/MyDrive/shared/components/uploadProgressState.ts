@@ -5,23 +5,24 @@ export interface UploadProgressSnapshot {
     totalChunksGenerated: number;
     totalChunksAcknowledged: number;
     compressionFinished: boolean;
+    dataReceived: boolean;
     serverCompleted: boolean;
 }
 
 const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
 
 export function computeAckDrivenProgress(snapshot: UploadProgressSnapshot): number {
-    if (snapshot.serverCompleted) return 100;
+    if (snapshot.dataReceived || snapshot.serverCompleted) return 100;
     if (snapshot.totalOriginalBytes <= 0) return 0;
 
     let candidate = 0;
     if (snapshot.compressionFinished && snapshot.totalCompressedBytes > 0) {
-        candidate = Math.floor((snapshot.acknowledgedCompressedBytes / snapshot.totalCompressedBytes) * 99);
         if (snapshot.totalChunksGenerated > 0 && snapshot.totalChunksAcknowledged >= snapshot.totalChunksGenerated) {
-            candidate = Math.max(candidate, 99);
+            return 100;
         }
+        candidate = Math.floor((snapshot.acknowledgedCompressedBytes / snapshot.totalCompressedBytes) * 99);
     } else {
-        // While compression is in-flight, use a conservative denominator tied to full file size.
+        // While compression is in-flight, estimate based on original bytes vs acknowledged
         candidate = Math.floor((snapshot.acknowledgedCompressedBytes / snapshot.totalOriginalBytes) * 95);
     }
 
@@ -46,6 +47,7 @@ export class UploadProgressTracker {
             totalChunksGenerated: 0,
             totalChunksAcknowledged: 0,
             compressionFinished: false,
+            dataReceived: false,
             serverCompleted: false,
         };
     }
@@ -59,18 +61,34 @@ export class UploadProgressTracker {
     recordChunkAcknowledged(ackBytes: number): number {
         this.snapshot.totalChunksAcknowledged += 1;
         this.snapshot.acknowledgedCompressedBytes += Math.max(0, ackBytes);
+        if (this.snapshot.compressionFinished && this.snapshot.totalChunksGenerated > 0 && this.snapshot.totalChunksAcknowledged >= this.snapshot.totalChunksGenerated) {
+            this.snapshot.dataReceived = true;
+        }
         return this.recalculate();
     }
 
     markCompressionFinished(): number {
         this.snapshot.compressionFinished = true;
+        if (this.snapshot.totalChunksGenerated > 0 && this.snapshot.totalChunksAcknowledged >= this.snapshot.totalChunksGenerated) {
+            this.snapshot.dataReceived = true;
+        }
         return this.recalculate();
+    }
+
+    markDataReceived(): number {
+        this.snapshot.dataReceived = true;
+        this.progress = 100;
+        return this.progress;
     }
 
     markServerCompleted(): number {
         this.snapshot.serverCompleted = true;
         this.progress = 100;
         return this.progress;
+    }
+
+    isDataReceived(): boolean {
+        return this.snapshot.dataReceived || (this.snapshot.compressionFinished && this.snapshot.totalChunksGenerated > 0 && this.snapshot.totalChunksAcknowledged >= this.snapshot.totalChunksGenerated);
     }
 
     getProgress(): number {

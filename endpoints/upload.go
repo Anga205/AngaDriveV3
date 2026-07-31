@@ -331,30 +331,47 @@ func finalizeUploadFromSession(uploadID, uploadPath string, totalChunks int, ori
 	if err != nil {
 		return "", database.FileData{}, fmt.Errorf("failed to create temporary file")
 	}
-	defer tempFile.Close()
-	defer os.Remove(tempFile.Name())
+	tempFilePath := tempFile.Name()
+	defer func() {
+		_ = tempFile.Close()
+		_ = os.Remove(tempFilePath)
+	}()
+
+	hash := md5.New()
+	multiOut := io.MultiWriter(tempFile, hash)
 
 	if encoding == "gzip-stream-v1" {
-		assembledPath, err := assembleGzipStream(uploadPath, totalChunks)
-		if err != nil {
-			return "", database.FileData{}, fmt.Errorf("failed to assemble gzip stream: %w", err)
+		chunkReaders := make([]io.Reader, totalChunks)
+		chunkFiles := make([]*os.File, totalChunks)
+		for i := 0; i < totalChunks; i++ {
+			chunkPath := filepath.Join(uploadPath, fmt.Sprintf("%d.part", i))
+			f, err := os.Open(chunkPath)
+			if err != nil {
+				for k := 0; k < i; k++ {
+					_ = chunkFiles[k].Close()
+				}
+				return "", database.FileData{}, fmt.Errorf("failed to open chunk %d: %w", i, err)
+			}
+			chunkFiles[i] = f
+			chunkReaders[i] = f
 		}
-		defer os.Remove(assembledPath)
+		defer func() {
+			for _, f := range chunkFiles {
+				if f != nil {
+					_ = f.Close()
+				}
+			}
+		}()
 
-		assembledFile, err := os.Open(assembledPath)
+		multiReader := io.MultiReader(chunkReaders...)
+		gzReader, err := gzip.NewReader(multiReader)
 		if err != nil {
-			return "", database.FileData{}, fmt.Errorf("failed to open assembled gzip stream")
-		}
-		defer assembledFile.Close()
-
-		gzReader, err := gzip.NewReader(assembledFile)
-		if err != nil {
-			return "", database.FileData{}, fmt.Errorf("could not decompress assembled gzip stream")
+			return "", database.FileData{}, fmt.Errorf("could not initialize gzip reader: %w", err)
 		}
 		defer gzReader.Close()
 
-		if _, err := io.Copy(tempFile, gzReader); err != nil {
-			return "", database.FileData{}, fmt.Errorf("failed to decompress assembled gzip stream")
+		if _, err := io.Copy(multiOut, gzReader); err != nil {
+			return "", database.FileData{}, fmt.Errorf("failed to decompress assembled gzip stream: %w", err)
 		}
 	} else {
 		for i := 0; i < totalChunks; i++ {
@@ -363,7 +380,7 @@ func finalizeUploadFromSession(uploadID, uploadPath string, totalChunks int, ori
 			if err != nil {
 				return "", database.FileData{}, fmt.Errorf("failed to open chunk %d: %w", i, err)
 			}
-			_, err = io.Copy(tempFile, chunkFile)
+			_, err = io.Copy(multiOut, chunkFile)
 			chunkFile.Close()
 			if err != nil {
 				return "", database.FileData{}, fmt.Errorf("failed to copy chunk %d: %w", i, err)
@@ -371,11 +388,6 @@ func finalizeUploadFromSession(uploadID, uploadPath string, totalChunks int, ori
 		}
 	}
 
-	tempFile.Seek(0, 0)
-	hash := md5.New()
-	if _, err := io.Copy(hash, tempFile); err != nil {
-		return "", database.FileData{}, fmt.Errorf("failed to calculate MD5 hash")
-	}
 	md5sum := hex.EncodeToString(hash.Sum(nil))
 	fileInfo, err := tempFile.Stat()
 	if err != nil {
@@ -389,9 +401,9 @@ func finalizeUploadFromSession(uploadID, uploadPath string, totalChunks int, ori
 	}
 
 	finalFilePath := filepath.Join(finalDestDir, md5sum+filepath.Ext(originalFileName))
-	tempFile.Close()
-	if err := os.Rename(tempFile.Name(), finalFilePath); err != nil {
-		return "", database.FileData{}, fmt.Errorf("failed to rename temporary file")
+	_ = tempFile.Close()
+	if err := os.Rename(tempFilePath, finalFilePath); err != nil {
+		return "", database.FileData{}, fmt.Errorf("failed to rename temporary file: %w", err)
 	}
 
 	uniqueFileName := database.GenerateUniqueFileName(originalFileName)
@@ -405,7 +417,7 @@ func finalizeUploadFromSession(uploadID, uploadPath string, totalChunks int, ori
 	}
 
 	if err := fileData.Insert(); err != nil {
-		os.Remove(finalFilePath)
+		_ = os.Remove(finalFilePath)
 		return "", database.FileData{}, fmt.Errorf("failed to insert file metadata: %w", err)
 	}
 
@@ -557,10 +569,7 @@ func computeUploadProgress(acknowledgedBytes, totalBytes int64, fileComplete boo
 		return 0
 	}
 	progress := int((float64(acknowledgedBytes) / float64(totalBytes)) * 100)
-	if !fileComplete && progress >= 100 {
-		return 99
-	}
-	if fileComplete {
+	if progress >= 100 || fileComplete {
 		return 100
 	}
 	return progress

@@ -60,6 +60,17 @@ const FileUploadPreview: Component<{
                     </div>
                     <p class="text-xs text-neutral-400 mt-1 text-right sm:text-left">{info()!.status === 'pending' ? 'Pending...' : `${info()!.progress}%`}</p>
                 </Show>
+                <Show when={info() && info()!.status === 'processing'}>
+                    <div class="w-full bg-neutral-700 rounded-full h-2.5">
+                        <div
+                            class="bg-green-600 h-2.5 rounded-full transition-all duration-100 ease-linear"
+                            style={{ width: `100%` }}
+                        ></div>
+                    </div>
+                    <p class="text-xs text-blue-400 mt-1 text-right sm:text-left" title="Upload complete — processing on server. You may close this window.">
+                        100% Uploaded — Processing on server...
+                    </p>
+                </Show>
                 <Show when={info() && info()!.status === 'completed'}>
                     <p class="text-sm font-semibold text-green-500 text-right sm:text-left md:text-right">Uploaded!</p>
                 </Show>

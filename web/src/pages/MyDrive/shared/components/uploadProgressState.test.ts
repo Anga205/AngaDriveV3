@@ -11,6 +11,7 @@ describe('upload progress state machine', () => {
         tracker.markCompressionFinished();
 
         expect(tracker.getProgress()).toBeLessThan(100);
+        expect(tracker.isDataReceived()).toBe(false);
     });
 
     it('keeps progress below 100 when all chunks are generated but not all acknowledged', () => {
@@ -24,6 +25,7 @@ describe('upload progress state machine', () => {
         tracker.markCompressionFinished();
 
         expect(tracker.getProgress()).toBeLessThan(100);
+        expect(tracker.isDataReceived()).toBe(false);
     });
 
     it('keeps progress below 100 when chunks are sent but ACKs are missing', () => {
@@ -36,9 +38,10 @@ describe('upload progress state machine', () => {
 
         expect(tracker.getProgress()).toBeLessThan(100);
         expect(tracker.getProgress()).toBe(0);
+        expect(tracker.isDataReceived()).toBe(false);
     });
 
-    it('keeps progress below 100 when all chunks are ACKed but FILE_COMPLETE is missing', () => {
+    it('reaches 100 as soon as all chunks are generated and ACKed (DATA_RECEIVED)', () => {
         const tracker = new UploadProgressTracker(10_000);
         tracker.recordChunkGenerated(1500);
         tracker.recordChunkGenerated(1500);
@@ -48,31 +51,29 @@ describe('upload progress state machine', () => {
         tracker.recordChunkAcknowledged(1500);
         tracker.markCompressionFinished();
 
-        expect(tracker.getProgress()).toBe(99);
-        expect(tracker.getProgress()).toBeLessThan(100);
+        expect(tracker.getProgress()).toBe(100);
+        expect(tracker.isDataReceived()).toBe(true);
     });
 
-    it('reaches 100 only after FILE_COMPLETE state arrives', () => {
+    it('marks data received explicitly via markDataReceived', () => {
         const tracker = new UploadProgressTracker(10_000);
         tracker.recordChunkGenerated(1000);
         tracker.recordChunkAcknowledged(1000);
         tracker.markCompressionFinished();
 
+        tracker.markDataReceived();
+        expect(tracker.getProgress()).toBe(100);
+        expect(tracker.isDataReceived()).toBe(true);
+    });
+
+    it('reaches 100 when serverCompleted is marked', () => {
+        const tracker = new UploadProgressTracker(10_000);
+        tracker.recordChunkGenerated(1000);
+        tracker.recordChunkAcknowledged(500);
+
         expect(tracker.getProgress()).toBeLessThan(100);
         tracker.markServerCompleted();
         expect(tracker.getProgress()).toBe(100);
-    });
-
-    it('never reaches 100 without FILE_COMPLETE even after all ACKed work', () => {
-        const tracker = new UploadProgressTracker(10_000);
-        tracker.recordChunkGenerated(3000);
-        tracker.recordChunkGenerated(3000);
-        tracker.recordChunkAcknowledged(3000);
-        tracker.recordChunkAcknowledged(3000);
-        tracker.markCompressionFinished();
-
-        expect(tracker.getProgress()).toBe(99);
-        expect(tracker.getProgress()).not.toBe(100);
     });
 
     it('does not allow FINALIZE before the final chunk ACK', () => {
@@ -108,17 +109,6 @@ describe('upload progress state machine', () => {
         for (let i = 1; i < seen.length; i += 1) {
             expect(seen[i]).toBeGreaterThanOrEqual(seen[i - 1]);
         }
-    });
-
-    it('never exceeds 99 before FILE_COMPLETE', () => {
-        const tracker = new UploadProgressTracker(1);
-        tracker.recordChunkGenerated(1000);
-        tracker.recordChunkAcknowledged(1000);
-        tracker.markCompressionFinished();
-
-        expect(tracker.getProgress()).toBeLessThanOrEqual(99);
-        tracker.markServerCompleted();
-        expect(tracker.getProgress()).toBe(100);
     });
 
     it('maintains independent progress per file tracker', () => {

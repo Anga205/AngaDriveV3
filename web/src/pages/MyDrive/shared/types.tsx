@@ -7,7 +7,7 @@ interface FileUploadProgressData {
     id: string; // Corresponds to SelectableFile.uniqueId
     name: string;
     progress: number; // 0-100
-    status: 'pending' | 'uploading' | 'completed' | 'error';
+    status: 'pending' | 'uploading' | 'processing' | 'completed' | 'error';
     errorMessage?: string;
 }
 
