@@ -105,3 +105,26 @@ func TestUploadProgressReaches100WhenDataReceivedOrComplete(t *testing.T) {
 		t.Fatalf("progress should reach 100 on FILE_COMPLETE; got %d", progressAfterComplete)
 	}
 }
+
+func TestEncodeDecodeUploadChunkFrame(t *testing.T) {
+	payload := []byte("multiplexed chunk test payload with binary data 1234567890")
+	frameBytes := encodeUploadChunkFrame("upload-test-uuid-1", "file-test-uuid-1", "gzip-stream-v1", 3, payload)
+
+	decoded, err := decodeUploadChunkFrame(frameBytes)
+	if err != nil {
+		t.Fatalf("decodeUploadChunkFrame failed: %v", err)
+	}
+
+	if decoded.UploadID != "upload-test-uuid-1" {
+		t.Fatalf("expected uploadID 'upload-test-uuid-1', got '%s'", decoded.UploadID)
+	}
+	if decoded.FileID != "file-test-uuid-1" {
+		t.Fatalf("expected fileID 'file-test-uuid-1', got '%s'", decoded.FileID)
+	}
+	if decoded.ChunkIndex != 3 {
+		t.Fatalf("expected chunkIndex 3, got %d", decoded.ChunkIndex)
+	}
+	if !bytes.Equal(decoded.Payload, payload) {
+		t.Fatalf("payload mismatch")
+	}
+}

@@ -201,7 +201,7 @@ func handleChunkUpload(c *gin.Context) {
 }
 
 func handleUploadWebSocket(c *gin.Context) {
-	uploadID := c.Param("uuid")
+	connUploadID := c.Param("uuid")
 	upgrader := websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
@@ -210,10 +210,9 @@ func handleUploadWebSocket(c *gin.Context) {
 	}
 	defer conn.Close()
 
-	uploadPath := filepath.Join(chunkDir, uploadID)
-	if err := os.MkdirAll(uploadPath, os.ModePerm); err != nil {
-		_ = conn.WriteJSON(map[string]any{"type": "UPLOAD_ERROR", "message": "Failed to create upload directory"})
-		return
+	if connUploadID != "pool" && connUploadID != "" {
+		uploadPath := filepath.Join(chunkDir, connUploadID)
+		_ = os.MkdirAll(uploadPath, os.ModePerm)
 	}
 
 	for {
@@ -235,6 +234,17 @@ func handleUploadWebSocket(c *gin.Context) {
 				}
 			case "FINALIZE":
 				finalizeControl := control
+				targetUploadID, _ := finalizeControl["uploadId"].(string)
+				if targetUploadID == "" {
+					targetUploadID = connUploadID
+				}
+				if targetUploadID == "" || targetUploadID == "pool" {
+					_ = conn.WriteJSON(map[string]any{"type": "UPLOAD_ERROR", "message": "Missing uploadId for FINALIZE"})
+					continue
+				}
+
+				targetUploadPath := filepath.Join(chunkDir, targetUploadID)
+
 				var authToken, authEmail, authPassword string
 				if val, ok := finalizeControl["auth"]; ok {
 					if authObj, ok := val.(map[string]any); ok {
@@ -244,28 +254,43 @@ func handleUploadWebSocket(c *gin.Context) {
 					}
 				}
 				originalFileName, _ := finalizeControl["fileName"].(string)
+				fileID, _ := finalizeControl["fileId"].(string)
 				collectionID, _ := finalizeControl["collectionId"].(string)
 				totalChunks, _ := strconv.Atoi(fmt.Sprintf("%v", finalizeControl["totalChunks"]))
 				fileSize, _ := strconv.ParseInt(fmt.Sprintf("%v", finalizeControl["fileSize"]), 10, 64)
 				encodingName, _ := finalizeControl["encoding"].(string)
 				if originalFileName == "" {
-					_ = conn.WriteJSON(map[string]any{"type": "UPLOAD_ERROR", "message": "Missing originalFileName"})
+					_ = conn.WriteJSON(map[string]any{"type": "UPLOAD_ERROR", "uploadId": targetUploadID, "fileId": fileID, "message": "Missing originalFileName"})
 					continue
 				}
 				if totalChunks <= 0 {
-					_ = conn.WriteJSON(map[string]any{"type": "UPLOAD_ERROR", "message": "Missing totalChunks"})
+					_ = conn.WriteJSON(map[string]any{"type": "UPLOAD_ERROR", "uploadId": targetUploadID, "fileId": fileID, "message": "Missing totalChunks"})
 					continue
 				}
 				if authToken == "" && (authEmail == "" || authPassword == "") {
-					_ = conn.WriteJSON(map[string]any{"type": "UPLOAD_ERROR", "message": "Missing authentication details"})
+					_ = conn.WriteJSON(map[string]any{"type": "UPLOAD_ERROR", "uploadId": targetUploadID, "fileId": fileID, "message": "Missing authentication details"})
 					continue
 				}
-				finalFilePath, fileData, err := finalizeUploadFromSession(uploadID, uploadPath, totalChunks, originalFileName, collectionID, encodingName, strconv.FormatInt(fileSize, 10), authToken, authEmail, authPassword)
+
+				_ = conn.WriteJSON(map[string]any{
+					"type":        "DATA_RECEIVED",
+					"uploadId":    targetUploadID,
+					"fileId":      fileID,
+					"totalChunks": totalChunks,
+				})
+
+				finalFilePath, fileData, err := finalizeUploadFromSession(targetUploadID, targetUploadPath, totalChunks, originalFileName, collectionID, encodingName, strconv.FormatInt(fileSize, 10), authToken, authEmail, authPassword)
 				if err != nil {
-					_ = conn.WriteJSON(map[string]any{"type": "UPLOAD_ERROR", "message": err.Error()})
+					_ = conn.WriteJSON(map[string]any{"type": "UPLOAD_ERROR", "uploadId": targetUploadID, "fileId": fileID, "message": err.Error()})
 					continue
 				}
-				_ = conn.WriteJSON(map[string]any{"type": "FILE_COMPLETE", "filePath": finalFilePath, "file": fileData})
+				_ = conn.WriteJSON(map[string]any{
+					"type":     "FILE_COMPLETE",
+					"uploadId": targetUploadID,
+					"fileId":   fileID,
+					"filePath": finalFilePath,
+					"file":     fileData,
+				})
 			default:
 				_ = conn.WriteJSON(map[string]any{"type": "UPLOAD_ERROR", "message": "Unknown control message"})
 			}
@@ -275,20 +300,39 @@ func handleUploadWebSocket(c *gin.Context) {
 				_ = conn.WriteJSON(map[string]any{"type": "UPLOAD_ERROR", "message": err.Error()})
 				continue
 			}
-			if frame.UploadID != uploadID {
-				_ = conn.WriteJSON(map[string]any{"type": "UPLOAD_ERROR", "message": "upload session mismatch"})
+
+			targetUploadID := frame.UploadID
+			if targetUploadID == "" {
+				targetUploadID = connUploadID
+			}
+			if targetUploadID == "" || targetUploadID == "pool" {
+				_ = conn.WriteJSON(map[string]any{"type": "UPLOAD_ERROR", "message": "Missing uploadId in frame"})
 				continue
 			}
+
+			targetUploadPath := filepath.Join(chunkDir, targetUploadID)
+			if err := os.MkdirAll(targetUploadPath, os.ModePerm); err != nil {
+				_ = conn.WriteJSON(map[string]any{"type": "UPLOAD_ERROR", "uploadId": targetUploadID, "fileId": frame.FileID, "message": "Failed to create upload directory"})
+				continue
+			}
+
 			if frame.Encoding == "" {
 				frame.Encoding = "gzip-stream-v1"
 			}
-			chunkPath := filepath.Join(uploadPath, fmt.Sprintf("%d.part", frame.ChunkIndex))
+			chunkPath := filepath.Join(targetUploadPath, fmt.Sprintf("%d.part", frame.ChunkIndex))
 			if err := os.WriteFile(chunkPath, frame.Payload, 0o644); err != nil {
-				_ = conn.WriteJSON(map[string]any{"type": "UPLOAD_ERROR", "message": "Failed to persist chunk"})
+				_ = conn.WriteJSON(map[string]any{"type": "UPLOAD_ERROR", "uploadId": targetUploadID, "fileId": frame.FileID, "message": "Failed to persist chunk"})
 				continue
 			}
-			resetUploadTimer(uploadID)
-			_ = conn.WriteJSON(map[string]any{"type": "CHUNK_ACK", "uploadId": frame.UploadID, "fileId": frame.FileID, "chunkIndex": frame.ChunkIndex, "payloadBytes": len(frame.Payload), "allChunksAcked": false})
+			resetUploadTimer(targetUploadID)
+			_ = conn.WriteJSON(map[string]any{
+				"type":           "CHUNK_ACK",
+				"uploadId":       targetUploadID,
+				"fileId":         frame.FileID,
+				"chunkIndex":     frame.ChunkIndex,
+				"payloadBytes":   len(frame.Payload),
+				"allChunksAcked": false,
+			})
 		}
 	}
 }

@@ -7,11 +7,10 @@ import { toast } from 'solid-toast';
 import { generateClientToken, generateUUID } from "@/library/functions";
 import type { SelectableFile, FileUploadProgressData, AuthDetails } from "../types";
 import FileUploadPreview from "./FileUploadPreview";
-import { UploadProgressTracker, canSendFinalize } from "./uploadProgressState";
+import { UploadProgressTracker } from "./uploadProgressState";
+import { GlobalUploadTransportManager, UPLOAD_WEBSOCKET_COUNT } from "./uploadTransportPool";
 
-const CHUNK_SIZE = 7 * 1024 * 1024; // 7MB compressed chunk size
 const MAX_CONCURRENT_UPLOADS = 3;
-const PIPELINE_WINDOW_SIZE = 4; // Bounded window allowing up to 4 in-flight chunks
 
 async function uploadFileInChunks(
     selectableFile: SelectableFile,
@@ -24,288 +23,29 @@ async function uploadFileInChunks(
     isPaused?: () => boolean,
     shouldCancel?: () => boolean,
 ): Promise<void> {
-    const file = selectableFile.file;
-    const fileId = selectableFile.uniqueId;
-    const encoding = 'gzip-stream-v1';
-    const baseUrl = import.meta.env.DEV ? 'http://localhost:8080' : window.location.origin;
-    const wsUrl = `${baseUrl.replace(/^http/, 'ws')}/upload/ws/${uploadSystemId}`;
+    const tracker = new UploadProgressTracker(selectableFile.file.size);
+    const transport = GlobalUploadTransportManager.getInstance(UPLOAD_WEBSOCKET_COUNT);
 
-    const tracker = new UploadProgressTracker(file.size);
-    let chunkIndexCursor = 0;
-    let serverCompleted = false;
-    let dataReceivedNotified = false;
-    let ws: WebSocket | null = null;
-    let socketReady: Promise<void> | null = null;
-    let socketReject: ((error: Error) => void) | null = null;
-    const inFlightChunks = new Set<number>();
-    const pendingChunkAcks = new Map<number, { resolve: () => void; reject: (error: Error) => void }>();
-    const acknowledgedChunkIndexes = new Set<number>();
-    const allAcksWaiters: Array<{ resolve: () => void; reject: (error: Error) => void }> = [];
-    const windowAvailableWaiters: Array<() => void> = [];
-
-    const emitProgress = (reason: string) => {
-        const progress = tracker.getProgress();
-        updateProgress(progress);
-        if (tracker.isDataReceived() && !dataReceivedNotified) {
-            dataReceivedNotified = true;
-            onDataReceived?.();
-        }
-        const snapshot = tracker.getSnapshot();
-        console.debug('[UPLOAD_PROGRESS]', {
-            file: file.name,
-            event: reason,
-            ackedChunks: snapshot.totalChunksAcknowledged,
-            totalChunks: snapshot.totalChunksGenerated,
-            ackedBytes: snapshot.acknowledgedCompressedBytes,
-            totalCompressedBytes: snapshot.totalCompressedBytes,
-            compressionFinished: snapshot.compressionFinished,
-            dataReceived: snapshot.dataReceived,
-            serverCompleted: snapshot.serverCompleted,
-            progress,
-        });
-    };
-
-    const failPendingAcks = (error: Error) => {
-        pendingChunkAcks.forEach((pending) => pending.reject(error));
-        pendingChunkAcks.clear();
-        inFlightChunks.clear();
-        while (allAcksWaiters.length > 0) {
-            allAcksWaiters.pop()?.reject(error);
-        }
-    };
-
-    const notifyIfAllAcksSettled = () => {
-        if (!canSendFinalize(tracker.getSnapshot())) return;
-        while (allAcksWaiters.length > 0) {
-            allAcksWaiters.pop()?.resolve();
-        }
-    };
-
-    const notifyWindowSlot = () => {
-        while (inFlightChunks.size < PIPELINE_WINDOW_SIZE && windowAvailableWaiters.length > 0) {
-            const waiter = windowAvailableWaiters.shift();
-            waiter?.();
-        }
-    };
-
-    const waitForWindowSlot = async (): Promise<void> => {
-        if (inFlightChunks.size < PIPELINE_WINDOW_SIZE) return;
-        await new Promise<void>((resolve) => {
-            windowAvailableWaiters.push(resolve);
-        });
-    };
-
-    const waitForAllChunkAcks = async (): Promise<void> => {
-        if (canSendFinalize(tracker.getSnapshot())) return;
-        await new Promise<void>((resolve, reject) => {
-            allAcksWaiters.push({ resolve, reject });
-        });
-    };
-
-    const ensureSocket = (): Promise<WebSocket> => {
-        if (ws && ws.readyState === WebSocket.OPEN) return Promise.resolve(ws);
-        if (socketReady) return socketReady.then(() => ws as WebSocket);
-
-        socketReady = new Promise((resolve, reject) => {
-            socketReject = reject;
-            ws = new WebSocket(wsUrl);
-            ws.binaryType = 'arraybuffer';
-            ws.onopen = () => {
-                ws?.send(JSON.stringify({
-                    type: 'INIT',
-                    uploadId: uploadSystemId,
-                    fileId,
-                    fileName: file.name,
-                    fileSize: file.size,
-                    totalChunks: 0,
-                    encoding,
-                    auth: authDetails,
-                }));
+    await new Promise<void>((resolve, reject) => {
+        transport.registerSession({
+            selectableFile,
+            uploadId: uploadSystemId,
+            auth: authDetails,
+            collectionId,
+            tracker,
+            updateProgress,
+            onDataReceived,
+            onServerCompleted: () => {
                 resolve();
-            };
-            ws.onmessage = (event) => {
-                const payload = typeof event.data === 'string' ? JSON.parse(event.data) : null;
-                if (!payload) return;
-                if (payload.type === 'CHUNK_ACK') {
-                    const ackChunkIndex = Number(payload.chunkIndex ?? -1);
-                    const ackBytes = Number(payload.payloadBytes || 0);
-                    if (Number.isFinite(ackChunkIndex) && ackChunkIndex >= 0) {
-                        inFlightChunks.delete(ackChunkIndex);
-                        if (pendingChunkAcks.has(ackChunkIndex)) {
-                            pendingChunkAcks.get(ackChunkIndex)?.resolve();
-                            pendingChunkAcks.delete(ackChunkIndex);
-                        }
-                        notifyWindowSlot();
-                    }
-                    if (!acknowledgedChunkIndexes.has(ackChunkIndex)) {
-                        acknowledgedChunkIndexes.add(ackChunkIndex);
-                        tracker.recordChunkAcknowledged(Number.isFinite(ackBytes) && ackBytes > 0 ? ackBytes : 0);
-                        emitProgress('CHUNK_ACK');
-                    }
-                    notifyIfAllAcksSettled();
-                    return;
-                }
-                if (payload.type === 'DATA_RECEIVED') {
-                    tracker.markDataReceived();
-                    emitProgress('DATA_RECEIVED');
-                    return;
-                }
-                if (payload.type === 'FILE_COMPLETE') {
-                    serverCompleted = true;
-                    tracker.markServerCompleted();
-                    emitProgress('FILE_COMPLETE');
-                    return;
-                }
-                if (payload.type === 'UPLOAD_ERROR') {
-                    const error = new Error(payload.message || 'Upload error');
-                    failPendingAcks(error);
-                    socketReject?.(error);
-                    throw error;
-                }
-            };
-            ws.onerror = () => {
-                const error = new Error('Upload socket error');
-                failPendingAcks(error);
-                socketReject?.(error);
-            };
-            ws.onclose = () => {
-                if (!serverCompleted && !tracker.isDataReceived() && shouldCancel?.() !== true) {
-                    const error = new Error('Upload socket closed before completion');
-                    failPendingAcks(error);
-                    socketReject?.(error);
-                }
-            };
+            },
+            onError: (err) => {
+                reject(err);
+            },
+            waitWhilePaused,
+            isPaused,
+            shouldCancel,
         });
-
-        return socketReady.then(() => ws as WebSocket);
-    };
-
-    const sendChunkFrame = async (chunkIndex: number, chunkBytes: Uint8Array): Promise<void> => {
-        await waitForWindowSlot();
-        const socket = await ensureSocket();
-        // Fix: Cast buffer to ArrayBuffer to satisfy BufferSource type for crypto.subtle.digest
-        const checksum = await crypto.subtle.digest('SHA-256', chunkBytes.buffer as ArrayBuffer);
-        const checksumHex = Array.from(new Uint8Array(checksum)).map(byte => byte.toString(16).padStart(2, '0')).join('');
-
-        const encoder = new TextEncoder();
-        const uploadIdBytes = encoder.encode(uploadSystemId);
-        const fileIdBytes = encoder.encode(fileId);
-        const encodingBytes = encoder.encode(encoding);
-
-        const headerLen = 1 + 4 + 8 + 4 + 4 + 4 + 64;
-        const frame = new Uint8Array(headerLen + uploadIdBytes.length + fileIdBytes.length + encodingBytes.length + chunkBytes.length);
-        const view = new DataView(frame.buffer);
-        frame[0] = 1;
-        view.setUint32(1, chunkIndex, true);
-        view.setBigUint64(5, BigInt(chunkBytes.length), true);
-        view.setUint32(13, uploadIdBytes.length, true);
-        view.setUint32(17, fileIdBytes.length, true);
-        view.setUint32(21, encodingBytes.length, true);
-
-        let offset = 25;
-        const checksumBytes = encoder.encode(checksumHex);
-        frame.set(checksumBytes, offset);
-        offset += 64;
-        frame.set(uploadIdBytes, offset);
-        offset += uploadIdBytes.length;
-        frame.set(fileIdBytes, offset);
-        offset += fileIdBytes.length;
-        frame.set(encodingBytes, offset);
-        offset += encodingBytes.length;
-        frame.set(chunkBytes, offset);
-
-        if (socket.readyState !== WebSocket.OPEN) {
-            throw new Error('Upload socket is not open');
-        }
-        inFlightChunks.add(chunkIndex);
-        pendingChunkAcks.set(chunkIndex, {
-            resolve: () => { },
-            reject: () => { },
-        });
-        socket.send(frame.buffer.slice(frame.byteOffset, frame.byteOffset + frame.byteLength));
-    };
-
-    const compressionTask = async () => {
-        const reader = file.stream().pipeThrough(new CompressionStream('gzip')).getReader();
-        let buffer = new Uint8Array(0);
-        while (true) {
-            if (shouldCancel?.()) return;
-            if (waitWhilePaused && isPaused && isPaused()) {
-                await waitWhilePaused();
-            }
-
-            const result = await reader.read();
-            if (result.done) break;
-
-            const next = new Uint8Array(buffer.length + result.value.length);
-            next.set(buffer, 0);
-            next.set(result.value, buffer.length);
-            buffer = next;
-
-            while (buffer.length >= CHUNK_SIZE) {
-                const slice = buffer.slice(0, CHUNK_SIZE);
-                buffer = buffer.slice(CHUNK_SIZE);
-                tracker.recordChunkGenerated(slice.length);
-                emitProgress('CHUNK_GENERATED');
-                if (waitWhilePaused && isPaused && isPaused()) {
-                    await waitWhilePaused();
-                }
-                await sendChunkFrame(chunkIndexCursor, slice);
-                chunkIndexCursor += 1;
-                if (shouldCancel?.()) return;
-            }
-        }
-
-        if (buffer.length > 0) {
-            tracker.recordChunkGenerated(buffer.length);
-            emitProgress('FINAL_CHUNK_GENERATED');
-            await sendChunkFrame(chunkIndexCursor, buffer);
-            chunkIndexCursor += 1;
-        }
-
-        tracker.markCompressionFinished();
-        emitProgress('COMPRESSION_FINISHED');
-        await waitForAllChunkAcks();
-
-        // All chunks ACKed -> DATA_RECEIVED on client side
-        tracker.markDataReceived();
-        emitProgress('ALL_CHUNKS_ACKED');
-
-        if (shouldCancel?.()) return;
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({
-                type: 'FINALIZE',
-                uploadId: uploadSystemId,
-                fileId,
-                fileName: file.name,
-                totalChunks: tracker.getSnapshot().totalChunksGenerated,
-                encoding,
-                fileSize: file.size,
-                collectionId,
-                auth: authDetails,
-            }));
-        }
-    };
-
-    try {
-        await compressionTask();
-        if (shouldCancel?.()) return;
-        await new Promise<void>((resolve, reject) => {
-            const interval = setInterval(() => {
-                if (serverCompleted) {
-                    clearInterval(interval);
-                    resolve();
-                    return;
-                }
-                if (shouldCancel?.()) {
-                    clearInterval(interval);
-                    reject(new Error('Upload cancelled'));
-                }
-            }, 50);
-        });
-    } catch (error: any) {
-        throw new Error(error?.message || 'WebSocket upload failed');
-    }
+    });
 }
 
 const UploadPopup: Component = () => {
@@ -364,7 +104,6 @@ const UploadPopup: Component = () => {
 
     const handleFileDelete = (uniqueIdToDelete: string) => {
         cancelledFiles.add(uniqueIdToDelete);
-        setSelectedFiles((prev) => prev.filter(sf => sf.uniqueId !== uniqueIdToDelete));
         setUploadProgressMap(prev => {
             const updated = { ...prev };
             delete updated[uniqueIdToDelete];
