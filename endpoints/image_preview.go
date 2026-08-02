@@ -29,6 +29,12 @@ func returnImagePreview(c *gin.Context) {
 
 	fileDirectory := c.Param("file_directory")
 
+	// SVG files are served raw (no rasterization needed), with a size limit.
+	if strings.ToLower(filepath.Ext(fileDirectory)) == ".svg" {
+		serveRawSVG(c, fileDirectory)
+		return
+	}
+
 	// this creates: /uploaded_files/image_previews
 	previewsDir := filepath.Join(UPLOAD_DIR, "image_previews")
 	// this creates: /uploaded_files/image_previews/<file_directory>
@@ -162,6 +168,22 @@ func generateImagePreview(fileDirectory string, previewsDir string, previewFileP
 	}
 
 	return nil
+}
+
+func serveRawSVG(c *gin.Context, fileDirectory string) {
+	fileInfo, err := database.GetFile(fileDirectory)
+	if err != nil {
+		c.String(http.StatusNotFound, "File not found")
+		return
+	}
+
+	if fileInfo.FileSize > 250*1024 {
+		c.String(http.StatusBadRequest, "SVG file exceeds 250KB preview limit")
+		return
+	}
+
+	originalFilePath := filepath.Join(UPLOAD_DIR, "i", fileInfo.Md5sum)
+	c.File(originalFilePath)
 }
 
 func decodeHEIC(file *os.File) (image.Image, error) {

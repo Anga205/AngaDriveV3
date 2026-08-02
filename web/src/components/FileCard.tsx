@@ -99,7 +99,7 @@ const FilePreview: Component<{ file: FileData }> = (props) => {
     const PreviewContent: Component = () => {
         const AssetsURL = import.meta.env.VITE_ASSETS_URL ? `${window.location.protocol}//${import.meta.env.VITE_ASSETS_URL}` : "http://localhost:8080";
         let link = import.meta.env.DEV ? "http://localhost:8080/i/" : `${AssetsURL}/i/`;
-        const preview_size_limit = 40 * 1024 * 1024;
+        const preview_size_limit = 40 * 1024 * 1024; // 40 MB
         link += props.file.file_directory;
 
         const ext = props.file.original_file_name.split('.').pop()?.toLowerCase();
@@ -111,6 +111,14 @@ const FilePreview: Component<{ file: FileData }> = (props) => {
             return <p class="text-white">Unsupported file type</p>;
         }
         if (["jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff", "heic", "heif"].includes(ext)) {
+            link = import.meta.env.DEV ? "http://localhost:8080/preview-image/" : `${AssetsURL}/preview-image/`;
+            link += props.file.file_directory;
+            return <img src={link} loading="lazy" class="max-h-full max-w-full p-2" />;
+        }
+        if (ext === "svg") {
+            if (props.file.file_size > 200 * 1024) {
+                return <FileTextSVG class="max-h-full p-4 opacity-50"/>;
+            }
             link = import.meta.env.DEV ? "http://localhost:8080/preview-image/" : `${AssetsURL}/preview-image/`;
             link += props.file.file_directory;
             return <img src={link} loading="lazy" class="max-h-full max-w-full p-2" />;
