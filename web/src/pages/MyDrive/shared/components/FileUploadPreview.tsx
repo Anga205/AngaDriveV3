@@ -14,11 +14,14 @@ const FileUploadPreview: Component<{
     const ext = props.selectableFile.file.name.split('.').pop()?.toLowerCase();
     const file = props.selectableFile.file;
 
-    const info = createMemo(() => props.uploadInfo ? props.uploadInfo() : undefined);
-    const [objectUrl, setObjectUrl] = createSignal<string | undefined>();
+    const isImage = !!ext && /^(jpg|jpeg|png|gif|bmp|webp|tiff|svg)$/.test(ext);
+    const isVideo = !!ext && /^(mp4|mkv|mov|wmv|flv|webm)$/.test(ext);
+
+    const info = createMemo(() => props.uploadInfo?.());
+    const [objectUrl, setObjectUrl] = createSignal<string>();
 
     createMemo(() => {
-        if (ext && (["jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff"].includes(ext) || ["mp4", "mkv", "mov", "wmv", "flv", "webm"].includes(ext)) && file.size < preview_size_limit) {
+        if ((isImage || isVideo) && file.size < preview_size_limit) {
             const url = URL.createObjectURL(file);
             setObjectUrl(url);
             onCleanup(() => URL.revokeObjectURL(url));
@@ -36,11 +39,11 @@ const FileUploadPreview: Component<{
                         if (ext && ["pdf"].includes(ext)) {
                             return <p class="text-white text-xs">PDF</p>;
                         }
-                        if (url && ext && ["jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff"].includes(ext)) {
-                            return <img src={url} alt="Preview" class="w-full h-full object-cover" />;
+                        if (url && isImage) {
+                            return <img src={url} alt="Preview" class="max-h-full max-w-full object-cover" />;
                         }
-                        if (url && ext && ["mp4", "mkv", "mov", "wmv", "flv", "webm"].includes(ext)) {
-                            return <video src={url} class="w-full h-full object-cover" muted />;
+                        if (url && isVideo) {
+                            return <video src={url} class="max-h-full max-w-full object-cover" muted />;
                         }
                         return <FileSVG />;
                     })()}
