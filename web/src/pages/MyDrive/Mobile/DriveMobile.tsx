@@ -25,9 +25,12 @@ const MobileDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: Sel
         return [...visible, ...extras];
     });
 
+    // Reset the number of visible files only when the sort order changes.
+    // (Not on every file list update, otherwise re-renders caused by uploads
+    // or deletes would make already-loaded files disappear.)
     createEffect(() => {
-        const total = props.sortedFiles().length;
-        setVisibleCount(Math.min(50, total));
+        props.selectedSort();
+        setVisibleCount(50);
     });
 
     onMount(() => {

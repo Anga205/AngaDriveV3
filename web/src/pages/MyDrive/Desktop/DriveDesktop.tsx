@@ -25,10 +25,12 @@ const DesktopDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: Se
         return [...visible, ...extras];
     });
 
-    // Reset visible count whenever the sorted list changes
+    // Reset the number of visible files only when the sort order changes.
+    // (Not on every file list update, otherwise re-renders caused by uploads
+    // or deletes would make already-loaded files disappear.)
     createEffect(() => {
-        const total = props.sortedFiles().length;
-        setVisibleCount(Math.min(50, total));
+        props.selectedSort();
+        setVisibleCount(50);
     });
 
     onMount(() => {
