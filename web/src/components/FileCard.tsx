@@ -290,8 +290,8 @@ const FileCard: Component<{ File: FileData }> = (props) => {
                         duration: 2000,
                         position: "bottom-right",
                         style: {
-                            background: "#1f2937",
-                            color: "#f3f4f6"
+                            background: "#2a2a2a",
+                            color: "#ffffff"
                         }
                     });
                 }}>
