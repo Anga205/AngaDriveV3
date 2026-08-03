@@ -1,12 +1,10 @@
 import { createContext, onCleanup, useContext, createSignal, ParentComponent, Accessor } from 'solid-js';
 import { SocketStatus } from './library/types';
 import { fetchFilesAndCollections, generateClientToken } from './library/functions';
+import { webSocketUrl } from './assets/ApiUrl';
 
 const RECONNECT_DELAY = 300;
-const host = window.location.host;
-const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-const isViteDev = import.meta.env.DEV;
-const wsUrl = isViteDev ? (`${protocol}://${import.meta.env.VITE_DEV_API_URL}/ws` || "ws://localhost:8080/ws") : `${protocol}://${host}/ws`;
+const wsUrl = webSocketUrl("/ws");
 
 type WebSocketContextType = {
   socket: Accessor<WebSocket | undefined>;
