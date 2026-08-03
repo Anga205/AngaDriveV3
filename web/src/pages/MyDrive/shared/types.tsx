@@ -17,4 +17,11 @@ interface AuthDetails {
     password?: string;
 }
 
-export type { SelectableFile, FileUploadProgressData, AuthDetails };
+/**
+ * Upload encoding mode.
+ *  - "gzip-stream-v1": chunks are gzip-compressed on the client (desktop).
+ *  - "raw": chunks contain the original bytes (mobile/ARM).
+ */
+type UploadEncoding = "gzip-stream-v1" | "raw";
+
+export type { SelectableFile, FileUploadProgressData, AuthDetails, UploadEncoding };

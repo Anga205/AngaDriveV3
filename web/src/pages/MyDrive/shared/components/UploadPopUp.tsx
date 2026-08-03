@@ -5,13 +5,22 @@ import { createSignal, Show, For, createMemo, onCleanup, createEffect, useContex
 import { UploadSVG} from "@/assets/SvgFiles"
 import { toast } from 'solid-toast';
 import { generateClientToken, generateUUID } from "@/library/functions";
-import type { SelectableFile, FileUploadProgressData, AuthDetails } from "../types";
+import type { SelectableFile, FileUploadProgressData, AuthDetails, UploadEncoding } from "../types";
 import FileUploadPreview from "./FileUploadPreview";
 import { apiUrl } from "@/assets/ApiUrl";
+import { isMobileDevice } from "@/library/deviceDetection";
 
 const CHUNK_SIZE = 7 * 1024 * 1024; // 7MB chunk size
 const MAX_CONCURRENT_UPLOADS = 3;
 const MAX_CONCURRENT_CHUNKS_PER_FILE = 6;
+
+/**
+ * Determines the upload encoding for the current device.
+ * Desktop → gzip compressed; mobile/ARM → raw (uncompressed).
+ */
+function resolveUploadEncoding(): UploadEncoding {
+    return isMobileDevice() ? "raw" : "gzip-stream-v1";
+}
 
 async function uploadFileInChunks(
     selectableFile: SelectableFile,
@@ -23,6 +32,7 @@ async function uploadFileInChunks(
     isPaused?: () => boolean,
     manageController?: (c: AbortController, action: 'add' | 'remove') => void,
     shouldCancel?: () => boolean,
+    encoding: UploadEncoding = resolveUploadEncoding(),
 ): Promise<void> {
     const file = selectableFile.file;
     const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
@@ -35,13 +45,23 @@ async function uploadFileInChunks(
         const end = Math.min(start + CHUNK_SIZE, file.size);
         const chunkBlob = file.slice(start, end);
 
-        // Compress the chunk using the Compression Streams API
-        const stream = new Blob([chunkBlob]).stream().pipeThrough(new CompressionStream('gzip'));
-        const compressedBlob = await new Response(stream).blob();
+        // Desktop: compress the chunk using the Compression Streams API.
+        // Mobile: upload the raw bytes directly (no compression, no base64).
+        let payloadBlob: Blob;
+        let payloadFileName: string;
+        if (encoding === "raw") {
+            payloadBlob = chunkBlob;
+            payloadFileName = file.name;
+        } else {
+            const stream = new Blob([chunkBlob]).stream().pipeThrough(new CompressionStream('gzip'));
+            payloadBlob = await new Response(stream).blob();
+            payloadFileName = `${file.name}.gz`;
+        }
 
         const formData = new FormData();
-        formData.append('chunk', compressedBlob, `${file.name}.gz`);
+        formData.append('chunk', payloadBlob, payloadFileName);
         formData.append('chunkIndex', String(chunkIndex));
+        formData.append('encoding', encoding);
 
         const controller = new AbortController();
         try {
@@ -108,6 +128,7 @@ async function uploadFileInChunks(
     let finalizeFormData = new FormData();
     finalizeFormData.append('totalChunks', String(totalChunks));
     finalizeFormData.append('originalFileName', file.name);
+    finalizeFormData.append('encoding', encoding);
     if (collectionId) {
         finalizeFormData.append('collectionId', collectionId);
     }
@@ -144,6 +165,7 @@ async function uploadFileInChunks(
             finalizeFormData = new FormData();
             finalizeFormData.append('totalChunks', String(totalChunks));
             finalizeFormData.append('originalFileName', file.name);
+            finalizeFormData.append('encoding', encoding);
             finalizeFormData.append('token', localStorage.getItem("token") || "");
             if (collectionId) {
                 finalizeFormData.append('collectionId', collectionId);

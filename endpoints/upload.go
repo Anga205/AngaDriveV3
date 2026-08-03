@@ -21,16 +21,77 @@ import (
 
 const timeout = 5 * time.Minute
 
-var (
-	uploadTimers = make(map[string]*time.Timer)
-	timerLock    sync.Mutex
-	chunkDir     string
-	UPLOAD_DIR   string
+// Supported upload encodings.
+const (
+	EncodingGzip = "gzip-stream-v1"
+	EncodingRaw  = "raw"
 )
+
+var (
+	uploadTimers    = make(map[string]*time.Timer)
+	uploadEncodings = make(map[string]string) // uploadID -> encoding (gzip-stream-v1 | raw)
+	timerLock       sync.Mutex
+	encodingLock    sync.Mutex
+	chunkDir        string
+	UPLOAD_DIR      string
+)
+
+// getUploadEncoding returns the encoding associated with an upload session,
+// if one has been established.
+func getUploadEncoding(uploadID string) (string, bool) {
+	encodingLock.Lock()
+	defer encodingLock.Unlock()
+	enc, ok := uploadEncodings[uploadID]
+	return enc, ok
+}
+
+// setUploadEncoding records the encoding for an upload session.
+func setUploadEncoding(uploadID, encoding string) {
+	encodingLock.Lock()
+	defer encodingLock.Unlock()
+	uploadEncodings[uploadID] = encoding
+}
+
+func deleteUploadEncoding(uploadID string) {
+	encodingLock.Lock()
+	defer encodingLock.Unlock()
+	delete(uploadEncodings, uploadID)
+}
+
+// resolveEncoding normalizes an incoming encoding value and validates it.
+// An empty value falls back to gzip-stream-v1 for backward compatibility
+// with older clients that always gzip-compressed chunks.
+func resolveEncoding(raw string) (string, bool) {
+	if raw == "" {
+		return EncodingGzip, true
+	}
+	if raw == EncodingGzip || raw == EncodingRaw {
+		return raw, true
+	}
+	return "", false
+}
 
 func handleChunkUpload(c *gin.Context) {
 	uploadID := c.Param("uuid")
 	chunkIndexStr := c.PostForm("chunkIndex")
+
+	encoding, ok := resolveEncoding(c.PostForm("encoding"))
+	if !ok {
+		c.String(400, "Invalid encoding")
+		return
+	}
+
+	// Associate the encoding with the upload session and validate that
+	// subsequent chunks match the same mode. This prevents a raw chunk from
+	// being mixed into a gzip session (or vice versa).
+	if existing, found := getUploadEncoding(uploadID); found {
+		if existing != encoding {
+			c.String(400, "Encoding mismatch for upload session")
+			return
+		}
+	} else {
+		setUploadEncoding(uploadID, encoding)
+	}
 
 	file, _, err := c.Request.FormFile("chunk")
 	if err != nil {
@@ -39,13 +100,19 @@ func handleChunkUpload(c *gin.Context) {
 	}
 	defer file.Close()
 
-	// Decompress gzipped chunk
-	gzReader, err := gzip.NewReader(file)
-	if err != nil {
-		c.String(400, "Could not decompress chunk. Make sure it's gzipped.")
-		return
+	// Choose the reader based on the session encoding.
+	//   - gzip-stream-v1: decompress the chunk before writing to disk.
+	//   - raw: write the original bytes directly (no decompression, no base64).
+	var reader io.Reader = file
+	if encoding == EncodingGzip {
+		gzReader, err := gzip.NewReader(file)
+		if err != nil {
+			c.String(400, "Could not decompress chunk. Make sure it's gzipped.")
+			return
+		}
+		defer gzReader.Close()
+		reader = gzReader
 	}
-	defer gzReader.Close()
 
 	uploadPath := filepath.Join(chunkDir, uploadID)
 	os.MkdirAll(uploadPath, os.ModePerm)
@@ -57,7 +124,7 @@ func handleChunkUpload(c *gin.Context) {
 		return
 	}
 	defer out.Close()
-	io.Copy(out, gzReader)
+	io.Copy(out, reader)
 
 	// Reset inactivity timer
 	resetUploadTimer(uploadID)
@@ -75,6 +142,19 @@ func finalizeUpload(c *gin.Context) {
 	userToken := c.PostForm("token")
 	email := c.PostForm("email")
 	password := c.PostForm("password")
+
+	// Validate the encoding declared at finalization against the session.
+	// This ensures the client cannot finalize a session under a different
+	// mode than the one used to upload its chunks.
+	encoding, ok := resolveEncoding(c.PostForm("encoding"))
+	if !ok {
+		c.String(400, "Invalid encoding")
+		return
+	}
+	if existing, found := getUploadEncoding(uploadID); found && existing != encoding {
+		c.String(400, "Encoding mismatch for upload session")
+		return
+	}
 
 	if originalFileName == "" {
 		c.String(400, "Missing originalFileName")
@@ -130,19 +210,12 @@ func finalizeUpload(c *gin.Context) {
 	defer tempFile.Close()
 	defer os.Remove(tempFile.Name()) // Ensure temp file is cleaned up on error
 
-	for i := 0; i < totalChunks; i++ {
-		chunkPath := filepath.Join(uploadPath, fmt.Sprintf("%d.part", i))
-		chunkFile, err := os.Open(chunkPath)
-		if err != nil {
-			c.String(500, fmt.Sprintf("Failed to open chunk %d: %v", i, err))
-			return
-		}
-		_, err = io.Copy(tempFile, chunkFile)
-		chunkFile.Close() // Close chunk file immediately after copy
-		if err != nil {
-			c.String(500, fmt.Sprintf("Failed to copy chunk %d: %v", i, err))
-			return
-		}
+	// Assemble chunks in chunk-index order. By this point each stored .part
+	// file already holds the original (decompressed) bytes: gzip chunks were
+	// decompressed on receipt, raw chunks were stored as-is.
+	if err := assembleChunkFiles(uploadPath, totalChunks, tempFile); err != nil {
+		c.String(500, err.Error())
+		return
 	}
 
 	// Calculate MD5 hash of the assembled file
@@ -207,6 +280,7 @@ func finalizeUpload(c *gin.Context) {
 		delete(uploadTimers, uploadID)
 	}
 	timerLock.Unlock()
+	deleteUploadEncoding(uploadID)
 
 	if err := os.RemoveAll(uploadPath); err != nil {
 		// Log this error, but the upload is mostly successful
@@ -225,6 +299,25 @@ func finalizeUpload(c *gin.Context) {
 		"fileDirectory": uniqueFileName, // Consistent with FileData
 		"accessPath":    fmt.Sprintf("/i/%s", uniqueFileName),
 	})
+}
+
+// assembleChunkFiles reads .part files from uploadPath in chunk-index order
+// and writes them sequentially into dest. Each .part file already contains
+// the original (decompressed) bytes regardless of the upload encoding.
+func assembleChunkFiles(uploadPath string, totalChunks int, dest io.Writer) error {
+	for i := 0; i < totalChunks; i++ {
+		chunkPath := filepath.Join(uploadPath, fmt.Sprintf("%d.part", i))
+		chunkFile, err := os.Open(chunkPath)
+		if err != nil {
+			return fmt.Errorf("failed to open chunk %d: %v", i, err)
+		}
+		_, err = io.Copy(dest, chunkFile)
+		chunkFile.Close()
+		if err != nil {
+			return fmt.Errorf("failed to copy chunk %d: %v", i, err)
+		}
+	}
+	return nil
 }
 
 func checkMissingChunks(uploadPath string, totalChunks int) []int {
@@ -250,6 +343,7 @@ func resetUploadTimer(uploadID string) {
 			timerLock.Lock()
 			delete(uploadTimers, uploadID)
 			timerLock.Unlock()
+			deleteUploadEncoding(uploadID)
 			fmt.Printf("Upload %s expired and deleted\n", uploadID)
 		})
 	}
