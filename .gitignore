@@ -23,9 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 
-*.lock
-package-lock.json
-bun.lock
-bun.lockb
 uploaded_files/
-service/main
+main
+.env
