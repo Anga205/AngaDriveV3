@@ -1,10 +1,10 @@
 # UI-only components
-frontend/src/components/** linguist-generated=true
-frontend/src/pages/** linguist-generated=true
+web/src/components/** linguist-generated=true
+web/src/pages/** linguist-generated=true
 
 # Assets
-frontend/src/assets/** linguist-generated=true
-frontend/public/** linguist-generated=true
+web/src/assets/** linguist-generated=true
+web/public/** linguist-generated=true
 
 # Build/config
-frontend/bun.lock linguist-generated=true
+web/bun.lock linguist-generated=true
