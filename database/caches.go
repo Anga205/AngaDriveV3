@@ -59,17 +59,15 @@ func (s *FileSet) Set(values []FileData) {
 	}
 }
 
-func (s *FileSet) CommaSeparated() string {
+// Keys returns the raw file directory keys without hitting the database.
+func (s *FileSet) Keys() []string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	var result string
+	keys := make([]string, 0, len(s.data))
 	for key := range s.data {
-		result += key + ","
+		keys = append(keys, key)
 	}
-	if len(result) > 0 {
-		result = result[:len(result)-1]
-	}
-	return result
+	return keys
 }
 
 type CollectionSet struct {
@@ -125,6 +123,17 @@ func (s *CollectionSet) Set(values []Collection) {
 	for _, value := range values {
 		s.data[value.ID] = struct{}{}
 	}
+}
+
+// Keys returns the raw collection ID keys without hitting the database.
+func (s *CollectionSet) Keys() []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	keys := make([]string, 0, len(s.data))
+	for key := range s.data {
+		keys = append(keys, key)
+	}
+	return keys
 }
 
 var (

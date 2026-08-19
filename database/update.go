@@ -2,7 +2,6 @@ package database
 
 import (
 	"fmt"
-	"strings"
 )
 
 func (oldInfo Account) Update(newInfo Account) error { // this assumes token can not change
@@ -32,6 +31,10 @@ func (oldInfo Account) Update(newInfo Account) error { // this assumes token can
 
 func (collection *Collection) unsafeAddFolder(folder string) error {
 	var err error
+	if CollectionFilesMutex.TryLock() {
+		defer CollectionFilesMutex.Unlock()
+		return fmt.Errorf("please Read-Lock CollectionFilesMutex before calling unsafeAddFolder")
+	}
 	if CollectionFoldersMutex.TryLock() {
 		defer CollectionFoldersMutex.Unlock()
 		return fmt.Errorf("please Lock CollectionFoldersMutex before calling unsafeAddFolder")
@@ -44,32 +47,44 @@ func (collection *Collection) unsafeAddFolder(folder string) error {
 		defer CollectionCacheLock.Unlock()
 		return fmt.Errorf("please Lock CollectionCacheLock before calling unsafeAddFolder")
 	}
+	if folder == collection.ID {
+		return fmt.Errorf("a collection cannot be its own child")
+	}
 	// CollectionCacheLock is already locked
 	// we're doing this to ensure that the collection still exists and is up-to-date by the time the locks were acquired and the function was called
 	*collection, _, err = unsafeGetCollection(collection.ID)
 	if err != nil {
 		return fmt.Errorf("collection %s not found: %w", collection.ID, err)
 	}
-	folders := collection.GetCollections()
-	folders = append(folders, folder)
-	collection.Collections = strings.Join(folders, ",")
-	collection.Size = unsafeCalculateCollectionSize(*collection, make(map[string]bool), make(map[string]bool))
 	db := GetDB()
-	if err = db.Save(collection).Error; err != nil {
-		return err
+	// Persist the relational mapping; ignore duplicates (ON CONFLICT semantics via primary key).
+	if err = db.Create(&CollectionChild{
+		ParentCollectionID: collection.ID,
+		ChildCollectionID:  folder,
+	}).Error; err != nil {
+		if !isDuplicateKeyError(err) {
+			return err
+		}
 	}
-	CollectionCache[collection.ID] = *collection // CollectionCacheLock is already locked
+	// Update RAM before recalculating size so the new child is reflected.
 	if _, ok := CollectionFolders[collection.ID]; ok {
 		CollectionFolders[collection.ID].Add(folder)
 	}
+	collection.Size = unsafeCalculateCollectionSize(*collection, make(map[string]bool), make(map[string]bool))
+	if err = db.Model(&Collection{}).Where("id = ?", collection.ID).Update("size", collection.Size).Error; err != nil {
+		return err
+	}
+	CollectionCache[collection.ID] = *collection // CollectionCacheLock is already locked
 	unsafeUpdateParentCollectionSizes(collection.ID, &map[string]bool{collection.ID: true})
 	return nil
 }
 
 func (collection *Collection) AddFolder(folder string) error {
+	CollectionFilesMutex.RLock()
 	CollectionFoldersMutex.Lock()
 	FileCacheLock.RLock()
 	CollectionCacheLock.Lock()
+	defer CollectionFilesMutex.RUnlock()
 	defer CollectionFoldersMutex.Unlock()
 	defer FileCacheLock.RUnlock()
 	defer CollectionCacheLock.Unlock()
@@ -77,9 +92,17 @@ func (collection *Collection) AddFolder(folder string) error {
 }
 
 func (collection *Collection) unsafeRemoveFolder(folder string) error {
+	if CollectionFilesMutex.TryLock() {
+		defer CollectionFilesMutex.Unlock()
+		return fmt.Errorf("please Read-Lock CollectionFilesMutex before calling unsafeRemoveFolder")
+	}
 	if CollectionFoldersMutex.TryLock() {
 		defer CollectionFoldersMutex.Unlock()
 		return fmt.Errorf("please Lock CollectionFoldersMutex before calling unsafeRemoveFolder")
+	}
+	if FileCacheLock.TryLock() {
+		defer FileCacheLock.Unlock()
+		return fmt.Errorf("please Read-Lock FileCacheLock before calling unsafeRemoveFolder")
 	}
 	if CollectionCacheLock.TryLock() {
 		defer CollectionCacheLock.Unlock()
@@ -90,101 +113,48 @@ func (collection *Collection) unsafeRemoveFolder(folder string) error {
 	if err != nil {
 		return fmt.Errorf("collection %s not found: %w", collection.ID, err)
 	}
-	folders := strings.Split(collection.Collections, ",")
-	for i, f := range folders {
-		if strings.TrimSpace(f) == folder {
-			folders = append(folders[:i], folders[i+1:]...)
-			break
-		}
-	}
-	collection.Collections = strings.Join(folders, ",")
-	collection.Size = unsafeCalculateCollectionSize(*collection, make(map[string]bool), make(map[string]bool))
 	db := GetDB()
-	if err := db.Save(collection).Error; err != nil {
+	if err := db.Where("parent_collection_id = ? AND child_collection_id = ?", collection.ID, folder).
+		Delete(&CollectionChild{}).Error; err != nil {
 		return err
 	}
-	CollectionCache[collection.ID] = *collection // CollectionCacheLock is already locked
+	// Update RAM before recalculating size so the removed child is reflected.
 	if _, ok := CollectionFolders[collection.ID]; ok {
 		CollectionFolders[collection.ID].Remove(folder)
 	}
+	collection.Size = unsafeCalculateCollectionSize(*collection, make(map[string]bool), make(map[string]bool))
+	if err := db.Model(&Collection{}).Where("id = ?", collection.ID).Update("size", collection.Size).Error; err != nil {
+		return err
+	}
+	CollectionCache[collection.ID] = *collection // CollectionCacheLock is already locked
 	unsafeUpdateParentCollectionSizes(collection.ID, &map[string]bool{collection.ID: true})
 	return nil
 }
 
 func (collection *Collection) RemoveFolder(folder string) error {
+	CollectionFilesMutex.RLock()
 	CollectionFoldersMutex.Lock()
 	FileCacheLock.RLock()
 	CollectionCacheLock.Lock()
+	defer CollectionFilesMutex.RUnlock()
+	defer CollectionFoldersMutex.Unlock()
 	defer FileCacheLock.RUnlock()
 	defer CollectionCacheLock.Unlock()
-	defer CollectionFoldersMutex.Unlock()
 	return collection.unsafeRemoveFolder(folder)
-}
-
-func unsafeCalculateCollectionSize(collection Collection, excludeCollections map[string]bool, excludeFiles map[string]bool) int {
-	if FileCacheLock.TryLock() {
-		defer FileCacheLock.Unlock()
-		panic("please Read-Lock FileCacheLock before calling unsafeCalculateCollectionSize")
-	}
-	if CollectionCacheLock.TryLock() {
-		defer CollectionCacheLock.Unlock()
-		panic("please Lock CollectionCacheLock before calling unsafeCalculateCollectionSize")
-	}
-	excludeCollections[collection.ID] = true
-	files := collection.GetFiles()
-	output := 0
-	for _, file := range files {
-		fileData, _, err := unsafeGetFile(file) // Rlock FileCacheLock before calling this function
-		if err != nil {
-			continue
-		}
-		if excludeFiles[fileData.FileDirectory] {
-			continue
-		}
-		output += int(fileData.FileSize)
-		excludeFiles[fileData.FileDirectory] = true
-	}
-	collections := collection.GetCollections()
-	for _, subCollectionID := range collections {
-		if excludeCollections[subCollectionID] {
-			continue
-		}
-		collection, _, err := unsafeGetCollection(subCollectionID) // lock CollectionCacheLock before calling this function
-		if err != nil {
-			continue
-		}
-		output += unsafeCalculateCollectionSize(collection, excludeCollections, excludeFiles)
-	}
-	return output
-}
-
-func unsafeUpdateParentCollectionSizes(collectionID string, collectionsAlreadyUpdated *map[string]bool) {
-	if CollectionCacheLock.TryLock() {
-		defer CollectionCacheLock.Unlock()
-		panic("Please Lock CollectionCacheLock before calling unsafeUpdateParentCollectionSizes")
-	}
-	db := GetDB()
-	var collections []Collection
-	db.Where("collections LIKE ?", "%"+collectionID+"%").Find(&collections)
-	for _, collection := range collections {
-		if (*collectionsAlreadyUpdated)[collection.ID] {
-			continue
-		}
-		(*collectionsAlreadyUpdated)[collection.ID] = true
-		collection.Size = unsafeCalculateCollectionSize(collection, make(map[string]bool), make(map[string]bool))
-		if err := db.Save(&collection).Error; err != nil {
-			fmt.Printf("Error updating collection size for %s: %v\n", collection.ID, err)
-			continue
-		}
-		CollectionCache[collection.ID] = collection // lock CollectionCacheLock before calling this function
-		unsafeUpdateParentCollectionSizes(collection.ID, collectionsAlreadyUpdated)
-	}
 }
 
 func (collection *Collection) unsafeAddFile(fileDirectory string) error {
 	if CollectionFilesMutex.TryLock() {
 		defer CollectionFilesMutex.Unlock()
 		return fmt.Errorf("please Lock CollectionFilesMutex before calling unsafeAddFile")
+	}
+	if CollectionFoldersMutex.TryLock() {
+		defer CollectionFoldersMutex.Unlock()
+		return fmt.Errorf("please Read-Lock CollectionFoldersMutex before calling unsafeAddFile")
+	}
+	if FileCacheLock.TryLock() {
+		defer FileCacheLock.Unlock()
+		return fmt.Errorf("please Read-Lock FileCacheLock before calling unsafeAddFile")
 	}
 	if CollectionCacheLock.TryLock() {
 		defer CollectionCacheLock.Unlock()
@@ -195,37 +165,37 @@ func (collection *Collection) unsafeAddFile(fileDirectory string) error {
 	if err != nil {
 		return fmt.Errorf("collection %s not found: %w", collection.ID, err)
 	}
-	if collection.Files == "" {
-		collection.Files = fileDirectory
-	} else {
-		files := strings.Split(collection.Files, ",")
-		for _, f := range files {
-			if strings.TrimSpace(f) == fileDirectory {
-				return nil
-			}
-		}
-		files = append(files, fileDirectory)
-		collection.Files = strings.Join(files, ",")
-	}
-	collection.Size = unsafeCalculateCollectionSize(*collection, make(map[string]bool), make(map[string]bool))
 	db := GetDB()
-	if err := db.Save(collection).Error; err != nil {
-		return err
+	// Persist the relational mapping; ignore duplicates.
+	if err = db.Create(&CollectionFile{
+		CollectionID: collection.ID,
+		FileID:       fileDirectory,
+	}).Error; err != nil {
+		if !isDuplicateKeyError(err) {
+			return err
+		}
 	}
-	CollectionCache[collection.ID] = *collection // CollectionCacheLock is already locked
+	// Update RAM before recalculating size so the new file is reflected.
 	if _, ok := CollectionFiles[collection.ID]; ok {
 		CollectionFiles[collection.ID].Add(fileDirectory)
 	}
+	collection.Size = unsafeCalculateCollectionSize(*collection, make(map[string]bool), make(map[string]bool))
+	if err = db.Model(&Collection{}).Where("id = ?", collection.ID).Update("size", collection.Size).Error; err != nil {
+		return err
+	}
+	CollectionCache[collection.ID] = *collection // CollectionCacheLock is already locked
 	unsafeUpdateParentCollectionSizes(collection.ID, &map[string]bool{collection.ID: true})
 	return nil
 }
 
 func (collection *Collection) AddFile(fileDirectory string) error {
 	CollectionFilesMutex.Lock()
+	CollectionFoldersMutex.RLock()
 	FileCacheLock.RLock()
 	CollectionCacheLock.Lock()
-	defer FileCacheLock.RUnlock()
 	defer CollectionFilesMutex.Unlock()
+	defer CollectionFoldersMutex.RUnlock()
+	defer FileCacheLock.RUnlock()
 	defer CollectionCacheLock.Unlock()
 	return collection.unsafeAddFile(fileDirectory)
 }
@@ -234,6 +204,14 @@ func (collection *Collection) unsafeRemoveFile(fileDirectory string) error {
 	if CollectionFilesMutex.TryLock() {
 		defer CollectionFilesMutex.Unlock()
 		return fmt.Errorf("please Lock CollectionFilesMutex before calling unsafeRemoveFile")
+	}
+	if CollectionFoldersMutex.TryLock() {
+		defer CollectionFoldersMutex.Unlock()
+		return fmt.Errorf("please Read-Lock CollectionFoldersMutex before calling unsafeRemoveFile")
+	}
+	if FileCacheLock.TryLock() {
+		defer FileCacheLock.Unlock()
+		return fmt.Errorf("please Read-Lock FileCacheLock before calling unsafeRemoveFile")
 	}
 	if CollectionCacheLock.TryLock() {
 		defer CollectionCacheLock.Unlock()
@@ -244,33 +222,32 @@ func (collection *Collection) unsafeRemoveFile(fileDirectory string) error {
 	if err != nil {
 		return fmt.Errorf("collection %s not found: %w", collection.ID, err)
 	}
-	files := strings.Split(collection.Files, ",")
-	for i, f := range files {
-		if strings.TrimSpace(f) == fileDirectory {
-			files = append(files[:i], files[i+1:]...)
-			break
-		}
-	}
-	collection.Files = strings.Join(files, ",")
-	collection.Size = unsafeCalculateCollectionSize(*collection, make(map[string]bool), make(map[string]bool))
 	db := GetDB()
-	if err := db.Save(collection).Error; err != nil {
+	if err := db.Where("collection_id = ? AND file_id = ?", collection.ID, fileDirectory).
+		Delete(&CollectionFile{}).Error; err != nil {
 		return err
 	}
-	CollectionCache[collection.ID] = *collection // CollectionCacheLock is already locked
+	// Update RAM before recalculating size so the removed file is reflected.
 	if _, ok := CollectionFiles[collection.ID]; ok {
 		CollectionFiles[collection.ID].Remove(fileDirectory)
 	}
+	collection.Size = unsafeCalculateCollectionSize(*collection, make(map[string]bool), make(map[string]bool))
+	if err := db.Model(&Collection{}).Where("id = ?", collection.ID).Update("size", collection.Size).Error; err != nil {
+		return err
+	}
+	CollectionCache[collection.ID] = *collection // CollectionCacheLock is already locked
 	unsafeUpdateParentCollectionSizes(collection.ID, &map[string]bool{collection.ID: true})
 	return nil
 }
 
 func (collection *Collection) RemoveFile(fileDirectory string) error {
 	CollectionFilesMutex.Lock()
+	CollectionFoldersMutex.RLock()
 	FileCacheLock.RLock()
 	CollectionCacheLock.Lock()
+	defer CollectionFilesMutex.Unlock()
+	defer CollectionFoldersMutex.RUnlock()
 	defer FileCacheLock.RUnlock()
 	defer CollectionCacheLock.Unlock()
-	defer CollectionFilesMutex.Unlock()
 	return collection.unsafeRemoveFile(fileDirectory)
 }
