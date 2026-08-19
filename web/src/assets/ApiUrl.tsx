@@ -6,12 +6,13 @@ export function apiUrl(route: string): string {
   const normalizedRoute = normalizeRoute(route);
 
   if (!import.meta.env.DEV) {
-    const assetsUrl =
-      (window as Window & { ASSETS_URL?: string }).ASSETS_URL?.trim();
+    const host = import.meta.env.VITE_ASSETS_URL?.trim();
 
-    return assetsUrl
-      ? `${assetsUrl.replace(/\/$/, "")}${normalizedRoute}`
-      : normalizedRoute;
+    if (!host) return normalizedRoute;
+
+    const baseUrl = /^https?:\/\//.test(host) ? host : `https://${host}`;
+
+    return `${baseUrl.replace(/\/$/, "")}${normalizedRoute}`;
   }
 
   const host = import.meta.env.VITE_DEV_API_URL?.trim() || "localhost:8080";
