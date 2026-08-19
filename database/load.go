@@ -61,24 +61,16 @@ func loadCollectionFiles() {
 	defer CollectionFilesMutex.Unlock()
 	defer wg.Done()
 
-	var collections []Collection
-	err := GetDB().Find(&collections).Error
+	var mappings []CollectionFile
+	err := GetDB().Find(&mappings).Error
 	if err != nil {
-		panic("failed to load collections for files: " + err.Error())
+		panic("failed to load collection_files: " + err.Error())
 	}
-	for _, collection := range collections {
-		if CollectionFiles[collection.ID] == nil {
-			CollectionFiles[collection.ID] = NewFileSet()
+	for _, m := range mappings {
+		if CollectionFiles[m.CollectionID] == nil {
+			CollectionFiles[m.CollectionID] = NewFileSet()
 		}
-		fileDirectoryList := collection.GetFiles()
-		for _, file := range fileDirectoryList {
-			var files []FileData
-			err := GetDB().Where("file_directory = ?", file).Find(&files).Error
-			if err != nil {
-				panic("failed to load files for collection ID " + collection.ID + ": " + err.Error())
-			}
-			CollectionFiles[collection.ID].Set(files)
-		}
+		CollectionFiles[m.CollectionID].Add(m.FileID)
 	}
 }
 
@@ -87,24 +79,16 @@ func loadCollectionFolders() {
 	defer CollectionFoldersMutex.Unlock()
 	defer wg.Done()
 
-	var collections []Collection
-	err := GetDB().Find(&collections).Error
+	var mappings []CollectionChild
+	err := GetDB().Find(&mappings).Error
 	if err != nil {
-		panic("failed to load collections for folders: " + err.Error())
+		panic("failed to load collection_children: " + err.Error())
 	}
-	for _, collection := range collections {
-		if CollectionFolders[collection.ID] == nil {
-			CollectionFolders[collection.ID] = NewCollectionSet()
+	for _, m := range mappings {
+		if CollectionFolders[m.ParentCollectionID] == nil {
+			CollectionFolders[m.ParentCollectionID] = NewCollectionSet()
 		}
-		folderIDList := collection.GetCollections()
-		for _, folderID := range folderIDList {
-			var folders []Collection
-			err := GetDB().Where("id = ?", folderID).Find(&folders).Error
-			if err != nil {
-				panic("failed to load folders for collection ID " + collection.ID + ": " + err.Error())
-			}
-			CollectionFolders[collection.ID].Set(folders)
-		}
+		CollectionFolders[m.ParentCollectionID].Add(m.ChildCollectionID)
 	}
 }
 
