@@ -6,6 +6,7 @@ import { useWebSocket } from "../Websockets";
 import { useLocation } from "@solidjs/router";
 import { AppContext } from "../Context";
 import { createSignal, onCleanup, Component, Show, useContext } from "solid-js";
+import { apiUrl } from "@/assets/ApiUrl";
 
 const FilePreview: Component<{ file: FileData }> = (props) => {
     const ctx = useContext(AppContext)!;
@@ -97,10 +98,8 @@ const FilePreview: Component<{ file: FileData }> = (props) => {
     });
 
     const PreviewContent: Component = () => {
-        const AssetsURL = import.meta.env.VITE_ASSETS_URL ? `${window.location.protocol}//${import.meta.env.VITE_ASSETS_URL}` : "http://localhost:8080";
-        let link = import.meta.env.DEV ? "http://localhost:8080/i/" : `${AssetsURL}/i/`;
+        let link = apiUrl(`/i/${props.file.file_directory}`);
         const preview_size_limit = 40 * 1024 * 1024; // 40 MB
-        link += props.file.file_directory;
 
         const ext = props.file.original_file_name.split('.').pop()?.toLowerCase();
 
@@ -111,16 +110,14 @@ const FilePreview: Component<{ file: FileData }> = (props) => {
             return <p class="text-white">Unsupported file type</p>;
         }
         if (["jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff", "heic", "heif"].includes(ext)) {
-            link = import.meta.env.DEV ? "http://localhost:8080/preview-image/" : `${AssetsURL}/preview-image/`;
-            link += props.file.file_directory;
+            link = apiUrl(`/preview-image/${props.file.file_directory}`);
             return <img src={link} loading="lazy" class="max-h-full max-w-full p-2" />;
         }
         if (ext === "svg") {
             if (props.file.file_size > 200 * 1024) {
                 return <FileTextSVG class="max-h-full p-4 opacity-50"/>;
             }
-            link = import.meta.env.DEV ? "http://localhost:8080/preview-image/" : `${AssetsURL}/preview-image/`;
-            link += props.file.file_directory;
+            link = apiUrl(`/preview-image/${props.file.file_directory}`);
             return <img src={link} loading="lazy" class="max-h-full max-w-full p-2" />;
         }
         if (["mp4", "mkv", "avi", "mov", "wmv", "flv", "webm"].includes(ext)) {
@@ -130,9 +127,7 @@ const FilePreview: Component<{ file: FileData }> = (props) => {
             return <audio src={link} controls class="w-full" />;
         }
         if (["pdf"].includes(ext)) {
-            link = import.meta.env.DEV ? "http://localhost:8080/preview/" : `${AssetsURL}/preview/`;
-            link += props.file.file_directory;
-            link += '.png'
+            link = apiUrl(`/preview/${props.file.file_directory}.png`);
             return <img src={link} loading="lazy" class="max-h-full max-w-full p-2" />;
         }
         return <FileTextSVG class="max-h-full p-4 opacity-50"/>;
@@ -245,11 +240,8 @@ const RemoveFromCollectionButton: Component<{ file: FileData }> = (props) => {
 }
 
 const FileCard: Component<{ File: FileData }> = (props) => {
-    let DownloadLink = import.meta.env.VITE_ASSETS_URL ? `${window.location.protocol}//${import.meta.env.VITE_ASSETS_URL}/download/` : "http://localhost:8080/download/";
-    DownloadLink += props.File.file_directory;
-    const AssetsURL = import.meta.env.VITE_ASSETS_URL ? `${window.location.protocol}//${import.meta.env.VITE_ASSETS_URL}/i/` : "http://localhost:8080/i/";
-    let link = import.meta.env.DEV ? "http://localhost:8080/i/" : AssetsURL;
-    link += props.File.file_directory;
+    let DownloadLink = apiUrl(`/download/${props.File.file_directory}`);
+    let link = apiUrl(`/i/${props.File.file_directory}`);
     link = link.split('.').slice(0, -1).join('.');
     link += "/"+props.File.original_file_name;
     while (link.includes(" ")) {
@@ -298,8 +290,8 @@ const FileCard: Component<{ File: FileData }> = (props) => {
                         duration: 2000,
                         position: "bottom-right",
                         style: {
-                            background: "#1f2937",
-                            color: "#f3f4f6"
+                            background: "#2a2a2a",
+                            color: "#ffffff"
                         }
                     });
                 }}>

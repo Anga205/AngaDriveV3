@@ -7,6 +7,7 @@ import { toast } from 'solid-toast';
 import { generateClientToken, generateUUID } from "@/library/functions";
 import type { SelectableFile, FileUploadProgressData, AuthDetails } from "../types";
 import FileUploadPreview from "./FileUploadPreview";
+import { apiUrl } from "@/assets/ApiUrl";
 
 const CHUNK_SIZE = 7 * 1024 * 1024; // 7MB chunk size
 const MAX_CONCURRENT_UPLOADS = 3;
@@ -23,8 +24,6 @@ async function uploadFileInChunks(
     manageController?: (c: AbortController, action: 'add' | 'remove') => void,
     shouldCancel?: () => boolean,
 ): Promise<void> {
-    
-    const backendUrl = import.meta.env.DEV ? 'http://localhost:8080' : '';
     const file = selectableFile.file;
     const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
     let uploadedChunks = 0;
@@ -47,7 +46,7 @@ async function uploadFileInChunks(
         const controller = new AbortController();
         try {
             if (manageController) manageController(controller, 'add');
-            const response = await fetch(`${backendUrl}/upload/${uploadSystemId}`, {
+            const response = await fetch(apiUrl(`/upload/${uploadSystemId}`), {
                 method: 'POST',
                 body: formData,
                 signal: controller.signal,
@@ -122,7 +121,7 @@ async function uploadFileInChunks(
         throw new Error("No authentication details provided for finalization.");
     }
 
-    const successResponse = await fetch(`${backendUrl}/upload/success/${uploadSystemId}`, {
+    const successResponse = await fetch(apiUrl(`/upload/success/${uploadSystemId}`), {
         method: 'POST',
         body: finalizeFormData,
     });
@@ -149,7 +148,7 @@ async function uploadFileInChunks(
             if (collectionId) {
                 finalizeFormData.append('collectionId', collectionId);
             }
-            const retryResponse = await fetch(`${backendUrl}/upload/success/${uploadSystemId}`, {
+            const retryResponse = await fetch(apiUrl(`/upload/success/${uploadSystemId}`), {
                 method: 'POST',
                 body: finalizeFormData,
             });

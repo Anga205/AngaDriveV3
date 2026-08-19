@@ -1,15 +1,15 @@
 import { Router, Route, useLocation, useNavigate } from "@solidjs/router";
 import type { RouteSectionProps } from "@solidjs/router";
 import type { Component } from "solid-js";
-import HomePage from "./pages/HomePage";
+import HomePage from "./pages/HomePage/HomePage";
 import { MyDrive } from "./pages/MyDrive/MyDrive";
 import { useWebSocket, WebSocketProvider } from "./Websockets";
-import MyCollections from "./pages/MyCollections";
-import Account from "./pages/Account";
+import MyCollections from "./pages/MyCollections/MyCollections";
+import Account from "./pages/Account/Account";
 import { AppContext, ContextProvider } from "./Context";
 import { createEffect, useContext, onMount, onCleanup } from "solid-js";
 import { UniversalMessageHandler } from "./library/functions";
-import CollectionPage from "./pages/Collection";
+import CollectionPage from "./pages/Collection/Collection";
 import toast from "solid-toast";
 
 
