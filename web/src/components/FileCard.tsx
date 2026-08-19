@@ -83,7 +83,7 @@ const FilePreview: Component<{ file: FileData }> = (props) => {
                         next.add(props.file.file_directory);
                         return next;
                     });
-                } catch (e) {}
+                } catch (e) { }
                 observer?.unobserve(containerRef);
             }
         });
@@ -104,7 +104,7 @@ const FilePreview: Component<{ file: FileData }> = (props) => {
         const ext = props.file.original_file_name.split('.').pop()?.toLowerCase();
 
         if (props.file.file_size > preview_size_limit) {
-            return <FileTextSVG class="max-h-full p-4 opacity-50"/>;
+            return <FileTextSVG class="max-h-full p-4 opacity-50" />;
         }
         if (!ext) {
             return <p class="text-white">Unsupported file type</p>;
@@ -115,7 +115,7 @@ const FilePreview: Component<{ file: FileData }> = (props) => {
         }
         if (ext === "svg") {
             if (props.file.file_size > 200 * 1024) {
-                return <FileTextSVG class="max-h-full p-4 opacity-50"/>;
+                return <FileTextSVG class="max-h-full p-4 opacity-50" />;
             }
             link = apiUrl(`/preview-image/${props.file.file_directory}`);
             return <img src={link} loading="lazy" class="max-h-full max-w-full p-2" />;
@@ -130,12 +130,12 @@ const FilePreview: Component<{ file: FileData }> = (props) => {
             link = apiUrl(`/preview/${props.file.file_directory}.png`);
             return <img src={link} loading="lazy" class="max-h-full max-w-full p-2" />;
         }
-        return <FileTextSVG class="max-h-full p-4 opacity-50"/>;
+        return <FileTextSVG class="max-h-full p-4 opacity-50" />;
     };
 
     return (
         <div ref={setRef} class="flex justify-center items-center w-full h-full opacity-70">
-            <Show when={isVisible()} fallback={<FileTextSVG class="max-h-full p-4 opacity-50"/>}>
+            <Show when={isVisible()} fallback={<FileTextSVG class="max-h-full p-4 opacity-50" />}>
                 <PreviewContent />
             </Show>
         </div>
@@ -166,14 +166,14 @@ const ConvertButton: Component<{ file: FileData }> = (props) => {
 
     return (
         ["mkv", "avi", "mov", "wmv", "flv", "webm"].includes(props.file.original_file_name.split('.').pop()?.toLowerCase() || '') ?
-        <>
-            <div/>
-            <button class="flex items-center justify-center p-2 bg-blue-700/30 hover:bg-blue-700/20 rounded-xl text-blue-500" onClick={handleConvert}>
-                <RefreshSVG/>
-            </button>
-            <div/>
-        </>
-        : <div/>
+            <>
+                <div />
+                <button class="flex items-center justify-center p-2 bg-blue-700/30 hover:bg-blue-700/20 rounded-xl text-blue-500" onClick={handleConvert}>
+                    <RefreshSVG />
+                </button>
+                <div />
+            </>
+            : <div />
     );
 }
 
@@ -243,7 +243,7 @@ const FileCard: Component<{ File: FileData }> = (props) => {
     let DownloadLink = apiUrl(`/download/${props.File.file_directory}`);
     let link = apiUrl(`/i/${props.File.file_directory}`);
     link = link.split('.').slice(0, -1).join('.');
-    link += "/"+props.File.original_file_name;
+    link += "/" + props.File.original_file_name;
     while (link.includes(" ")) {
         link = link.replace(" ", "%20");
     }
@@ -252,12 +252,12 @@ const FileCard: Component<{ File: FileData }> = (props) => {
         <div class="flex flex-col w-80 h-96 bg-neutral-950 border-neutral-800 border rounded-lg md:hover:scale-105 transition-transform duration-200 shadow-lg">
             <a class="w-full h-[calc(14%+50%+21.4%)]" href={link} target="_blank" rel="noopener noreferrer">
                 <div class="flex items-center overflow-hidden justify-center w-full h-[16.393442623%] bg-neutral-900 rounded-t-lg">
-                    <p class="text-white text-2xl font-semibold text-nowrap font-sans">{props.File.original_file_name.length >17
-                        ? `${props.File.original_file_name.slice(0,17)}...`
+                    <p class="text-white text-2xl font-semibold text-nowrap font-sans">{props.File.original_file_name.length > 17
+                        ? `${props.File.original_file_name.slice(0, 17)}...`
                         : props.File.original_file_name}</p>
                 </div>
                 <div class="flex justify-center items-center w-full h-[58.5480093677%] overflow-hidden">
-                    <FilePreview file={props.File}/>
+                    <FilePreview file={props.File} />
                 </div>
                 <div class="flex w-full space-x-2 p-2 text-xs border-b border-neutral-800 h-[25.0585480094%]">
                     <div class="flex flex-col items-end w-1/2 h-full text-neutral-700 font-sans">
@@ -271,7 +271,7 @@ const FileCard: Component<{ File: FileData }> = (props) => {
                             {getFileType(props.File.file_directory)}
                         </p>
                         <p>{props.File.file_directory}</p>
-                        <p>{new Date(props.File.timestamp*1000).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}</p>
+                        <p>{new Date(props.File.timestamp * 1000).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}</p>
                         <p>
                             {formatFileSize(props.File.file_size)}
                         </p>
@@ -279,31 +279,44 @@ const FileCard: Component<{ File: FileData }> = (props) => {
                 </div>
             </a>
             <div class="w-full flex justify-between p-2 h-[14.6%]">
-                <div/>
+                <div />
                 <a class="flex items-center justify-center p-2 bg-yellow-700/30 hover:bg-yellow-700/20 rounded-xl text-yellow-600" href={link} target="_blank">
                     <EyeSVG />
                 </a>
-                <div/>
+                <div />
                 <button class="flex items-center justify-center p-2 bg-cyan-700/30 hover:bg-cyan-700/20 rounded-xl text-cyan-500" onClick={() => {
                     navigator.clipboard.writeText(link)
-                    toast.success("Link to "+ props.File.original_file_name + " copied to clipboard!", {
+                    toast.success("Link to " + props.File.original_file_name + " copied to clipboard!", {
                         duration: 2000,
                         position: "bottom-right",
                         style: {
-                            background: "#2a2a2a",
-                            color: "#ffffff"
+                            background: "#1f2937",
+                            color: "#f3f4f6"
                         }
                     });
                 }}>
                     <CopySVG />
                 </button>
-                <div/>
-                <a class="flex items-center justify-center p-2 bg-green-700/30 hover:bg-green-700/20 rounded-xl text-green-500" href={DownloadLink} target="_blank">
+                <div />
+                <button
+                    class="flex items-center justify-center p-2 bg-green-700/30 hover:bg-green-700/20 rounded-xl text-green-500 cursor-pointer"
+                    onClick={() => {
+                        // Native browser download: no new tab, no fetch/Blob, no JS memory.
+                        // The browser streams the file directly from the server to disk.
+                        const anchor = document.createElement("a");
+                        anchor.href = DownloadLink;
+                        anchor.download = "";
+                        anchor.rel = "noopener noreferrer";
+                        document.body.appendChild(anchor);
+                        anchor.click();
+                        anchor.remove();
+                    }}
+                >
                     <DownloadSVG />
-                </a>
-                {location.pathname === "/my_drive" ? <ConvertButton file={props.File} /> : <div/>}
+                </button>
+                {location.pathname === "/my_drive" ? <ConvertButton file={props.File} /> : <div />}
                 {location.pathname === "/my_drive" ? <DeleteButton file={props.File} /> : <RemoveFromCollectionButton file={props.File} />}
-                <div/>
+                <div />
             </div>
         </div>
     );
