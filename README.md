@@ -76,6 +76,7 @@ If you dont set them, they will default to localhost:8080
 - `SAVE_DRIVE_RAM`: optional env variable, set this to true for *slightly* more efficient RAM usage (at the cost of slightly worsened performance)
 - `GIN_MODE`: optional env variable, set this to "release" if you dont wanna get spammed by debug messages (also to make CORS policy more strict & safe)
 - `VITE_DEV_API_URL`: this is for dev-only, it just means "the backend server is on a different location from the frontend" for prod you dont really need to set this, and in dev, if you dont set this, it will default to localhost, which is in most cases correct
+- `VITE_API_URL`: the backend/API host the frontend talks to. Used for both the HTTP API (`apiUrl`) and, in dev, the WebSocket connection. Set automatically by the Go backend during the production build (derived from `ASSETS_URL`). If empty, it defaults to `localhost:8080`. You normally only need to set this manually when running the frontend dev server against a remote backend.
 
 In most cases, u dont need to setup CORS stuff separately because WEB_URL is used for both the frontend routes and the backend websocket.
 #### example setup:
@@ -138,6 +139,7 @@ If you dont set them, they will default to localhost:8080
 - `SAVE_DRIVE_RAM`: optional env variable, set this to true for *slightly* more efficient RAM usage (at the cost of slightly worsened performance)
 - `GIN_MODE`: optional env variable, set this to "release" if you dont wanna get spammed by debug messages (also to make CORS policy more strict & safe)
 - `VITE_DEV_API_URL`: this is for dev-only, it just means "the backend server is on a different location from the frontend" for prod you dont really need to set this, and in dev, if you dont set this, it will default to localhost, which is in most cases correct
+- `VITE_API_URL`: the backend/API host the frontend talks to. Used for both the HTTP API (`apiUrl`) and, in dev, the WebSocket connection. Set automatically by the Go backend during the production build (derived from `ASSETS_URL`). If empty, it defaults to `localhost:8080`. You normally only need to set this manually when running the frontend dev server against a remote backend.
 
 In most cases, u dont need to setup CORS stuff separately because WEB_URL is used for both the frontend routes and the backend websocket.
 #### example setup:
