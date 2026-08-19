@@ -37,7 +37,7 @@ func compileFrontend() error {
 	}
 	buildCmd := exec.Command("bun", "run", "build")
 	buildCmd.Dir = "web"
-	buildCmd.Env = append(os.Environ(), "VITE_API_URL="+vars.AssetsURL)
+	buildCmd.Env = append(os.Environ(), "VITE_ASSETS_URL="+vars.AssetsURL)
 	if err := buildCmd.Run(); err != nil {
 		return fmt.Errorf("[compileFrontend] error running 'bun run build': %w", err)
 	}

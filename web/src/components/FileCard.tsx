@@ -6,7 +6,7 @@ import { useWebSocket } from "../Websockets";
 import { useLocation } from "@solidjs/router";
 import { AppContext } from "../Context";
 import { createSignal, onCleanup, Component, Show, useContext } from "solid-js";
-import { apiUrl } from "@/assets/ApiUrl";
+import { assetsUrl } from "@/assets/ApiUrl";
 
 const FilePreview: Component<{ file: FileData }> = (props) => {
     const ctx = useContext(AppContext)!;
@@ -98,7 +98,7 @@ const FilePreview: Component<{ file: FileData }> = (props) => {
     });
 
     const PreviewContent: Component = () => {
-        let link = apiUrl(`/i/${props.file.file_directory}`);
+        let link = assetsUrl(`/i/${props.file.file_directory}`);
         const preview_size_limit = 40 * 1024 * 1024; // 40 MB
 
         const ext = props.file.original_file_name.split('.').pop()?.toLowerCase();
@@ -110,14 +110,14 @@ const FilePreview: Component<{ file: FileData }> = (props) => {
             return <p class="text-white">Unsupported file type</p>;
         }
         if (["jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff", "heic", "heif"].includes(ext)) {
-            link = apiUrl(`/preview-image/${props.file.file_directory}`);
+            link = assetsUrl(`/preview-image/${props.file.file_directory}`);
             return <img src={link} loading="lazy" class="max-h-full max-w-full p-2" />;
         }
         if (ext === "svg") {
             if (props.file.file_size > 200 * 1024) {
                 return <FileTextSVG class="max-h-full p-4 opacity-50" />;
             }
-            link = apiUrl(`/preview-image/${props.file.file_directory}`);
+            link = assetsUrl(`/preview-image/${props.file.file_directory}`);
             return <img src={link} loading="lazy" class="max-h-full max-w-full p-2" />;
         }
         if (["mp4", "mkv", "avi", "mov", "wmv", "flv", "webm"].includes(ext)) {
@@ -127,7 +127,7 @@ const FilePreview: Component<{ file: FileData }> = (props) => {
             return <audio src={link} controls class="w-full" />;
         }
         if (["pdf"].includes(ext)) {
-            link = apiUrl(`/preview/${props.file.file_directory}.png`);
+            link = assetsUrl(`/preview/${props.file.file_directory}.png`);
             return <img src={link} loading="lazy" class="max-h-full max-w-full p-2" />;
         }
         return <FileTextSVG class="max-h-full p-4 opacity-50" />;
@@ -240,8 +240,8 @@ const RemoveFromCollectionButton: Component<{ file: FileData }> = (props) => {
 }
 
 const FileCard: Component<{ File: FileData }> = (props) => {
-    let DownloadLink = apiUrl(`/download/${props.File.file_directory}`);
-    let link = apiUrl(`/i/${props.File.file_directory}`);
+    let DownloadLink = assetsUrl(`/download/${props.File.file_directory}`);
+    let link = assetsUrl(`/i/${props.File.file_directory}`);
     link = link.split('.').slice(0, -1).join('.');
     link += "/" + props.File.original_file_name;
     while (link.includes(" ")) {
