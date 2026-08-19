@@ -5,11 +5,13 @@ function normalizeRoute(route: string): string {
 export function apiUrl(route: string): string {
   const normalizedRoute = normalizeRoute(route);
 
-  // Production: API is served from ASSETS_URL.
   if (!import.meta.env.DEV) {
-    const host = import.meta.env.VITE_ASSETS_URL?.trim();
+    const assetsUrl =
+      (window as Window & { ASSETS_URL?: string }).ASSETS_URL?.trim();
 
-    return host ? `${host}${normalizedRoute}` : normalizedRoute;
+    return assetsUrl
+      ? `${assetsUrl.replace(/\/$/, "")}${normalizedRoute}`
+      : normalizedRoute;
   }
 
   const host = import.meta.env.VITE_DEV_API_URL?.trim() || "localhost:8080";
@@ -25,7 +27,6 @@ export function apiUrl(route: string): string {
 export function webSocketUrl(route: string): string {
   const normalizedRoute = normalizeRoute(route);
 
-  // Production: WebSocket is served from the same host as the frontend.
   if (!import.meta.env.DEV) {
     return `wss://${window.location.host}${normalizedRoute}`;
   }
