@@ -47,7 +47,7 @@ func InitializeDatabase(uploadedFilesDir string) error {
 	if err != nil {
 		return fmt.Errorf("InitializeDatabase: %w", err)
 	}
-	dbPath := uploadedFilesDir + string(os.PathSeparator) + "rx.db"
+	dbPath := uploadedFilesDir + string(os.PathSeparator) + "angadrive.db"
 	dbInstance, err = gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
 	if err != nil {
 		return fmt.Errorf("InitializeDatabase: %w", err)
