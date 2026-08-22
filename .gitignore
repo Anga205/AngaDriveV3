@@ -26,3 +26,4 @@ dist-ssr
 uploaded_files/
 main
 .env
+docs/

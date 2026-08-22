@@ -17,19 +17,32 @@ func (collection *Collection) Insert() error {
 	if err := db.Create(&collection).Error; err != nil {
 		return err
 	}
-	go func() {
-		CollectionCacheLock.Lock()
-		defer CollectionCacheLock.Unlock()
-		CollectionCache[collection.ID] = *collection
-	}()
-	go func() {
-		editors := collection.GetEditors()
-		for _, editor := range editors {
-			if _, ok := UserCollections[editor]; ok {
-				UserCollections[editor].Add(collection.ID)
-			}
+	// All cache updates are synchronous so callers can rely on the collection
+	// being fully present in RAM immediately after Insert returns. This also
+	// avoids races between the insertion and subsequent mutations.
+	CollectionCacheLock.Lock()
+	CollectionCache[collection.ID] = *collection
+	CollectionCacheLock.Unlock()
+
+	CollectionFilesMutex.Lock()
+	if _, ok := CollectionFiles[collection.ID]; !ok {
+		CollectionFiles[collection.ID] = NewFileSet()
+	}
+	CollectionFilesMutex.Unlock()
+
+	CollectionFoldersMutex.Lock()
+	if _, ok := CollectionFolders[collection.ID]; !ok {
+		CollectionFolders[collection.ID] = NewCollectionSet()
+	}
+	CollectionFoldersMutex.Unlock()
+
+	UserCollectionsMutex.Lock()
+	for _, editor := range collection.GetEditors() {
+		if _, ok := UserCollections[editor]; ok {
+			UserCollections[editor].Add(collection.ID)
 		}
-	}()
+	}
+	UserCollectionsMutex.Unlock()
 	return nil
 }
 
@@ -38,17 +51,13 @@ func (user Account) Insert() error {
 	if err := db.Create(&user).Error; err != nil {
 		return err
 	}
-	go func() {
-		UserAccountsByEmailMutex.Lock()
-		defer UserAccountsByEmailMutex.Unlock()
-		UserAccountsByEmail[user.Email] = user
-	}()
+	UserAccountsByEmailMutex.Lock()
+	UserAccountsByEmail[user.Email] = user
+	UserAccountsByEmailMutex.Unlock()
 
-	go func() {
-		UserAccountsByTokenMutex.Lock()
-		defer UserAccountsByTokenMutex.Unlock()
-		UserAccountsByToken[user.Token] = user
-	}()
+	UserAccountsByTokenMutex.Lock()
+	UserAccountsByToken[user.Token] = user
+	UserAccountsByTokenMutex.Unlock()
 	return nil
 }
 
@@ -102,20 +111,16 @@ func (file FileData) Insert() error {
 		return err
 	}
 
-	go func() {
-		UserFilesMutex.Lock()
-		defer UserFilesMutex.Unlock()
+	// Synchronous cache updates (see Collection.Insert for rationale).
+	UserFilesMutex.Lock()
+	if _, ok := UserFiles[file.AccountToken]; ok {
+		UserFiles[file.AccountToken].Add(file.FileDirectory)
+	}
+	UserFilesMutex.Unlock()
 
-		if _, ok := UserFiles[file.AccountToken]; ok {
-			UserFiles[file.AccountToken].Add(file.FileDirectory)
-		}
-	}()
-
-	go func() {
-		FileCacheLock.Lock()
-		defer FileCacheLock.Unlock()
-		FileCache[file.FileDirectory] = file
-	}()
+	FileCacheLock.Lock()
+	FileCache[file.FileDirectory] = file
+	FileCacheLock.Unlock()
 
 	return nil
 }
