@@ -300,81 +300,22 @@ const FileCard: Component<{ File: FileData }> = (props) => {
                 <div />
                 <button
                     class="flex items-center justify-center p-2 bg-green-700/30 hover:bg-green-700/20 rounded-xl text-green-500 cursor-pointer"
-                    onClick={async () => {
-                        const filename = props.File.original_file_name;
-                        // Reactive progress state so the toast updates in place
-                        const [progressText, setProgressText] = createSignal(`Downloading ${filename}...`);
-                        const progressToast = toast.custom(() => (
-                            <div
-                                class="px-4 py-3 rounded-md shadow-md font-medium"
-                                style={{
-                                    "background-color": "#2a2a2a",
-                                    "color": "#ffffff"
-                                }}
-                            >
-                                {progressText()}
-                            </div>
-                        ), {
-                            duration: 99999999,
-                            position: "bottom-right"
-                        });
-
-                        try {
-                            // Fetch with progress tracking
-                            const response = await fetch(DownloadLink);
-                            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-                            const reader = response.body?.getReader();
-                            if (!reader) throw new Error("No response body");
-
-                            const contentLength = Number(response.headers.get("Content-Length")) || 0;
-                            let receivedLength = 0;
-                            const chunks: Uint8Array<ArrayBuffer>[] = [];
-
-                            while (true) {
-                                const { done, value } = await reader.read();
-                                if (done) break;
-                                chunks.push(value);
-                                receivedLength += value.length;
-
-                                if (contentLength > 0) {
-                                    const percent = Math.round((receivedLength / contentLength) * 100);
-                                    setProgressText(`${percent}% - Downloading ${filename}... (${formatFileSize(receivedLength)}/${formatFileSize(contentLength)})`);
-                                }
+                    onClick={() => {
+                        const anchor = document.createElement("a");
+                        anchor.href = DownloadLink;
+                        anchor.download = "";
+                        anchor.rel = "noopener noreferrer";
+                        document.body.appendChild(anchor);
+                        anchor.click();
+                        anchor.remove();
+                        toast.success("Download started for " + props.File.original_file_name, {
+                            duration: 2000,
+                            position: "bottom-right",
+                            style: {
+                                background: "#1f1f1f",
+                                color: "#ffffff"
                             }
-
-                            // Create blob and trigger download
-                            const blob = new Blob(chunks, { type: response.headers.get("content-type") || "application/octet-stream" });
-                            const url = URL.createObjectURL(blob);
-                            const anchor = document.createElement("a");
-                            anchor.href = url;
-                            anchor.download = filename;
-                            anchor.rel = "noopener noreferrer";
-                            document.body.appendChild(anchor);
-                            anchor.click();
-                            anchor.remove();
-                            URL.revokeObjectURL(url);
-
-                            toast.success(`Downloaded ${filename}`, {
-                                duration: 3000,
-                                position: "bottom-right",
-                                style: {
-                                    background: "#2a2a2a",
-                                    color: "#ffffff"
-                                }
-                            });
-                        } catch (err) {
-                            toast.error(`Download failed: ${err instanceof Error ? err.message : "Unknown error"}`, {
-                                duration: 5000,
-                                position: "bottom-right",
-                                style: {
-                                    background: "#2a2a2a",
-                                    color: "#ffffff"
-                                }
-                            });
-                        } finally {
-                            toast.dismiss(progressToast);
-                        }
+                        });
                     }}
                 >
                     <DownloadSVG />
