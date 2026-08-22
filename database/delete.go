@@ -2,27 +2,7 @@ package database
 
 import (
 	"fmt"
-	"strings"
 )
-
-func removeFile(fileList string, file string) string {
-	// Split fileList into slice
-	files := strings.Split(fileList, ",")
-
-	// Prepare slice to hold filtered results
-	var filtered []string
-
-	// Iterate and exclude the file
-	for _, f := range files {
-		f = strings.TrimSpace(f)
-		if f != "" && f != file {
-			filtered = append(filtered, f)
-		}
-	}
-
-	// Join filtered results back into comma-separated string
-	return strings.Join(filtered, ",")
-}
 
 func (collection Collection) unsafeDelete() error {
 	if UserCollectionsMutex.TryLock() {
@@ -46,14 +26,23 @@ func (collection Collection) unsafeDelete() error {
 		return fmt.Errorf("please Lock CollectionCacheLock before calling unsafeDelete")
 	}
 	db := GetDB()
+
+	// Capture direct parents before removing edges so we can update their
+	// sizes after the relationships are gone.
+	var parentMappings []CollectionChild
+	db.Where("child_collection_id = ?", collection.ID).Find(&parentMappings)
+
 	result := db.Delete(&Collection{}, collection)
 	if result.Error != nil {
 		return result.Error
 	}
-	var collectionsContainingThisCollection []Collection
-	db.Where("collections LIKE ?", "%"+collection.ID+"%").Find(&collectionsContainingThisCollection)
-	for _, c := range collectionsContainingThisCollection {
-		c.unsafeRemoveFolder(collection.ID)
+	// Delete all relationship edges involving this collection.
+	if err := db.Where("collection_id = ?", collection.ID).Delete(&CollectionFile{}).Error; err != nil {
+		return err
+	}
+	if err := db.Where("parent_collection_id = ? OR child_collection_id = ?", collection.ID, collection.ID).
+		Delete(&CollectionChild{}).Error; err != nil {
+		return err
 	}
 	go func(dependantID string) {
 		var dependantCollections []Collection
@@ -71,7 +60,26 @@ func (collection Collection) unsafeDelete() error {
 	}
 	delete(CollectionFiles, collection.ID)   // We assume CollectionFilesMutex is already locked
 	delete(CollectionFolders, collection.ID) // We assume CollectionFoldersMutex is already locked
-	unsafeUpdateParentCollectionSizes(collection.ID, &map[string]bool{collection.ID: true})
+
+	// Remove this collection from its parents' RAM sets and update their sizes.
+	alreadyUpdated := map[string]bool{collection.ID: true}
+	for _, m := range parentMappings {
+		if CollectionFolders[m.ParentCollectionID] != nil {
+			CollectionFolders[m.ParentCollectionID].Remove(collection.ID)
+		}
+		parent, _, err := unsafeGetCollection(m.ParentCollectionID)
+		if err != nil {
+			continue
+		}
+		parent.Size = unsafeCalculateCollectionSize(parent, make(map[string]bool), make(map[string]bool))
+		if err := db.Model(&Collection{}).Where("id = ?", parent.ID).Update("size", parent.Size).Error; err != nil {
+			fmt.Printf("Error updating collection size for %s: %v\n", parent.ID, err)
+			continue
+		}
+		CollectionCache[parent.ID] = parent
+		alreadyUpdated[parent.ID] = true
+		unsafeUpdateParentCollectionSizes(parent.ID, &alreadyUpdated)
+	}
 	return nil
 }
 
@@ -98,6 +106,10 @@ func unsafeDeleteFile(file FileData, collectionPulser func(collection Collection
 		defer CollectionFilesMutex.Unlock()
 		return fmt.Errorf("please Read-Lock CollectionFilesMutex before calling unsafeDeleteFile")
 	}
+	if CollectionFoldersMutex.TryLock() {
+		defer CollectionFoldersMutex.Unlock()
+		return fmt.Errorf("please Read-Lock CollectionFoldersMutex before calling unsafeDeleteFile")
+	}
 	if FileCacheLock.TryLock() {
 		defer FileCacheLock.Unlock()
 		return fmt.Errorf("please Lock FileCacheLock before calling unsafeDeleteFile")
@@ -111,24 +123,30 @@ func unsafeDeleteFile(file FileData, collectionPulser func(collection Collection
 	if result.Error != nil {
 		return result.Error
 	}
-	var collections []Collection
-	db.Where("Files LIKE ?", "%"+file.FileDirectory+"%").Find(&collections)
+	var mappings []CollectionFile
+	db.Where("file_id = ?", file.FileDirectory).Find(&mappings)
+	// Remove the file from each collection's RAM set, then delete the edges.
 	updatedCollections := make(map[string]bool)
-	for _, collection := range collections {
-		collection.Files = removeFile(collection.Files, file.FileDirectory)
+	for _, m := range mappings {
+		if CollectionFiles[m.CollectionID] != nil {
+			CollectionFiles[m.CollectionID].Remove(file.FileDirectory)
+		}
+		collection, _, err := unsafeGetCollection(m.CollectionID)
+		if err != nil {
+			continue
+		}
 		collection.Size = unsafeCalculateCollectionSize(collection, make(map[string]bool), make(map[string]bool))
 		updatedCollections[collection.ID] = true
-		if err := db.Save(&collection).Error; err != nil {
+		if err := db.Model(&Collection{}).Where("id = ?", collection.ID).Update("size", collection.Size).Error; err != nil {
 			return fmt.Errorf("failed to update collection %s: %v", collection.Name, err)
-		} else {
-			if cachedCollection, ok := CollectionCache[collection.ID]; ok {
-				if cachedCollection.Files != collection.Files {
-					CollectionCache[collection.ID] = collection // Update the cache if the files have changed
-				}
-			}
-			go collectionPulser(collection)
-			unsafeUpdateParentCollectionSizes(collection.ID, &updatedCollections)
 		}
+		CollectionCache[collection.ID] = collection
+		go collectionPulser(collection)
+		unsafeUpdateParentCollectionSizes(collection.ID, &updatedCollections)
+	}
+	// Delete all collection_files edges referring to this file.
+	if err := db.Where("file_id = ?", file.FileDirectory).Delete(&CollectionFile{}).Error; err != nil {
+		return err
 	}
 	for _, fileSet := range UserFiles {
 		if fileSet != nil {
@@ -136,11 +154,6 @@ func unsafeDeleteFile(file FileData, collectionPulser func(collection Collection
 		}
 	}
 	delete(FileCache, file.FileDirectory)
-	for _, fileSet := range CollectionFiles {
-		if fileSet != nil {
-			fileSet.Remove(file.FileDirectory)
-		}
-	}
 	return nil
 }
 
@@ -149,6 +162,8 @@ func DeleteFile(file FileData, collectionPulser func(collection Collection)) err
 	defer UserFilesMutex.RUnlock()
 	CollectionFilesMutex.RLock()
 	defer CollectionFilesMutex.RUnlock()
+	CollectionFoldersMutex.RLock()
+	defer CollectionFoldersMutex.RUnlock()
 	FileCacheLock.Lock()
 	defer FileCacheLock.Unlock()
 	CollectionCacheLock.Lock()

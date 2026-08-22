@@ -14,12 +14,10 @@ func CreateNewCollection(req CreateCollectionRequest) (string, error) {
 		return "", fmt.Errorf("authentication failed: %v", err)
 	}
 	collection := database.Collection{
-		Name:        req.CollectionName,
-		Editors:     userToken,
-		Files:       "",
-		Collections: "",
-		Size:        0,
-		Dependant:   "",
+		Name:      req.CollectionName,
+		Editors:   userToken,
+		Size:      0,
+		Dependant: "",
 	}
 	collection, _ = database.InsertNewCollection(collection)
 	go CollectionPulse(true, collection)
@@ -187,11 +185,10 @@ func CreateFolderInCollection(req CreateFolderInCollectionRequest) (GetCollectio
 		return GetCollectionResponse{}, fmt.Errorf("user is not an editor of the collection")
 	}
 	folder := database.Collection{
-		Name:        req.FolderName,
-		Editors:     token,
-		Collections: "",
-		Files:       "",
-		Size:        0,
+		Name:      req.FolderName,
+		Editors:   token,
+		Size:      0,
+		Dependant: "",
 	}
 	folder, _ = database.InsertNewCollection(folder)
 	err = collection.AddFolder(folder.ID)

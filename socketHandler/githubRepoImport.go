@@ -158,13 +158,11 @@ func GithubImportHandler(req ImportGithubRepoRequest) (string, error) {
 					}
 				} else { // Avoid creating a duplicate collection for the root cloned directory
 					newCollection := database.Collection{
-						Name:        d.Name(),
-						Editors:     userToken,
-						Size:        0,
-						Collections: "",
-						Files:       "",
-						Timestamp:   time.Now().Unix(),
-						Dependant:   clonedUUID,
+						Name:      d.Name(),
+						Editors:   userToken,
+						Size:      0,
+						Timestamp: time.Now().Unix(),
+						Dependant: clonedUUID,
 					}
 					newCollection.Insert()
 					parentDir.AddFolder(newCollection.ID)
