@@ -6,6 +6,7 @@ import { useWebSocket } from "../Websockets";
 import { useLocation } from "@solidjs/router";
 import { AppContext } from "../Context";
 import { createSignal, onCleanup, Component, Show, useContext } from "solid-js";
+import Dialog from '@corvu/dialog';
 import { assetsUrl } from "@/assets/ApiUrl";
 
 const FilePreview: Component<{ file: FileData }> = (props) => {
@@ -179,6 +180,7 @@ const ConvertButton: Component<{ file: FileData }> = (props) => {
 
 const DeleteButton: Component<{ file: FileData }> = (props) => {
     const { socket: getSocket } = useWebSocket();
+    const [open, setOpen] = createSignal(false);
     const handleDelete = async () => {
         const deleteRequest = {
             type: "delete_file",
@@ -196,11 +198,38 @@ const DeleteButton: Component<{ file: FileData }> = (props) => {
             return;
         }
         getSocket()?.send(JSON.stringify(deleteRequest));
+        setOpen(false);
     }
     return (
-        <button class="flex items-center justify-center p-2 text-red-700 bg-red-800/30 hover:bg-red-900/20 rounded-xl" onClick={handleDelete}>
-            <BinSVG />
-        </button>
+        <Dialog open={open()} onOpenChange={setOpen}>
+            <Dialog.Trigger class="flex items-center justify-center p-2 text-red-700 bg-red-800/30 hover:bg-red-900/20 rounded-xl">
+                <BinSVG />
+            </Dialog.Trigger>
+            <Dialog.Portal>
+                <Dialog.Overlay class="fixed inset-0 bg-black/50 z-40" />
+                <Dialog.Content class="flex z-50 justify-center flex-col fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-neutral-800 p-6 rounded-md shadow-lg text-white w-[clamp(300px,50vw,500px)]">
+                    <Dialog.Label class="text-xl font-semibold mb-2 text-center">
+                        Delete {props.file.original_file_name.length > 17
+                            ? `${props.file.original_file_name.slice(0, 17)}...`
+                            : props.file.original_file_name}?
+                    </Dialog.Label>
+                    <p class="mb-4 text-sm text-neutral-400 text-center">
+                        Once a file is deleted, it may not be recoverable again. Are you sure you want to permanently delete this file?
+                    </p>
+                    <div class="flex justify-between space-x-3 mt-6">
+                        <Dialog.Close class="bg-neutral-600 hover:bg-neutral-700 text-white font-semibold py-2 px-4 rounded transition-colors duration-200">
+                            Cancel
+                        </Dialog.Close>
+                        <button
+                            class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded transition-colors duration-200"
+                            onClick={handleDelete}
+                        >
+                            Delete
+                        </button>
+                    </div>
+                </Dialog.Content>
+            </Dialog.Portal>
+        </Dialog>
     )
 }
 
