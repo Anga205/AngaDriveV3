@@ -78,6 +78,9 @@ type AppContextType = {
     // Files that have been observed/loaded in this session (file_directory keys)
     loadedFiles?: () => Set<string>;
     setLoadedFiles?: (value: Set<string> | ((prev: Set<string>) => Set<string>)) => void;
+    // Files currently selected for bulk actions in My Drive
+    selectedFiles?: () => Set<string>;
+    setSelectedFiles?: (value: Set<string> | ((prev: Set<string>) => Set<string>)) => void;
 };
 
 export type {RAMData, CPUData, SysInfo, GraphData, IncomingData, SocketStatus, Pages, FileData, CollectionCardData, AppContextType, KnownCollections, KnownCollectionCards};

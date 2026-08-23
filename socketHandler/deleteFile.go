@@ -70,3 +70,73 @@ func DeleteFile(req DeleteFileRequest) error {
 	go RemoveFile(fileToDelete.Md5sum)
 	return nil
 }
+
+// BulkDeleteFile deletes multiple files owned by the authenticated user in a
+// single request. This reduces the number of websocket round-trips required to
+// delete many files at once. If any individual file fails to delete (e.g. it
+// does not exist or belongs to another user), the error is collected but the
+// remaining files are still processed.
+func BulkDeleteFile(req BulkDeleteRequest) (BulkDeleteResponse, error) {
+	if req.Auth.Token == "" {
+		if !accounts.Authenticate(req.Auth.Email, req.Auth.Password) {
+			now := time.Now()
+			timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
+			fmt.Printf("[%s] Authentication failed for bulk_file_delete request\n", timestamp)
+			return BulkDeleteResponse{}, fmt.Errorf("authentication failed")
+		}
+		user, _ := database.FindUserByEmail(req.Auth.Email)
+		req.Auth.Token = user.Token
+	}
+
+	deleted := []string{}
+	errors := []FileDeleteError{}
+	for _, fileDirectory := range req.FileDirectories {
+		fileToDelete, err := database.GetFile(fileDirectory)
+		if err != nil {
+			now := time.Now()
+			timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
+			fmt.Printf("[%s] Error fetching file %s: %v\n", timestamp, fileDirectory, err)
+			errors = append(errors, FileDeleteError{FileDirectory: fileDirectory, Error: "file not found"})
+			continue
+		}
+		if fileToDelete.AccountToken != req.Auth.Token {
+			now := time.Now()
+			timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
+			fmt.Printf("[%s] Unauthorized delete attempt by %s on file %s\n", timestamp, req.Auth.Email, fileDirectory)
+			errors = append(errors, FileDeleteError{FileDirectory: fileDirectory, Error: "unauthorized delete attempt"})
+			continue
+		}
+		if err := deleteFileInternal(fileToDelete); err != nil {
+			errors = append(errors, FileDeleteError{FileDirectory: fileDirectory, Error: err.Error()})
+			continue
+		}
+		deleted = append(deleted, fileDirectory)
+		go UserFilesPulse(FileUpdate{Toggle: false, File: fileToDelete})
+	}
+
+	if len(deleted) > 0 {
+		go UpdateUserCount()
+	}
+
+	return BulkDeleteResponse{Deleted: deleted, Errors: errors}, nil
+}
+
+func deleteFileInternal(fileToDelete database.FileData) error {
+	if err := database.DeleteFile(fileToDelete, PulseCollectionSubscribers); err != nil {
+		return fmt.Errorf("error deleting file: %v", err)
+	}
+	ext := strings.ToLower(getExtension(fileToDelete.OriginalFileName))
+	if ext == "pdf" {
+		os.Remove(UPLOAD_DIR + string(os.PathSeparator) + "pdf_previews" + string(os.PathSeparator) + fileToDelete.FileDirectory + ".png")
+	} else {
+		imageExtensions := []string{"jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff"}
+		for _, imgExt := range imageExtensions {
+			if ext == imgExt {
+				os.Remove(UPLOAD_DIR + string(os.PathSeparator) + "image_previews" + string(os.PathSeparator) + fileToDelete.FileDirectory)
+				break
+			}
+		}
+	}
+	go RemoveFile(fileToDelete.Md5sum)
+	return nil
+}

@@ -1,5 +1,5 @@
 import type { FileData } from "../library/types"
-import { BinSVG, CopySVG, CrossSVG, DownloadSVG, EyeSVG, FileTextSVG, RefreshSVG } from "../assets/SvgFiles";
+import { BinSVG, CheckSVG, CopySVG, CrossSVG, DownloadSVG, EyeSVG, FileTextSVG, RefreshSVG } from "../assets/SvgFiles";
 import { formatFileSize, getFileType } from "../library/functions";
 import toast from "solid-toast";
 import { useWebSocket } from "../Websockets";
@@ -268,7 +268,7 @@ const RemoveFromCollectionButton: Component<{ file: FileData }> = (props) => {
     )
 }
 
-const FileCard: Component<{ File: FileData }> = (props) => {
+const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: string) => void; isSelected?: boolean }> = (props) => {
     let DownloadLink = assetsUrl(`/download/${props.File.file_directory}`);
     let link = assetsUrl(`/i/${props.File.file_directory}`);
     link = link.split('.').slice(0, -1).join('.');
@@ -277,17 +277,42 @@ const FileCard: Component<{ File: FileData }> = (props) => {
         link = link.replace(" ", "%20");
     }
     const location = useLocation();
+    const ctx = useContext(AppContext)!;
+    const selectable = !!props.onSelectionToggle;
+    const handleCardClick = () => {
+        if (selectable) {
+            props.onSelectionToggle?.(props.File.file_directory);
+        }
+    };
     return (
-        <div class="flex flex-col w-80 h-96 bg-neutral-950 border-neutral-800 border rounded-lg md:hover:scale-105 transition-transform duration-200 shadow-lg">
-            <a class="w-full h-[calc(14%+50%+21.4%)]" href={link} target="_blank" rel="noopener noreferrer">
-                <div class="flex items-center overflow-hidden justify-center w-full h-[16.393442623%] bg-neutral-900 rounded-t-lg">
-                    <p class="text-white text-2xl font-semibold text-nowrap font-sans">{props.File.original_file_name.length > 17
-                        ? `${props.File.original_file_name.slice(0, 17)}...`
-                        : props.File.original_file_name}</p>
+        <div
+            class={`relative flex flex-col w-80 h-96 bg-neutral-950 border rounded-lg md:hover:scale-105 transition-transform duration-300 shadow-lg ${selectable ? "cursor-pointer" : ""} ${props.isSelected ? "border-blue-700 ring-2 ring-blue-700/40" : "border-neutral-800"}`}
+            onClick={handleCardClick}
+        >
+            <div class="w-full h-[calc(14%+50%+21.4%)]">
+                <div class="flex items-center justify-center w-full h-[16.393442623%] bg-neutral-900 rounded-t-lg pl-3 pr-1">
+                    <Show when={(ctx.selectedFiles?.()?.size || 0) > 0}>
+                    <Show when={selectable}>
+                        <button
+                            class={`flex items-center justify-center w-4 h-4 rounded-full border-2 transition-colors duration-150 ${props.isSelected ? "bg-blue-700 border-blue-500" : "bg-neutral-800 border-neutral-500 hover:border-blue-400"}`}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                props.onSelectionToggle?.(props.File.file_directory);
+                            }}
+                            aria-label={props.isSelected ? "Unselect file" : "Select file"}
+                        >
+                            <Show when={props.isSelected}>
+                                <CheckSVG />
+                            </Show>
+                        </button>
+                    </Show>
+                    </Show>
+                    <div class="w-2"/>
+                    <p class="text-white text-2xl font-semibold text-nowrap font-sans flex-1 text-center truncate">{props.File.original_file_name}</p>
                 </div>
-                <div class="flex justify-center items-center w-full h-[58.5480093677%] overflow-hidden">
+                <a class="flex justify-center items-center w-full h-[58.5480093677%] overflow-hidden" href={link} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
                     <FilePreview file={props.File} />
-                </div>
+                </a>
                 <div class="flex w-full space-x-2 p-2 text-xs border-b border-neutral-800 h-[25.0585480094%]">
                     <div class="flex flex-col items-end w-1/2 h-full text-neutral-700 font-sans">
                         <p>Type:</p>
@@ -306,8 +331,8 @@ const FileCard: Component<{ File: FileData }> = (props) => {
                         </p>
                     </div>
                 </div>
-            </a>
-            <div class="w-full flex justify-between p-2 h-[14.6%]">
+            </div>
+            <div class="w-full flex justify-between p-2 h-[14.6%]" onClick={(e) => e.stopPropagation()}>
                 <div />
                 <a class="flex items-center justify-center p-2 bg-yellow-700/30 hover:bg-yellow-700/20 rounded-xl text-yellow-600" href={link} target="_blank">
                     <EyeSVG />
@@ -315,7 +340,7 @@ const FileCard: Component<{ File: FileData }> = (props) => {
                 <div />
                 <button class="flex items-center justify-center p-2 bg-cyan-700/30 hover:bg-cyan-700/20 rounded-xl text-cyan-500" onClick={() => {
                     navigator.clipboard.writeText(link)
-                    toast.success("Link to " + props.File.original_file_name + " copied to clipboard!", {
+                    toast.success("Link copied to clipboard!", {
                         duration: 2000,
                         position: "bottom-right",
                         style: {
@@ -337,7 +362,7 @@ const FileCard: Component<{ File: FileData }> = (props) => {
                         document.body.appendChild(anchor);
                         anchor.click();
                         anchor.remove();
-                        toast.success("Download started for " + props.File.original_file_name, {
+                        toast.success("Download started!", {
                             duration: 2000,
                             position: "bottom-right",
                             style: {

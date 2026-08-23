@@ -95,6 +95,21 @@ type DeleteFileRequest struct {
 	Auth          AuthInfo `json:"auth"`
 }
 
+type BulkDeleteRequest struct {
+	FileDirectories []string `json:"file_directories"`
+	Auth            AuthInfo `json:"auth"`
+}
+
+type FileDeleteError struct {
+	FileDirectory string `json:"file_directory"`
+	Error         string `json:"error"`
+}
+
+type BulkDeleteResponse struct {
+	Deleted []string          `json:"deleted"`
+	Errors  []FileDeleteError `json:"errors"`
+}
+
 type connInfo struct {
 	conn *websocket.Conn
 	data *WebsocketData
