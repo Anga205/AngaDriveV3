@@ -310,7 +310,23 @@ const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: stri
                     <div class="w-2"/>
                     <p class="text-white text-2xl font-semibold text-nowrap font-sans flex-1 text-center truncate">{props.File.original_file_name}</p>
                 </div>
-                <a class="flex justify-center items-center w-full h-[58.5480093677%] overflow-hidden" href={link} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                <a
+                    class="flex justify-center items-center w-full h-[58.5480093677%] overflow-hidden"
+                    href={link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => {
+                        // When files are being selected (selectedFiles count > 0), prevent opening in new tab
+                        // and instead trigger file selection
+                        if ((ctx.selectedFiles?.()?.size || 0) > 0) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            props.onSelectionToggle?.(props.File.file_directory);
+                        } else {
+                            e.stopPropagation();
+                        }
+                    }}
+                >
                     <FilePreview file={props.File} />
                 </a>
                 <div class="flex w-full space-x-2 p-2 text-xs border-b border-neutral-800 h-[25.0585480094%]">
