@@ -74,3 +74,8 @@ func GetDB() *gorm.DB {
 	}
 	return dbInstance
 }
+
+// IsInitialized returns true when the database has been initialized.
+func IsInitialized() bool {
+	return dbInstance != nil
+}

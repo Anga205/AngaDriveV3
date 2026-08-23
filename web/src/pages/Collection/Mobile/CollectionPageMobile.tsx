@@ -1,11 +1,11 @@
 import { Component, For, useContext, createSignal, createEffect, Show } from "solid-js";
-import { useSearchParams } from "@solidjs/router";
+import { useLocation } from "@solidjs/router";
 import { AppContext } from "@/Context";
 import { useWebSocket } from "@/Websockets";
 import FileCard from "@/components/FileCard";
 import CollectionCard from "@/components/CollectionCard";
 import Navbar from "@/components/Navbar";
-import { getCollection } from "@/library/functions";
+import { getCollection, getCollectionPathIds } from "@/library/functions";
 import CollectionNavigator from "../shared/components/CollectionNavigator";
 import AddFilePopup from "../shared/components/AddFilePopup";
 import AddFolderPopup from "../shared/components/AddFolderPopup";
@@ -13,11 +13,12 @@ import AddFolderPopup from "../shared/components/AddFolderPopup";
 const CollectionPageMobile: Component = () => {
     const ctx = useContext(AppContext)!;
     const {socket, status} = useWebSocket();
+    const location = useLocation();
     const [collectionId, setCollectionId] = createSignal<string>("");
-    const [params] = useSearchParams();
 
     createEffect(() => {
-        const newCollectionId = params.id?.toString().split(" ").pop() || "";
+        const pathIds = getCollectionPathIds(location.pathname);
+        const newCollectionId = pathIds[pathIds.length - 1] || "";
         if (newCollectionId !== collectionId()) {
             setCollectionId(newCollectionId);
             getCollection(newCollectionId, status, socket, ctx);
