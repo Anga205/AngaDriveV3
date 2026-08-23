@@ -1,7 +1,7 @@
 import { Component, onMount, useContext } from "solid-js";
 import { BinSVG, CopySVG, CrossSVG, EyeSVG } from "../assets/SvgFiles";
 import { CollectionCardData } from "../library/types";
-import { formatFileSize, getCollection } from "../library/functions";
+import { formatFileSize, getCollection, getCollectionPathIds } from "../library/functions";
 import { useWebSocket } from "../Websockets";
 import toast from "solid-toast";
 import { useNavigate, useLocation } from "@solidjs/router";
@@ -34,6 +34,12 @@ const CollectionCard: Component<{ collection: CollectionCardData }> = (props) =>
         }));
     };
 
+    // The ID of the currently displayed collection, parsed from the URL path.
+    const currentCollectionId = () => {
+        const pathIds = getCollectionPathIds(location.pathname);
+        return pathIds[pathIds.length - 1] || "";
+    };
+
     const handleRemove = () => {
         if (status() !== "connected") {
             toast.error("Could not secure a connection to the server. Please try again later.");
@@ -41,14 +47,11 @@ const CollectionCard: Component<{ collection: CollectionCardData }> = (props) =>
         }
         const ws = socket();
         if (!ws) return;
-        const collectionId = new URLSearchParams(location.search).get("id") || "";
-        const ids = collectionId.split(" ");
-        const lastId = ids[ids.length - 1];
 
         ws.send(JSON.stringify({
             type: "remove_folder_from_collection",
             data: {
-            collection_id: lastId,
+            collection_id: currentCollectionId(),
             folder_id: props.collection.id,
             auth: {
                 token: localStorage.getItem('token') || '',
@@ -64,30 +67,26 @@ const CollectionCard: Component<{ collection: CollectionCardData }> = (props) =>
         let newUrl = "";
 
         if (currentUrl.includes("/my_collection")) {
-            newUrl = `/collection/?id=${props.collection.id}`;
-        } else if (currentUrl.includes("/collection/?id=")) {
-            const urlParams = new URLSearchParams(window.location.search);
-            const id = urlParams.get('id');
-            if (id) {
-                const ids = id.split(' ');
-                if (ids.length >= 2 && ids[ids.length - 2] === props.collection.id) {
-                    const newIds = ids.slice(0, -1);
-                    newUrl = `/collection/?id=${newIds.join(' ')}`;
-                } else {
-                    newUrl = `/collection/?id=${id} ${props.collection.id}`;
-                }
+            newUrl = `/collection/${props.collection.id}`;
+        } else if (currentUrl.includes("/collection/")) {
+            const pathIds = getCollectionPathIds(location.pathname);
+            if (pathIds.length >= 2 && pathIds[pathIds.length - 2] === props.collection.id) {
+                // Clicking an ancestor in the path -> navigate back to that ancestor.
+                const newIds = pathIds.slice(0, -1);
+                newUrl = `/collection/${newIds.join('/')}`;
             } else {
-                newUrl = `/collection/?id=${props.collection.id}`;
+                // Navigating into a child -> append to the existing path.
+                newUrl = `/collection/${pathIds.join('/')}/${props.collection.id}`;
             }
         } else {
-            newUrl = `/collection/?id=${props.collection.id}`;
+            newUrl = `/collection/${props.collection.id}`;
         }
 
         navigate(newUrl);
     };
 
     const handleCopy = () => {
-        const collectionUrl = `${window.location.origin}/collection/?id=${props.collection.id}`;
+        const collectionUrl = `${window.location.origin}/collection/${props.collection.id}`;
         navigator.clipboard.writeText(collectionUrl)
             .then(() => {
                 toast.success("Collection URL copied to clipboard!");
@@ -102,10 +101,8 @@ const CollectionCard: Component<{ collection: CollectionCardData }> = (props) =>
     });
 
     const isParentCollectionOwned = () => {
-        const collectionIdFromUrl = new URLSearchParams(location.search).get("id") || "";
-        if (!collectionIdFromUrl) return false;
-        const ids = collectionIdFromUrl.split(" ");
-        const lastId = ids[ids.length - 1];
+        const lastId = currentCollectionId();
+        if (!lastId) return false;
         return ctx.knownCollections()[lastId]?.isOwned || false;
     }
 

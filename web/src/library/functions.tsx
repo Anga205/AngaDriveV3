@@ -197,6 +197,12 @@ const getCollection = (id: string, status: Accessor<SocketStatus>, socket: Acces
     }
 }
 
+const getCollectionPathIds = (pathname: string): string[] => {
+    const prefix = "/collection";
+    if (!pathname.startsWith(prefix)) return [];
+    return pathname.slice(prefix.length).split("/").filter(seg => seg.length > 0);
+};
+
 const handleLogout = (setIsLoggedIn: (value: boolean) => void, ctx: AppContextType) => {
     localStorage.removeItem("email");
     localStorage.removeItem("password");
@@ -222,4 +228,4 @@ function generateUUID() {
   });
 }
   
-export {generateUUID, formatFileSize, truncateFileName, getFileType, UniversalMessageHandler, generateClientToken, fetchFilesAndCollections, getCollection, handleLogout};
+export {generateUUID, formatFileSize, truncateFileName, getFileType, UniversalMessageHandler, generateClientToken, fetchFilesAndCollections, getCollection, getCollectionPathIds, handleLogout};

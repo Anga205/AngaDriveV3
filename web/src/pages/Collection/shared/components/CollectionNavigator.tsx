@@ -1,20 +1,20 @@
 import { Component, For, createSignal, createEffect, useContext } from "solid-js";
-import { useNavigate, useSearchParams } from "@solidjs/router";
+import { useNavigate, useLocation } from "@solidjs/router";
 import { AppContext } from "@/Context";
 import { useWebSocket } from "@/Websockets";
-import { getCollection } from "@/library/functions";
+import { getCollection, getCollectionPathIds } from "@/library/functions";
 
 const CollectionNavigator: Component = () => {
     const [collectionIds, setCollectionIds] = createSignal<Array<string>>([]);
-    const [params] = useSearchParams();
+    const location = useLocation();
     const ctx = useContext(AppContext)!;
     const {socket, status} = useWebSocket();
     const navigate = useNavigate();
     createEffect(() => {
-        const allIds = params.id?.toString().split(" ") || []
-        allIds.pop();
-        setCollectionIds(allIds);
-        for (const id of collectionIds()) {
+        const pathIds = getCollectionPathIds(location.pathname);
+        pathIds.pop();
+        setCollectionIds(pathIds);
+        for (const id of pathIds) {
             if (!ctx.knownCollections()[id]) {
                 getCollection(id, status, socket, ctx);
             }
@@ -25,7 +25,7 @@ const CollectionNavigator: Component = () => {
         const index = collectionIds().indexOf(clickedId);
         if (index !== -1) {
             const newIds = collectionIds().slice(0, index + 1);
-            navigate(`/collection?id=${newIds.join(" ")}`);
+            navigate(`/collection/${newIds.join("/")}`);
         }
     };
 

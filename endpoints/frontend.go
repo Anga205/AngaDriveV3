@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"mime"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -260,6 +261,38 @@ func serveCachedFile(c *gin.Context, cachedFile CachedFile) {
 	c.Data(http.StatusOK, cachedFile.ContentType, body)
 }
 
+// collectionHandler serves the SPA for the /collection and /collection/* paths.
+// If a legacy 'id' query parameter is present it redirects with a permanent 301
+// to the canonical path-based collection URL.
+func collectionHandler(indexFile CachedFile) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c.Request.Host != vars.WebURL {
+			c.AbortWithStatus(http.StatusNotFound)
+			return
+		}
+
+		legacyID := c.Query("id")
+		if legacyID != "" {
+			// Split the space-separated navigation path into individual IDs.
+			// c.Query returns the decoded value, so "+" and %20 already became
+			// spaces and we use strings.Fields (which also drops empties).
+			ids := strings.Fields(legacyID)
+			if len(ids) > 0 {
+				escaped := make([]string, 0, len(ids))
+				for _, id := range ids {
+					escaped = append(escaped, url.PathEscape(id))
+				}
+				c.Redirect(http.StatusMovedPermanently, "/collection/"+strings.Join(escaped, "/"))
+				return
+			}
+		}
+
+		// No legacy id (e.g. /collection or /collection/) -> serve the SPA.
+		go socketHandler.SiteActivityPulse()
+		serveCachedFile(c, indexFile)
+	}
+}
+
 func setupRoutes(r *gin.Engine, cache map[string]CachedFile) {
 	indexFile, ok := cache["/index.html"]
 	if !ok {
@@ -267,7 +300,14 @@ func setupRoutes(r *gin.Engine, cache map[string]CachedFile) {
 		return
 	}
 
-	routes := []string{"/", "/my_drive", "/my_collections", "/collection", "/account"}
+	// Collection routes: /collection and /collection/*path. The catch-all also
+	// covers /collection/ (empty trailing segment via *path == "/"). Both use
+	// the same handler so a legacy ?id= query on /collection or /collection/
+	// produces an HTTP 301 redirect to the canonical path-based URL.
+	r.GET("/collection", collectionHandler(indexFile))
+	r.GET("/collection/*path", collectionHandler(indexFile))
+
+	routes := []string{"/", "/my_drive", "/my_collections", "/account"}
 	for _, route := range routes {
 		route := route
 		r.GET(route, func(c *gin.Context) {

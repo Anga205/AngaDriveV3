@@ -10,6 +10,9 @@ import (
 )
 
 func SiteActivityPulse() {
+	if !database.IsInitialized() {
+		return
+	}
 	database.PushTimeStamp(time.Now().Unix())
 	x_axis, y_axis := info.GetLastXDaysCounts()
 	graphData := GraphData{

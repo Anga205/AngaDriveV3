@@ -3,7 +3,7 @@ import { BinSVG, CheckSVG, CopySVG, CrossSVG, DownloadSVG, EyeSVG, FileTextSVG, 
 import { formatFileSize, getFileType } from "../library/functions";
 import toast from "solid-toast";
 import { useWebSocket } from "../Websockets";
-import { useLocation } from "@solidjs/router";
+import { useLocation, useParams } from "@solidjs/router";
 import { AppContext } from "../Context";
 import { createSignal, onCleanup, Component, Show, useContext } from "solid-js";
 import Dialog from '@corvu/dialog';
@@ -236,10 +236,11 @@ const DeleteButton: Component<{ file: FileData }> = (props) => {
 const RemoveFromCollectionButton: Component<{ file: FileData }> = (props) => {
     const { socket: getSocket } = useWebSocket();
     const ctx = useContext(AppContext)!;
-    const location = useLocation();
-    const collectionIdParam = new URLSearchParams(location.search).get("id") || "";
-    const ids = collectionIdParam.split(" ");
-    const collectionId = ids[ids.length - 1];
+    const params = useParams();
+    // Get the current collection ID from the path (last segment)
+    const rawPath = params.collectionPath;
+    const pathSegments: string[] = rawPath ? rawPath.split("/") : [];
+    const collectionId = pathSegments[pathSegments.length - 1] || "";
     const handleRemove = async () => {
         const removeRequest = {
             type: "remove_file_from_collection",
