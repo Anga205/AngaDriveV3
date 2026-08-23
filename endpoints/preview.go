@@ -17,14 +17,20 @@ import (
 func returnFilePreview(c *gin.Context) {
 	go socketHandler.SiteActivityPulse()
 
-	file_directory := c.Param("file_directory")
+	file_directory := c.Param("file_id")
+	file_directory = strings.TrimSuffix(file_directory, ".png")
+	file, err := database.GetFile(file_directory)
+	if err != nil {
+		c.String(404, "File not found")
+		return
+	}
 	previewsDir := UPLOAD_DIR + string(os.PathSeparator) + "pdf_previews"
-	previewFile := previewsDir + string(os.PathSeparator) + file_directory
+	previewFile := previewsDir + string(os.PathSeparator) + file.Sha256sum + ".png"
 
 	if _, err := os.Stat(previewFile); !os.IsNotExist(err) {
 		c.File(previewFile)
 	} else {
-		err := generatePreview(file_directory)
+		err := generatePDFPreview(file, previewsDir, previewFile)
 		if err != nil {
 			c.String(500, "Failed to generate preview: "+err.Error())
 			return
@@ -33,22 +39,8 @@ func returnFilePreview(c *gin.Context) {
 	}
 }
 
-func generatePreview(file_directory string) error {
-	previewFile := UPLOAD_DIR + string(os.PathSeparator) + "pdf_previews" + string(os.PathSeparator) + file_directory
-	if !strings.HasSuffix(file_directory, ".png") {
-		return fmt.Errorf("file must be a PNG image")
-	}
-	file_directory_without_png := strings.TrimSuffix(file_directory, ".png")
-	if !strings.HasSuffix(file_directory_without_png, ".pdf") {
-		return fmt.Errorf("file must be a PDF document")
-	}
-
-	file_info, err := database.GetFile(file_directory_without_png)
-	if err != nil {
-		return fmt.Errorf("file not found: %w", err)
-	}
-
-	doc, err := fitz.New(UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + file_info.Sha256sum)
+func generatePDFPreview(file database.FileData, previewsDir string, previewFilePath string) error {
+	doc, err := fitz.New(UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + file.Sha256sum)
 	if err != nil {
 		return fmt.Errorf("failed to open PDF document: %w", err)
 	}
@@ -93,12 +85,11 @@ func generatePreview(file_directory string) error {
 		return fmt.Errorf("failed to encode image: %w", err)
 	}
 
-	previewsDir := UPLOAD_DIR + string(os.PathSeparator) + "pdf_previews"
 	if err := os.MkdirAll(previewsDir, os.ModePerm); err != nil {
 		return fmt.Errorf("failed to create previews directory: %w", err)
 	}
 
-	f, err := os.Create(previewFile)
+	f, err := os.Create(previewFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to create image file: %w", err)
 	}
