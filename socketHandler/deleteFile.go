@@ -18,9 +18,21 @@ func getExtension(filename string) string {
 	return ""
 }
 
-func RemoveFile(md5sum string) {
-	if !database.CheckForFilesWithMd5sum(md5sum) {
-		os.Remove(UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + md5sum)
+func RemoveFileIfNoClonesExist(fileToDelete database.FileData) {
+	if !database.CheckForFilesWithSha256sum(fileToDelete.Sha256sum) {
+		os.Remove(UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + fileToDelete.Sha256sum)
+		ext := strings.ToLower(getExtension(fileToDelete.OriginalFileName))
+		if ext == "pdf" {
+			os.Remove(UPLOAD_DIR + string(os.PathSeparator) + "pdf_previews" + string(os.PathSeparator) + fileToDelete.Sha256sum + ".png")
+		} else {
+			imageExtensions := []string{"jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff"}
+			for _, imgExt := range imageExtensions {
+				if ext == imgExt {
+					os.Remove(UPLOAD_DIR + string(os.PathSeparator) + "image_previews" + string(os.PathSeparator) + fileToDelete.Sha256sum)
+					break
+				}
+			}
+		}
 	}
 }
 
@@ -49,25 +61,13 @@ func DeleteFile(req DeleteFileRequest) error {
 		return fmt.Errorf("unauthorized delete attempt")
 	}
 	err = database.DeleteFile(fileToDelete, PulseCollectionSubscribers)
-	ext := strings.ToLower(getExtension(fileToDelete.OriginalFileName))
-	if ext == "pdf" {
-		os.Remove(UPLOAD_DIR + string(os.PathSeparator) + "pdf_previews" + string(os.PathSeparator) + fileToDelete.FileDirectory + ".png")
-	} else {
-		imageExtensions := []string{"jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff"}
-		for _, imgExt := range imageExtensions {
-			if ext == imgExt {
-				os.Remove(UPLOAD_DIR + string(os.PathSeparator) + "image_previews" + string(os.PathSeparator) + fileToDelete.FileDirectory)
-				break
-			}
-		}
-	}
 	if err != nil {
 		now := time.Now()
 		timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
 		fmt.Printf("[%s] Error deleting file: %v\n", timestamp, err)
 		return fmt.Errorf("error deleting file: %v", err)
 	}
-	go RemoveFile(fileToDelete.Md5sum)
+	go RemoveFileIfNoClonesExist(fileToDelete)
 	return nil
 }
 
@@ -137,6 +137,6 @@ func deleteFileInternal(fileToDelete database.FileData) error {
 			}
 		}
 	}
-	go RemoveFile(fileToDelete.Md5sum)
+	go RemoveFileIfNoClonesExist(fileToDelete)
 	return nil
 }
