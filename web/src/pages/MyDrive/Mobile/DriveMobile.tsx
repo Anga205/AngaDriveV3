@@ -7,6 +7,10 @@ import Search from "lucide-solid/icons/search";
 import { UploadPopup } from "../shared/components/UploadPopUp";
 import FilesError from "../shared/components/FilesError";
 import FileCard from "@/components/FileCard";
+import { useWebSocket } from "@/Websockets";
+import { toast } from "solid-toast";
+import BulkDeleteDialog from "../shared/components/BulkDeleteDialog";
+import { CrossSVG } from "@/assets/SvgFiles";
 
 const MobileDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: SelectOption[]; selectedSort: Accessor<string[]>; setSelectedSort: (value: string[]) => void; sortedFiles: () => Array<FileData>; searchQuery?: Accessor<string>; setSearch?: (v: string) => void}> = (props) => {
     // Lazy load for mobile as well
@@ -16,6 +20,37 @@ const MobileDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: Sel
     let mobileObserver: IntersectionObserver | undefined;
 
     const ctx = useContext(AppContext)!;
+    const { socket: getSocket } = useWebSocket();
+    const [deleteOpen, setDeleteOpen] = createSignal(false);
+
+    const selectedCount = createMemo(() => ctx.selectedFiles?.()?.size || 0);
+
+    const handleBulkDelete = () => {
+        const selected = Array.from(ctx.selectedFiles?.() || new Set<string>());
+        if (selected.length === 0) return;
+        const deleteRequest = {
+            type: "bulk_delete_files",
+            data: {
+                file_directories: selected,
+                auth: {
+                    token: localStorage.getItem("token") || "",
+                    email: localStorage.getItem("email") || "",
+                    password: localStorage.getItem("password") || ""
+                }
+            }
+        }
+        if (getSocket()?.readyState !== WebSocket.OPEN) {
+            toast.error("WebSocket is not available");
+            return;
+        }
+        getSocket()?.send(JSON.stringify(deleteRequest));
+        ctx.setSelectedFiles?.(new Set());
+        setDeleteOpen(false);
+    };
+
+    const handleUnselectAll = () => {
+        ctx.setSelectedFiles?.(new Set());
+    };
 
     const displayedFiles = createMemo(() => {
         const base = props.sortedFiles() || [];
@@ -86,11 +121,42 @@ const MobileDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: Sel
                     </Show>
                     <UploadPopup/>
                 </div>
+            <Show when={selectedCount() > 0}>
+                <div class="w-full flex items-center gap-2 px-3 py-2 bg-neutral-900 border border-neutral-800 rounded-lg">
+                    <p class="text-neutral-300 text-sm font-semibold">{selectedCount()} selected</p>
+                    <div class="flex-1" />
+                    <button
+                        class="flex items-center gap-1 px-2 py-1 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-medium transition-colors duration-150"
+                        onClick={handleUnselectAll}
+                    >
+                        <CrossSVG />
+                        Unselect
+                    </button>
+                    <BulkDeleteDialog
+                        open={deleteOpen()}
+                        onOpenChange={setDeleteOpen}
+                        onDelete={handleBulkDelete}
+                        selectedCount={selectedCount()}
+                        triggerLabel="Delete"
+                    />
+                </div>
+            </Show>
             </div>
             <div ref={(el) => (mobileScrollRef = el)} class="w-full px-4 mt-4 max-h-full h-full flex flex-wrap items-center space-y-4 space-x-4 justify-center overflow-y-auto">
                 <For each={displayedFiles()} fallback={<FilesError />}>
                     {(file) => (
-                        <FileCard File={file} />
+                        <FileCard
+                            File={file}
+                            onSelectionToggle={(directory) => {
+                                ctx.setSelectedFiles?.((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(directory)) next.delete(directory);
+                                    else next.add(directory);
+                                    return next;
+                                });
+                            }}
+                            isSelected={ctx.selectedFiles?.()?.has(file.file_directory) || false}
+                        />
                     )}
                 </For>
                 {/* Sentinel for lazy loading */}

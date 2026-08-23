@@ -34,6 +34,19 @@ const MyDrive: Component = () => {
             } else {
                 toast.success(`File deleted successfully: ${data.data.success}`);
             }
+        } else if (data.type === "bulk_delete_files_response") {
+            if (data.data.error) {
+                toast.error(`Error deleting files: ${data.data.error}`);
+            } else {
+                const deletedCount = (data.data.deleted || []).length;
+                const errorCount = (data.data.errors || []).length;
+                if (deletedCount > 0) {
+                    toast.success(`Deleted ${deletedCount} file${deletedCount === 1 ? "" : "s"} successfully`);
+                }
+                if (errorCount > 0) {
+                    toast.error(`${errorCount} file${errorCount === 1 ? "" : "s"} could not be deleted`);
+                }
+            }
         }
     }
 
@@ -111,6 +124,16 @@ const MyDrive: Component = () => {
         try {
             ctx.setLoadedFiles?.(new Set());
         } catch (e) { }
+    });
+
+    createEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "Escape") {
+                ctx.setSelectedFiles?.(new Set());
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        onCleanup(() => window.removeEventListener("keydown", handleKeyDown));
     });
 
     return (

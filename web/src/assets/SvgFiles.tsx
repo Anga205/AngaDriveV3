@@ -1,5 +1,6 @@
 import { Component } from "solid-js";
 import X from "lucide-solid/icons/x"
+import Check from "lucide-solid/icons/check"
 import FileText from "lucide-solid/icons/file-text"
 import LayoutGrid from "lucide-solid/icons/layout-grid"
 import DatabaseZap from "lucide-solid/icons/database-zap"
@@ -131,4 +132,10 @@ const CrossSVG = () => (
     <X />
 )
 
-export {Butterfly, CollectionSVG, DatabaseZapSVG, FileSVG, GitHubSVG, HamburgerSVG, HomeSVG, LockSVG, ScanEyeSVG, UnlockSVG, UserSVG, Anga, UploadSVG, InfoSVG, ErrorSVG, EyeSVG, CopySVG, BinSVG, DownloadSVG, FileTextSVG, RefreshSVG, CrossSVG}
+const CheckSVG: Component = () => {
+    return (
+        <Check class="w-full h-auto" color="white" stroke-width={3} />
+    )
+}
+
+export {Butterfly, CollectionSVG, DatabaseZapSVG, FileSVG, GitHubSVG, HamburgerSVG, HomeSVG, LockSVG, ScanEyeSVG, UnlockSVG, UserSVG, Anga, UploadSVG, InfoSVG, ErrorSVG, EyeSVG, CopySVG, BinSVG, DownloadSVG, FileTextSVG, RefreshSVG, CrossSVG, CheckSVG}

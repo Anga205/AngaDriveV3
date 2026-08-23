@@ -114,6 +114,9 @@ var messageHandlers = map[string]MessageHandler{
 		processRequest(conn, data, HandleConversionRequest, "convert_video_response")
 	}),
 	"delete_file": HandlerFunc(handleDeleteFile),
+	"bulk_delete_files": HandlerFunc(func(conn *websocket.Conn, data json.RawMessage) {
+		processRequest(conn, data, BulkDeleteFile, "bulk_delete_files_response")
+	}),
 	"new_collection": HandlerFunc(func(conn *websocket.Conn, data json.RawMessage) {
 		processRequest(conn, data, CreateNewCollection, "new_collection_response")
 	}),
