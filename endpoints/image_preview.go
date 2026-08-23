@@ -62,7 +62,7 @@ func generateImagePreview(fileDirectory string, previewsDir string, previewFileP
 		return fmt.Errorf("file not found: %w", err)
 	}
 
-	originalFilePath := filepath.Join(UPLOAD_DIR, "i", fileInfo.Md5sum)
+	originalFilePath := filepath.Join(UPLOAD_DIR, "i", fileInfo.Sha256sum)
 	file, err := os.Open(originalFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to open original file: %w", err)
@@ -182,7 +182,7 @@ func serveRawSVG(c *gin.Context, fileDirectory string) {
 		return
 	}
 
-	originalFilePath := filepath.Join(UPLOAD_DIR, "i", fileInfo.Md5sum)
+	originalFilePath := filepath.Join(UPLOAD_DIR, "i", fileInfo.Sha256sum)
 	c.File(originalFilePath)
 }
 

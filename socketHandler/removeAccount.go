@@ -53,7 +53,7 @@ func removeAccountHandler(req removeAccRequest) (string, error) {
 	for _, file := range files {
 		go func(file database.FileData) {
 			database.DeleteFile(file, PulseCollectionSubscribers)
-			RemoveFile(file.Md5sum)
+			RemoveFile(file.Sha256sum)
 		}(file)
 	}
 	for _, collection := range collections {

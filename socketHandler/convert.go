@@ -3,7 +3,7 @@ package socketHandler
 import (
 	"angadrive/database"
 	"bytes"
-	"crypto/md5"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"os"
@@ -21,14 +21,14 @@ func removeExtension(filename string) string {
 	return filename
 }
 
-func md5sum(filepath string) (string, error) {
+func sha256sum(filepath string) (string, error) {
 	file, err := os.Open(filepath)
 	if err != nil {
 		return "", err
 	}
 	defer file.Close()
 
-	hash := md5.New()
+	hash := sha256.New()
 	if _, err := io.Copy(hash, file); err != nil {
 		return "", err
 	}
@@ -82,7 +82,7 @@ func startConversionWorker() {
 // It checks for duplicates in the queue or in progress.
 func ConvertToMP4(inputFile database.FileData) error {
 	// Atomically check if the file is already being processed and mark it as such.
-	_, loaded := conversionTasks.LoadOrStore(inputFile.Md5sum, true)
+	_, loaded := conversionTasks.LoadOrStore(inputFile.Sha256sum, true)
 	if loaded {
 		return fmt.Errorf("file %s already being converted or is in queue", inputFile.OriginalFileName)
 	}
@@ -99,7 +99,7 @@ func ConvertToMP4(inputFile database.FileData) error {
 	default:
 		// The queue is full, so we couldn't add it.
 		// Remove it from our tracking map to allow it to be re-queued later.
-		conversionTasks.Delete(inputFile.Md5sum)
+		conversionTasks.Delete(inputFile.Sha256sum)
 		return fmt.Errorf("conversion queue is full")
 	}
 }
@@ -108,10 +108,10 @@ func ConvertToMP4(inputFile database.FileData) error {
 // It is run in a goroutine by the worker.
 func performConversion(inputFile database.FileData) {
 	// Ensure the file is removed from the tasks map when the conversion is done.
-	defer conversionTasks.Delete(inputFile.Md5sum)
+	defer conversionTasks.Delete(inputFile.Sha256sum)
 
-	inputFilePath := UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + inputFile.Md5sum
-	outputFilePath := UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + removeExtension(inputFile.Md5sum) + ".mp4"
+	inputFilePath := UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + inputFile.Sha256sum
+	outputFilePath := UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + removeExtension(inputFile.Sha256sum) + ".mp4"
 	if _, err := os.Stat(inputFilePath); os.IsNotExist(err) {
 		go genericUserPulse(inputFile.AccountToken, map[string]interface{}{
 			"type": "error",
@@ -165,17 +165,17 @@ func performConversion(inputFile database.FileData) {
 	}
 	fileSize := fileInfo.Size()
 	uniqueFileName := database.GenerateUniqueFileName(inputFile.OriginalFileName + ".mp4")
-	outputMd5sum, err := md5sum(outputFilePath)
+	outputSha256sum, err := sha256sum(outputFilePath)
 	if err != nil {
 		go genericUserPulse(inputFile.AccountToken, map[string]interface{}{
 			"type": "error",
 			"data": map[string]interface{}{
-				"error": "failed to calculate MD5 checksum: " + err.Error(),
+				"error": "failed to calculate SHA-256 checksum: " + err.Error(),
 			},
 		})
 		return
 	}
-	err = os.Rename(outputFilePath, UPLOAD_DIR+string(os.PathSeparator)+"i"+string(os.PathSeparator)+outputMd5sum+".mp4")
+	err = os.Rename(outputFilePath, UPLOAD_DIR+string(os.PathSeparator)+"i"+string(os.PathSeparator)+outputSha256sum+".mp4")
 	if err != nil {
 		go genericUserPulse(inputFile.AccountToken, map[string]interface{}{
 			"type": "error",
@@ -191,7 +191,7 @@ func performConversion(inputFile database.FileData) {
 		AccountToken:     inputFile.AccountToken,
 		FileSize:         fileSize,
 		Timestamp:        time.Now().UTC().Unix(),
-		Md5sum:           outputMd5sum + ".mp4",
+		Sha256sum:        outputSha256sum + ".mp4",
 	}
 
 	fileData.Insert()

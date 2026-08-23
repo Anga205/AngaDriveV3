@@ -14,7 +14,7 @@ func getFilePath(file_directory string) string {
 	if err != nil {
 		return ""
 	}
-	return UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + File.Md5sum
+	return UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + File.Sha256sum
 }
 
 func getFileName(file_directory string) string {
