@@ -2,7 +2,7 @@ package socketHandler
 
 import (
 	"angadrive/database"
-	"crypto/md5"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -37,10 +37,10 @@ func convertToInterfaceMap(collectionMap map[string]database.Collection) map[str
 	return result
 }
 
-func FileMD5(filePath string) string {
+func FileSHA256(filePath string) string {
 	file, _ := os.Open(filePath)
 	defer file.Close()
-	hash := md5.New()
+	hash := sha256.New()
 	io.Copy(hash, file)
 	checksum := hash.Sum(nil)
 	return fmt.Sprintf("%x", checksum)
@@ -135,7 +135,7 @@ func GithubImportHandler(req ImportGithubRepoRequest) (string, error) {
 				dirStructure := strings.Split(path, string(os.PathSeparator))[2:]
 				parentDir := collectionMap[strings.Join(dirStructure[:len(dirStructure)-1], string(os.PathListSeparator))]
 				if !d.IsDir() {
-					fileMD5 := FileMD5(path)
+					fileSHA256 := FileSHA256(path)
 					newFileName := d.Name()
 					fileDir := database.GenerateUniqueFileName(newFileName)
 					fileInfo, _ := d.Info()
@@ -145,12 +145,12 @@ func GithubImportHandler(req ImportGithubRepoRequest) (string, error) {
 						FileDirectory:    fileDir,
 						AccountToken:     userToken,
 						Timestamp:        time.Now().Unix(),
-						Md5sum:           fileMD5 + fileExtension,
+						Sha256sum:        fileSHA256 + fileExtension,
 						FileSize:         fileInfo.Size(),
 					}
 					newFile.Insert()
 					parentDir.AddFile(newFile.FileDirectory)
-					newPath := filepath.Join(UPLOAD_DIR, "i", fileMD5+fileExtension)
+					newPath := filepath.Join(UPLOAD_DIR, "i", fileSHA256+fileExtension)
 					err := os.Rename(path, newPath)
 					if err != nil {
 						fmt.Println("Error moving file:", err)

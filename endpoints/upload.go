@@ -2,7 +2,7 @@ package endpoints
 
 import (
 	"compress/gzip"
-	"crypto/md5"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -69,7 +69,7 @@ func finalizeUpload(c *gin.Context) {
 	uploadID := c.Param("uuid")
 	totalChunksStr := c.PostForm("totalChunks")
 	originalFileName := c.PostForm("originalFileName")
-	// md5sum := c.PostForm("md5sum") // No longer sent from frontend
+	// sha256sum := c.PostForm("sha256sum") // No longer sent from frontend
 	collectionID := c.PostForm("collectionId")
 
 	userToken := c.PostForm("token")
@@ -145,14 +145,14 @@ func finalizeUpload(c *gin.Context) {
 		}
 	}
 
-	// Calculate MD5 hash of the assembled file
+	// Calculate SHA-256 hash of the assembled file
 	tempFile.Seek(0, 0) // Go back to the start of the file
-	hash := md5.New()
+	hash := sha256.New()
 	if _, err := io.Copy(hash, tempFile); err != nil {
-		c.String(500, "Failed to calculate MD5 hash")
+		c.String(500, "Failed to calculate SHA-256 hash")
 		return
 	}
-	md5sum := hex.EncodeToString(hash.Sum(nil))
+	sha256sum := hex.EncodeToString(hash.Sum(nil))
 
 	fileInfo, err := tempFile.Stat()
 	if err != nil {
@@ -162,7 +162,7 @@ func finalizeUpload(c *gin.Context) {
 	fileSize := fileInfo.Size()
 
 	// Rename the temp file to its final name
-	finalFilePath := filepath.Join(finalDestDir, md5sum+filepath.Ext(originalFileName))
+	finalFilePath := filepath.Join(finalDestDir, sha256sum+filepath.Ext(originalFileName))
 	tempFile.Close() // Close the file before renaming
 	if err := os.Rename(tempFile.Name(), finalFilePath); err != nil {
 		c.String(500, "Failed to rename temporary file")
@@ -177,7 +177,7 @@ func finalizeUpload(c *gin.Context) {
 		AccountToken:     accountToken,
 		FileSize:         fileSize,
 		Timestamp:        time.Now().Unix(),
-		Md5sum:           md5sum + filepath.Ext(originalFileName),
+		Sha256sum:        sha256sum + filepath.Ext(originalFileName),
 	}
 
 	if err := fileData.Insert(); err != nil {

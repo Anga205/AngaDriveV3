@@ -27,18 +27,24 @@ import (
 func returnImagePreview(c *gin.Context) {
 	go socketHandler.SiteActivityPulse()
 
-	fileDirectory := c.Param("file_directory")
+	fileDirectory := c.Param("file_id")
+
+	file, err := database.GetFile(fileDirectory)
+	if err != nil {
+		c.String(http.StatusNotFound, "File not found")
+		return
+	}
 
 	// SVG files are served raw (no rasterization needed), with a size limit.
 	if strings.ToLower(filepath.Ext(fileDirectory)) == ".svg" {
-		serveRawSVG(c, fileDirectory)
+		serveRawSVG(c, file.Sha256sum)
 		return
 	}
 
 	// this creates: /uploaded_files/image_previews
 	previewsDir := filepath.Join(UPLOAD_DIR, "image_previews")
 	// this creates: /uploaded_files/image_previews/<file_directory>
-	previewFile := filepath.Join(previewsDir, fileDirectory)
+	previewFile := filepath.Join(previewsDir, file.Sha256sum)
 
 	if _, err := os.Stat(previewFile); !os.IsNotExist(err) {
 		c.File(previewFile)
@@ -62,7 +68,7 @@ func generateImagePreview(fileDirectory string, previewsDir string, previewFileP
 		return fmt.Errorf("file not found: %w", err)
 	}
 
-	originalFilePath := filepath.Join(UPLOAD_DIR, "i", fileInfo.Md5sum)
+	originalFilePath := filepath.Join(UPLOAD_DIR, "i", fileInfo.Sha256sum)
 	file, err := os.Open(originalFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to open original file: %w", err)
@@ -182,7 +188,7 @@ func serveRawSVG(c *gin.Context, fileDirectory string) {
 		return
 	}
 
-	originalFilePath := filepath.Join(UPLOAD_DIR, "i", fileInfo.Md5sum)
+	originalFilePath := filepath.Join(UPLOAD_DIR, "i", fileInfo.Sha256sum)
 	c.File(originalFilePath)
 }
 
