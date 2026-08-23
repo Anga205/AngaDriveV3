@@ -65,5 +65,5 @@ type FileData struct {
 	AccountToken     string `json:"account_token"`
 	FileSize         int64  `json:"file_size"`
 	Timestamp        int64  `json:"timestamp"`
-	Md5sum           string `json:"-"`
+	Sha256sum        string `json:"-"`
 }

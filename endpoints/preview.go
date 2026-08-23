@@ -48,7 +48,7 @@ func generatePreview(file_directory string) error {
 		return fmt.Errorf("file not found: %w", err)
 	}
 
-	doc, err := fitz.New(UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + file_info.Md5sum)
+	doc, err := fitz.New(UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + file_info.Sha256sum)
 	if err != nil {
 		return fmt.Errorf("failed to open PDF document: %w", err)
 	}

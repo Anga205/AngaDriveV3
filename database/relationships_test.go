@@ -46,7 +46,7 @@ func insertTestFile(t *testing.T, dir string) FileData {
 		AccountToken:     "anon-token",
 		FileSize:         100,
 		Timestamp:        1,
-		Md5sum:           "md5-" + dir,
+		Sha256sum:        "sha256-" + dir,
 	}
 	if err := f.Insert(); err != nil {
 		t.Fatalf("insert file failed: %v", err)

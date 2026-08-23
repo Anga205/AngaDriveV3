@@ -154,11 +154,11 @@ func GetCollection(collectionID string) (Collection, error) {
 	return data, nil
 }
 
-func CheckForFilesWithMd5sum(md5sum string) bool {
+func CheckForFilesWithSha256sum(sha256sum string) bool {
 	// if the file is in the cache or database, return true
 	FileCacheLock.RLock()
 	for _, file := range FileCache {
-		if file.Md5sum == md5sum {
+		if file.Sha256sum == sha256sum {
 			FileCacheLock.RUnlock()
 			return true
 		}
@@ -166,7 +166,7 @@ func CheckForFilesWithMd5sum(md5sum string) bool {
 	FileCacheLock.RUnlock()
 	db := GetDB()
 	var count int64
-	err := db.Model(&FileData{}).Where("md5sum = ?", md5sum).Count(&count).Error
+	err := db.Model(&FileData{}).Where("sha256sum = ?", sha256sum).Count(&count).Error
 	if err != nil {
 		return false
 	}

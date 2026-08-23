@@ -18,9 +18,9 @@ func getExtension(filename string) string {
 	return ""
 }
 
-func RemoveFile(md5sum string) {
-	if !database.CheckForFilesWithMd5sum(md5sum) {
-		os.Remove(UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + md5sum)
+func RemoveFile(sha256sum string) {
+	if !database.CheckForFilesWithSha256sum(sha256sum) {
+		os.Remove(UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + sha256sum)
 	}
 }
 
@@ -67,7 +67,7 @@ func DeleteFile(req DeleteFileRequest) error {
 		fmt.Printf("[%s] Error deleting file: %v\n", timestamp, err)
 		return fmt.Errorf("error deleting file: %v", err)
 	}
-	go RemoveFile(fileToDelete.Md5sum)
+	go RemoveFile(fileToDelete.Sha256sum)
 	return nil
 }
 
@@ -137,6 +137,6 @@ func deleteFileInternal(fileToDelete database.FileData) error {
 			}
 		}
 	}
-	go RemoveFile(fileToDelete.Md5sum)
+	go RemoveFile(fileToDelete.Sha256sum)
 	return nil
 }
