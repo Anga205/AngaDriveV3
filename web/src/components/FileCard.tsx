@@ -128,7 +128,7 @@ const FilePreview: Component<{ file: FileData }> = (props) => {
             return <audio src={link} controls class="w-full" />;
         }
         if (["pdf"].includes(ext)) {
-            link = assetsUrl(`/preview/${props.file.file_directory}.png`);
+            link = assetsUrl(`/preview/${props.file.file_directory}.jpg`);
             return <img src={link} loading="lazy" class="max-h-full max-w-full p-2" />;
         }
         return <FileTextSVG class="max-h-full p-4 opacity-50" />;
