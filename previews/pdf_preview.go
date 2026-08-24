@@ -4,9 +4,8 @@ import (
 	"angadrive/database"
 	"angadrive/socketHandler"
 	"angadrive/vars"
-	"bytes"
 	"fmt"
-	"image/png"
+	"image/jpeg"
 	"os"
 	"strings"
 
@@ -19,14 +18,14 @@ func ReturnPDFPreview(c *gin.Context) {
 	go socketHandler.SiteActivityPulse()
 
 	file_directory := c.Param("file_id")
-	file_directory = strings.TrimSuffix(file_directory, ".png")
+	file_directory = strings.TrimSuffix(file_directory, ".jpg")
 	file, err := database.GetFile(file_directory)
 	if err != nil {
 		c.String(404, "File not found")
 		return
 	}
 	previewsDir := vars.UPLOAD_DIR + string(os.PathSeparator) + "pdf_previews"
-	previewFile := previewsDir + string(os.PathSeparator) + file.Sha256sum + ".png"
+	previewFile := previewsDir + string(os.PathSeparator) + file.Sha256sum + ".jpg"
 
 	if _, err := os.Stat(previewFile); !os.IsNotExist(err) {
 		c.File(previewFile)
@@ -56,49 +55,67 @@ func generatePDFPreview(file database.FileData, previewsDir string, previewFileP
 		return fmt.Errorf("failed to extract image from PDF: %w", err)
 	}
 
-	// Calculate new dimensions while preserving aspect ratio
-	originalBounds := img.Bounds()
-	originalWidth := originalBounds.Dx()
-	originalHeight := originalBounds.Dy()
+	// Resize so the longest dimension is at most 512px.
+	bounds := img.Bounds()
+	width := bounds.Dx()
+	height := bounds.Dy()
 
 	var newWidth, newHeight uint
-	if originalWidth > originalHeight {
+
+	if width >= height {
 		newWidth = 512
-		newHeight = uint(float64(originalHeight) * (512.0 / float64(originalWidth)))
+		newHeight = uint(float64(height) * 512.0 / float64(width))
 	} else {
 		newHeight = 512
-		newWidth = uint(float64(originalWidth) * (512.0 / float64(originalHeight)))
+		newWidth = uint(float64(width) * 512.0 / float64(height))
 	}
 
-	// If for some reason a dimension is 0, make it 1 to avoid errors
-	if newWidth == 0 {
+	if newWidth < 1 {
 		newWidth = 1
 	}
-	if newHeight == 0 {
+	if newHeight < 1 {
 		newHeight = 1
 	}
 
 	resized := resize.Resize(newWidth, newHeight, img, resize.Lanczos3)
-	var buf bytes.Buffer
-	encoder := png.Encoder{CompressionLevel: png.BestCompression}
-	err = encoder.Encode(&buf, resized)
-	if err != nil {
-		return fmt.Errorf("failed to encode image: %w", err)
-	}
+
+	// PDF pages are rendered as opaque images, so JPEG is appropriate.
+	// Quality 82 provides a good preview/size tradeoff.
+	jpegImage := resized
 
 	if err := os.MkdirAll(previewsDir, os.ModePerm); err != nil {
 		return fmt.Errorf("failed to create previews directory: %w", err)
 	}
 
-	f, err := os.Create(previewFilePath)
+	// Write to a temporary file so a partially-written preview is never
+	// exposed to another request.
+	tempFile, err := os.CreateTemp(previewsDir, ".preview-*.tmp")
 	if err != nil {
-		return fmt.Errorf("failed to create image file: %w", err)
+		return fmt.Errorf("failed to create temporary preview: %w", err)
 	}
-	defer f.Close()
 
-	_, err = f.Write(buf.Bytes())
-	if err != nil {
-		return fmt.Errorf("failed to write image to file: %w", err)
+	tempPath := tempFile.Name()
+	defer os.Remove(tempPath)
+
+	if err := jpeg.Encode(tempFile, jpegImage, &jpeg.Options{
+		Quality: 75,
+	}); err != nil {
+		tempFile.Close()
+		return fmt.Errorf("failed to encode JPEG preview: %w", err)
 	}
+
+	if err := tempFile.Sync(); err != nil {
+		tempFile.Close()
+		return fmt.Errorf("failed to sync JPEG preview: %w", err)
+	}
+
+	if err := tempFile.Close(); err != nil {
+		return fmt.Errorf("failed to close JPEG preview: %w", err)
+	}
+
+	if err := os.Rename(tempPath, previewFilePath); err != nil {
+		return fmt.Errorf("failed to finalize JPEG preview: %w", err)
+	}
+
 	return nil
 }
