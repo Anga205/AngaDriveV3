@@ -148,7 +148,7 @@ func TestSha256MigrationFromMd5(t *testing.T) {
 	dir := t.TempDir()
 	os.Setenv("SAVE_DRIVE_RAM", "true")
 	defer os.Unsetenv("SAVE_DRIVE_RAM")
-	if err := InitializeDatabase(dir); err != nil {
+	if err := InitializeDatabase(); err != nil {
 		t.Fatalf("InitializeDatabase failed: %v", err)
 	}
 
@@ -215,7 +215,7 @@ func TestSha256MigrationDeduplicatedRows(t *testing.T) {
 	dir := t.TempDir()
 	os.Setenv("SAVE_DRIVE_RAM", "true")
 	defer os.Unsetenv("SAVE_DRIVE_RAM")
-	if err := InitializeDatabase(dir); err != nil {
+	if err := InitializeDatabase(); err != nil {
 		t.Fatalf("InitializeDatabase failed: %v", err)
 	}
 

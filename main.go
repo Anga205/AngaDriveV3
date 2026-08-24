@@ -5,6 +5,7 @@ import (
 	"angadrive/endpoints"
 	"angadrive/info"
 	"angadrive/socketHandler"
+	"angadrive/vars"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
@@ -12,7 +13,7 @@ import (
 
 func main() {
 
-	UPLOAD_DIR := "uploaded_files"
+	vars.UPLOAD_DIR = "uploaded_files"
 
 	r := gin.Default()
 	// FOR DEVELOPMENT ONLY
@@ -38,10 +39,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	database.InitializeDatabase(UPLOAD_DIR)
+	database.InitializeDatabase()
 	info.GetSpaceUsedGraph()
-	socketHandler.SetupWebsocket(r, UPLOAD_DIR)
-	endpoints.InitEndpoints(r, UPLOAD_DIR)
+	socketHandler.SetupWebsocket(r)
+	endpoints.InitEndpoints(r)
 
 	r.Run()
 }

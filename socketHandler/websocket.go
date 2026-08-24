@@ -18,7 +18,6 @@ import (
 var (
 	ActiveWebsockets      = make(map[*websocket.Conn]WebsocketData)
 	ActiveWebsocketsMutex sync.RWMutex
-	UPLOAD_DIR            string
 )
 
 func genericUserPulse(token string, message map[string]interface{}) {
@@ -48,8 +47,7 @@ func genericUserPulse(token string, message map[string]interface{}) {
 	}
 }
 
-func SetupWebsocket(r *gin.Engine, upload_dir string) {
-	UPLOAD_DIR = upload_dir
+func SetupWebsocket(r *gin.Engine) {
 	info.InitializeSysInfo()
 	initializeUserCount()
 	initFileCount()

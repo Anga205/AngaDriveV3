@@ -1,6 +1,7 @@
 package database
 
 import (
+	"angadrive/vars"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -14,7 +15,6 @@ import (
 )
 
 func createUploadedFilesDir(dirName string) error {
-	UploadedFilesDir = dirName
 	if _, err := os.Stat(dirName); !os.IsNotExist(err) {
 		return nil
 	}
@@ -43,16 +43,15 @@ func createUploadedFilesDir(dirName string) error {
 }
 
 var (
-	dbInstance       *gorm.DB
-	UploadedFilesDir string
+	dbInstance *gorm.DB
 )
 
-func InitializeDatabase(uploadedFilesDir string) error {
-	err := createUploadedFilesDir(uploadedFilesDir)
+func InitializeDatabase() error {
+	err := createUploadedFilesDir(vars.UPLOAD_DIR)
 	if err != nil {
 		return fmt.Errorf("InitializeDatabase: %w", err)
 	}
-	dbPath := uploadedFilesDir + string(os.PathSeparator) + "angadrive.db"
+	dbPath := vars.UPLOAD_DIR + string(os.PathSeparator) + "angadrive.db"
 	dbInstance, err = gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
 	if err != nil {
 		return fmt.Errorf("InitializeDatabase: %w", err)
@@ -66,7 +65,7 @@ func InitializeDatabase(uploadedFilesDir string) error {
 	// Migrate any pre-existing database that still uses the legacy MD5-based
 	// storage key. AutoMigrate adds the new `sha256sum` column but does not
 	// rename or backfill the old `md5sum` column, so we do that here.
-	if err := migrateMd5ToSha256(uploadedFilesDir); err != nil {
+	if err := migrateMd5ToSha256(vars.UPLOAD_DIR); err != nil {
 		return fmt.Errorf("InitializeDatabase: md5->sha256 migration failed: %w", err)
 	}
 

@@ -1,13 +1,14 @@
 package endpoints
 
 import (
+	"angadrive/previews"
 	"angadrive/vars"
 
 	"github.com/gin-gonic/gin"
 )
 
-func InitEndpoints(r *gin.Engine, UPLOAD_DIR string) {
-	setupUploaderRoutes(r, UPLOAD_DIR)
+func InitEndpoints(r *gin.Engine) {
+	setupUploaderRoutes(r)
 	r.GET("/i/:file_directory", func(c *gin.Context) {
 		if c.Request.Host == vars.AssetsURL {
 			returnFile(c)
@@ -20,12 +21,12 @@ func InitEndpoints(r *gin.Engine, UPLOAD_DIR string) {
 	})
 	r.GET("/preview/:file_id", func(c *gin.Context) {
 		if c.Request.Host == vars.AssetsURL {
-			returnFilePreview(c)
+			previews.ReturnPDFPreview(c)
 		}
 	})
 	r.GET("/preview-image/:file_id", func(c *gin.Context) {
 		if c.Request.Host == vars.AssetsURL {
-			returnImagePreview(c)
+			previews.ReturnImagePreview(c)
 		}
 	})
 	r.GET("/download/:file_directory", func(c *gin.Context) {

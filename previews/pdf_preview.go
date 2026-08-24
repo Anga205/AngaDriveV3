@@ -1,8 +1,9 @@
-package endpoints
+package previews
 
 import (
 	"angadrive/database"
 	"angadrive/socketHandler"
+	"angadrive/vars"
 	"bytes"
 	"fmt"
 	"image/png"
@@ -14,7 +15,7 @@ import (
 	"github.com/nfnt/resize"
 )
 
-func returnFilePreview(c *gin.Context) {
+func ReturnPDFPreview(c *gin.Context) {
 	go socketHandler.SiteActivityPulse()
 
 	file_directory := c.Param("file_id")
@@ -24,7 +25,7 @@ func returnFilePreview(c *gin.Context) {
 		c.String(404, "File not found")
 		return
 	}
-	previewsDir := UPLOAD_DIR + string(os.PathSeparator) + "pdf_previews"
+	previewsDir := vars.UPLOAD_DIR + string(os.PathSeparator) + "pdf_previews"
 	previewFile := previewsDir + string(os.PathSeparator) + file.Sha256sum + ".png"
 
 	if _, err := os.Stat(previewFile); !os.IsNotExist(err) {
@@ -40,7 +41,7 @@ func returnFilePreview(c *gin.Context) {
 }
 
 func generatePDFPreview(file database.FileData, previewsDir string, previewFilePath string) error {
-	doc, err := fitz.New(UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + file.Sha256sum)
+	doc, err := fitz.New(vars.UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + file.Sha256sum)
 	if err != nil {
 		return fmt.Errorf("failed to open PDF document: %w", err)
 	}
