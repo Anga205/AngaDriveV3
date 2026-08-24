@@ -6,6 +6,7 @@ import (
 
 var WebURL string
 var AssetsURL string
+var UPLOAD_DIR string
 
 func init() {
 	WebURL = os.Getenv("WEB_URL")

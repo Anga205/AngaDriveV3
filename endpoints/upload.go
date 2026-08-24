@@ -15,6 +15,7 @@ import (
 	"angadrive/accounts"
 	"angadrive/database"
 	"angadrive/socketHandler"
+	"angadrive/vars"
 
 	"github.com/gin-gonic/gin"
 )
@@ -25,7 +26,6 @@ var (
 	uploadTimers = make(map[string]*time.Timer)
 	timerLock    sync.Mutex
 	chunkDir     string
-	UPLOAD_DIR   string
 )
 
 func handleChunkUpload(c *gin.Context) {
@@ -116,7 +116,7 @@ func finalizeUpload(c *gin.Context) {
 		return
 	}
 
-	finalDestDir := filepath.Join(UPLOAD_DIR, "i")
+	finalDestDir := filepath.Join(vars.UPLOAD_DIR, "i")
 	if err := os.MkdirAll(finalDestDir, os.ModePerm); err != nil {
 		c.String(500, "Failed to create destination directory")
 		return
@@ -255,9 +255,8 @@ func resetUploadTimer(uploadID string) {
 	}
 }
 
-func setupUploaderRoutes(r *gin.Engine, UPLOAD_DIR_BASE string) {
-	chunkDir = UPLOAD_DIR_BASE + "/tmp_chunks"
-	UPLOAD_DIR = UPLOAD_DIR_BASE
+func setupUploaderRoutes(r *gin.Engine) {
+	chunkDir = vars.UPLOAD_DIR + "/tmp_chunks"
 	os.RemoveAll(chunkDir)
 	os.MkdirAll(chunkDir, os.ModePerm)
 	r.POST("/upload/:uuid", handleChunkUpload)

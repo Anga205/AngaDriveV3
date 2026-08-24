@@ -1,8 +1,9 @@
-package endpoints
+package previews
 
 import (
 	"angadrive/database"
 	"angadrive/socketHandler"
+	"angadrive/vars"
 	"bytes"
 	"fmt"
 	"image"
@@ -24,7 +25,7 @@ import (
 	_ "golang.org/x/image/webp"
 )
 
-func returnImagePreview(c *gin.Context) {
+func ReturnImagePreview(c *gin.Context) {
 	go socketHandler.SiteActivityPulse()
 
 	fileDirectory := c.Param("file_id")
@@ -42,7 +43,7 @@ func returnImagePreview(c *gin.Context) {
 	}
 
 	// this creates: /uploaded_files/image_previews
-	previewsDir := filepath.Join(UPLOAD_DIR, "image_previews")
+	previewsDir := filepath.Join(vars.UPLOAD_DIR, "image_previews")
 	// this creates: /uploaded_files/image_previews/<file_directory>
 	previewFile := filepath.Join(previewsDir, file.Sha256sum)
 
@@ -68,7 +69,7 @@ func generateImagePreview(fileDirectory string, previewsDir string, previewFileP
 		return fmt.Errorf("file not found: %w", err)
 	}
 
-	originalFilePath := filepath.Join(UPLOAD_DIR, "i", fileInfo.Sha256sum)
+	originalFilePath := filepath.Join(vars.UPLOAD_DIR, "i", fileInfo.Sha256sum)
 	file, err := os.Open(originalFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to open original file: %w", err)
@@ -188,7 +189,7 @@ func serveRawSVG(c *gin.Context, fileDirectory string) {
 		return
 	}
 
-	originalFilePath := filepath.Join(UPLOAD_DIR, "i", fileInfo.Sha256sum)
+	originalFilePath := filepath.Join(vars.UPLOAD_DIR, "i", fileInfo.Sha256sum)
 	c.File(originalFilePath)
 }
 

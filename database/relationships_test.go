@@ -27,7 +27,7 @@ func resetState(t *testing.T) {
 	os.Setenv("SAVE_DRIVE_RAM", "true")
 	defer os.Unsetenv("SAVE_DRIVE_RAM")
 
-	if err := InitializeDatabase(t.TempDir()); err != nil {
+	if err := InitializeDatabase(); err != nil {
 		t.Fatalf("InitializeDatabase failed: %v", err)
 	}
 }
