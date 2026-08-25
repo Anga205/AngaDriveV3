@@ -77,6 +77,8 @@ If you dont set them, they will default to localhost:8080
 - `GIN_MODE`: optional env variable, set this to "release" if you dont wanna get spammed by debug messages (also to make CORS policy more strict & safe)
 - `VITE_API_URL`: the backend/API host the frontend talks to for internal requests (e.g. file uploads). In dev this is the backend server location; if empty it defaults to `localhost:8080`. In production the frontend is served by the Go backend, so internal API calls use relative routes and this variable is ignored.
 - `VITE_ASSETS_URL`: the host serving file assets, previews, and downloads. Set automatically by the Go backend during the production build (derived from `ASSETS_URL`). If empty, it defaults to `localhost:8080`. You normally only need to set this manually when running the frontend dev server against a remote assets host.
+- `MAX_RUNNER_COUNT`: optional env variable, the maximum number of compute-heavy background jobs (e.g. video conversions) that can run at the same time (default is 5).
+- `MAX_QUEUE_SIZE`: optional env variable, the maximum number of compute-heavy background jobs that can wait in the queue before new requests are rejected (default is 100).
 
 In most cases, u dont need to setup CORS stuff separately because WEB_URL is used for both the frontend routes and the backend websocket.
 #### example setup:
@@ -140,6 +142,8 @@ If you dont set them, they will default to localhost:8080
 - `GIN_MODE`: optional env variable, set this to "release" if you dont wanna get spammed by debug messages (also to make CORS policy more strict & safe)
 - `VITE_API_URL`: the backend/API host the frontend talks to for internal requests (e.g. file uploads). In dev this is the backend server location; if empty it defaults to `localhost:8080`. In production the frontend is served by the Go backend, so internal API calls use relative routes and this variable is ignored.
 - `VITE_ASSETS_URL`: the host serving file assets, previews, and downloads. Set automatically by the Go backend during the production build (derived from `ASSETS_URL`). If empty, it defaults to `localhost:8080`. You normally only need to set this manually when running the frontend dev server against a remote assets host.
+- `MAX_RUNNER_COUNT`: optional env variable, the maximum number of compute-heavy background jobs (e.g. video conversions) that can run at the same time (default is 5).
+- `MAX_QUEUE_SIZE`: optional env variable, the maximum number of compute-heavy background jobs that can wait in the queue before new requests are rejected (default is 100).
 
 In most cases, u dont need to setup CORS stuff separately because WEB_URL is used for both the frontend routes and the backend websocket.
 #### example setup:

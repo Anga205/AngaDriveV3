@@ -48,6 +48,7 @@ func genericUserPulse(token string, message map[string]interface{}) {
 }
 
 func SetupWebsocket(r *gin.Engine) {
+	initRunners()
 	info.InitializeSysInfo()
 	initializeUserCount()
 	initFileCount()
