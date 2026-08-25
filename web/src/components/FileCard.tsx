@@ -9,6 +9,15 @@ import { createSignal, onCleanup, Component, Show, useContext } from "solid-js";
 import Dialog from '@corvu/dialog';
 import { assetsUrl } from "@/assets/ApiUrl";
 
+const PreviewImage: Component<{ src: string }> = (props) => {
+    const [failed, setFailed] = createSignal(false);
+    return (
+        <Show when={!failed()} fallback={<FileTextSVG class="max-h-full p-4 opacity-50" />}>
+            <img src={props.src} loading="lazy" class="max-h-full max-w-full p-2" onError={() => setFailed(true)} />
+        </Show>
+    );
+};
+
 const FilePreview: Component<{ file: FileData }> = (props) => {
     const ctx = useContext(AppContext)!;
     const [isVisible, setIsVisible] = createSignal<boolean>(ctx.loadedFiles?.()?.has(props.file.file_directory) || false);
@@ -99,37 +108,36 @@ const FilePreview: Component<{ file: FileData }> = (props) => {
     });
 
     const PreviewContent: Component = () => {
-        let link = assetsUrl(`/i/${props.file.file_directory}`);
+        const ext = props.file.original_file_name.split('.').pop()?.toLowerCase();
         const preview_size_limit = 40 * 1024 * 1024; // 40 MB
 
-        const ext = props.file.original_file_name.split('.').pop()?.toLowerCase();
+        const isImage = ["jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff", "heic", "heif"].includes(ext || "");
+        const isSvg = ext === "svg";
+        const isVideo = ["mp4", "mkv", "avi", "mov", "wmv", "flv", "webm"].includes(ext || "");
+        const isAudio = ["mp3", "wav", "aac", "flac", "ogg", "wma", "m4a"].includes(ext || "");
+        const isPdf = ext === "pdf";
 
-        if (props.file.file_size > preview_size_limit) {
-            return <FileTextSVG class="max-h-full p-4 opacity-50" />;
+        // Non-SVG images always show their preview
+        if (isImage) {
+            return <PreviewImage src={assetsUrl(`/preview-image/${props.file.file_directory}`)} />;
         }
-        if (!ext) {
-            return <p class="text-white">Unsupported file type</p>;
+
+        // SVGs only preview when under the size limit
+        if (isSvg && props.file.file_size <= preview_size_limit) {
+            return <PreviewImage src={assetsUrl(`/preview-image/${props.file.file_directory}`)} />;
         }
-        if (["jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff", "heic", "heif"].includes(ext)) {
-            link = assetsUrl(`/preview-image/${props.file.file_directory}`);
-            return <img src={link} loading="lazy" class="max-h-full max-w-full p-2" />;
-        }
-        if (ext === "svg") {
-            if (props.file.file_size > 200 * 1024) {
+
+        if (isVideo && props.file.file_size <= preview_size_limit) {
+            if (props.file.file_size > preview_size_limit) {
                 return <FileTextSVG class="max-h-full p-4 opacity-50" />;
             }
-            link = assetsUrl(`/preview-image/${props.file.file_directory}`);
-            return <img src={link} loading="lazy" class="max-h-full max-w-full p-2" />;
+            return <video src={assetsUrl(`/i/${props.file.file_directory}`)} controls class="max-h-full max-w-full" preload="metadata" />;
         }
-        if (["mp4", "mkv", "avi", "mov", "wmv", "flv", "webm"].includes(ext)) {
-            return <video src={link} controls class="max-h-full max-w-full" preload="metadata" />;
+        if (isAudio && props.file.file_size <= preview_size_limit) {
+            return <audio src={assetsUrl(`/i/${props.file.file_directory}`)} controls class="w-full" />;
         }
-        if (["mp3", "wav", "aac", "flac", "ogg", "wma", "m4a"].includes(ext)) {
-            return <audio src={link} controls class="w-full" />;
-        }
-        if (["pdf"].includes(ext)) {
-            link = assetsUrl(`/preview/${props.file.file_directory}.jpg`);
-            return <img src={link} loading="lazy" class="max-h-full max-w-full p-2" />;
+        if (isPdf) {
+            return <PreviewImage src={assetsUrl(`/preview/${props.file.file_directory}.jpg`)} />;
         }
         return <FileTextSVG class="max-h-full p-4 opacity-50" />;
     };
