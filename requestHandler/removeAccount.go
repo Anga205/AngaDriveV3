@@ -3,17 +3,18 @@ package requestHandler
 import (
 	"angadrive/accounts"
 	"angadrive/database"
+	"angadrive/globals"
 	"fmt"
 
 	"github.com/gorilla/websocket"
 )
 
 func logoutUser(email string) error {
-	var collectionsToUpdate []connInfo
+	var collectionsToUpdate []globals.WebsocketInfo
 	ActiveWebsocketsMutex.RLock()
 	for conn, connData := range ActiveWebsockets {
 		if connData.UserInfo.Email == email && connData.UserInfo.HashedPassword != "" {
-			collectionsToUpdate = append(collectionsToUpdate, connInfo{conn: conn, data: &connData})
+			collectionsToUpdate = append(collectionsToUpdate, globals.WebsocketInfo{Conn: conn, Data: &connData})
 		}
 	}
 	ActiveWebsocketsMutex.RUnlock()
@@ -21,13 +22,13 @@ func logoutUser(email string) error {
 	for conn := range ActiveWebsockets {
 		if ActiveWebsockets[conn].UserInfo.Email == email && ActiveWebsockets[conn].UserInfo.HashedPassword != "" {
 			temp := ActiveWebsockets[conn]
-			temp.UserInfo = UserInfo{}
+			temp.UserInfo = globals.UserInfo{}
 			ActiveWebsockets[conn] = temp
 		}
 	}
 	ActiveWebsocketsMutex.Unlock()
 	for _, ci := range collectionsToUpdate {
-		go func(conn *websocket.Conn, connData *WebsocketData) {
+		go func(conn *websocket.Conn, connData *globals.WebsocketData) {
 			connData.Mutex.Lock()
 			defer connData.Mutex.Unlock()
 			err := conn.WriteJSON(map[string]any{
@@ -40,7 +41,7 @@ func logoutUser(email string) error {
 				ActiveWebsocketsMutex.Unlock()
 				conn.Close()
 			}
-		}(ci.conn, ci.data)
+		}(ci.Conn, ci.Data)
 	}
 	return nil
 }

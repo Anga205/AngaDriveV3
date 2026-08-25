@@ -3,38 +3,40 @@ package requestHandler
 import (
 	"angadrive/accounts"
 	"angadrive/database"
+	"angadrive/globals"
 )
 
 func PulseCollectionSubscribers(collection database.Collection) {
 	if collection.ID == "" {
 		return
 	}
-	var connectionsToUpdate []connInfo
+	var connectionsToUpdate []globals.WebsocketInfo
 	ActiveWebsocketsMutex.RLock()
 	for conn, connData := range ActiveWebsockets {
 		if _, ok := connData.SubscribedCollections[collection.ID]; ok {
-			connectionsToUpdate = append(connectionsToUpdate, connInfo{conn: conn, data: &connData})
+			connectionsToUpdate = append(connectionsToUpdate, globals.WebsocketInfo{Conn: conn, Data: &connData})
 		}
 	}
 	ActiveWebsocketsMutex.RUnlock()
 	for _, ci := range connectionsToUpdate {
 		var token string
-		ci.data.Mutex.Lock()
-		if ci.data.UserInfo.Email != "" || ci.data.UserInfo.HashedPassword != "" {
-			if !accounts.AuthenticateHashed(ci.data.UserInfo.Email, ci.data.UserInfo.HashedPassword) {
-				ci.data.Mutex.Unlock()
+		ci.Data.Mutex.Lock()
+		if ci.Data.UserInfo.Email != "" || ci.Data.UserInfo.HashedPassword != "" {
+			if !accounts.AuthenticateHashed(ci.Data.UserInfo.Email, ci.Data.UserInfo.HashedPassword) {
+				ci.Data.Mutex.Unlock()
 				continue
 			}
-			accountInfo, _ := database.FindUserByEmail(ci.data.UserInfo.Email)
+			accountInfo, _ := database.FindUserByEmail(ci.Data.UserInfo.Email)
 			token = accountInfo.Token
 		} else {
-			token = ci.data.UserInfo.Token
+			token = ci.Data.UserInfo.Token
 		}
-		ci.conn.WriteJSON(map[string]interface{}{
+		ci.Data.Mutex.Unlock()
+		ci.Conn.WriteJSON(map[string]interface{}{
 			"type": "get_collection_response",
 			"data": Collection(collection).getCollectionResponse(token),
 		})
-		ci.conn.WriteJSON(map[string]interface{}{
+		ci.Conn.WriteJSON(map[string]interface{}{
 			"type": "collection_card_update",
 			"data": CollectionCardData{
 				CollectionID:   collection.ID,
@@ -46,6 +48,6 @@ func PulseCollectionSubscribers(collection database.Collection) {
 				Timestamp:      collection.Timestamp,
 			},
 		})
-		ci.data.Mutex.Unlock()
+		ci.Data.Mutex.Unlock()
 	}
 }

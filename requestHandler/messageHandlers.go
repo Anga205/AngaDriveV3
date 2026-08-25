@@ -3,6 +3,7 @@ package requestHandler
 import (
 	"angadrive/accounts"
 	"angadrive/database"
+	"angadrive/globals"
 	"angadrive/info"
 	"encoding/json"
 	"fmt"
@@ -28,7 +29,7 @@ func (f HandlerFunc) Handle(conn *websocket.Conn, data json.RawMessage) {
 func processRequest[T any, R any](conn *websocket.Conn, data json.RawMessage, handler func(T) (R, error), responseType string) {
 	var req T
 	if err := json.Unmarshal(data, &req); err != nil {
-		sendJSON(conn, OutgoingResponse{
+		sendJSON(conn, globals.OutgoingResponse{
 			Type: responseType,
 			Data: map[string]string{"error": "invalid request data"},
 		})
@@ -44,7 +45,7 @@ func processRequest[T any, R any](conn *websocket.Conn, data json.RawMessage, ha
 		if responseType == "login_response" {
 			errorType = "login_response"
 		}
-		sendJSON(conn, OutgoingResponse{
+		sendJSON(conn, globals.OutgoingResponse{
 			Type: errorType,
 			Data: err.Error(),
 		})
@@ -63,7 +64,7 @@ func processRequest[T any, R any](conn *websocket.Conn, data json.RawMessage, ha
 			}
 		}
 	}
-	sendJSON(conn, OutgoingResponse{
+	sendJSON(conn, globals.OutgoingResponse{
 		Type: responseType,
 		Data: responseInfo,
 	})
@@ -198,7 +199,7 @@ func handleEnableHomepageUpdates(conn *websocket.Conn, data json.RawMessage) {
 func handleGetUserFiles(conn *websocket.Conn, data json.RawMessage) {
 	var req AuthInfo
 	if err := json.Unmarshal(data, &req); err != nil {
-		sendJSON(conn, OutgoingResponse{
+		sendJSON(conn, globals.OutgoingResponse{
 			Type: "get_user_files_response",
 			Data: map[string]interface{}{"error": "invalid request data"},
 		})
@@ -206,20 +207,20 @@ func handleGetUserFiles(conn *websocket.Conn, data json.RawMessage) {
 	}
 	files, err := GetUserFiles(req)
 	if err != nil {
-		sendJSON(conn, OutgoingResponse{
+		sendJSON(conn, globals.OutgoingResponse{
 			Type: "get_user_files_response",
 			Data: map[string]interface{}{"error": err.Error()},
 		})
 		return
 	}
 	updateConnAuth(conn, req)
-	sendJSON(conn, OutgoingResponse{Type: "get_user_files_response", Data: files})
+	sendJSON(conn, globals.OutgoingResponse{Type: "get_user_files_response", Data: files})
 }
 
 func handleGetUserCollections(conn *websocket.Conn, data json.RawMessage) {
 	var req AuthInfo
 	if err := json.Unmarshal(data, &req); err != nil {
-		sendJSON(conn, OutgoingResponse{
+		sendJSON(conn, globals.OutgoingResponse{
 			Type: "get_user_collections_response",
 			Data: map[string]interface{}{"error": "invalid request data"},
 		})
@@ -227,20 +228,20 @@ func handleGetUserCollections(conn *websocket.Conn, data json.RawMessage) {
 	}
 	collections, err := GetUserCollections(req)
 	if err != nil {
-		sendJSON(conn, OutgoingResponse{
+		sendJSON(conn, globals.OutgoingResponse{
 			Type: "get_user_collections_response",
 			Data: map[string]interface{}{"error": err.Error()},
 		})
 		return
 	}
 	updateConnAuth(conn, req)
-	sendJSON(conn, OutgoingResponse{Type: "get_user_collections_response", Data: collections})
+	sendJSON(conn, globals.OutgoingResponse{Type: "get_user_collections_response", Data: collections})
 }
 
 func handleDeleteFile(conn *websocket.Conn, data json.RawMessage) {
 	var req DeleteFileRequest
 	if err := json.Unmarshal(data, &req); err != nil {
-		sendJSON(conn, OutgoingResponse{
+		sendJSON(conn, globals.OutgoingResponse{
 			Type: "delete_file_response",
 			Data: map[string]interface{}{"error": "invalid request data"},
 		})
@@ -249,7 +250,7 @@ func handleDeleteFile(conn *websocket.Conn, data json.RawMessage) {
 
 	fileToDelete, _ := database.GetFile(req.FileDirectory)
 	if err := DeleteFile(req); err != nil {
-		sendJSON(conn, OutgoingResponse{
+		sendJSON(conn, globals.OutgoingResponse{
 			Type: "delete_file_response",
 			Data: map[string]interface{}{"error": err.Error()},
 		})
@@ -261,7 +262,7 @@ func handleDeleteFile(conn *websocket.Conn, data json.RawMessage) {
 		File:   fileToDelete,
 	})
 	go UpdateUserCount()
-	sendJSON(conn, OutgoingResponse{
+	sendJSON(conn, globals.OutgoingResponse{
 		Type: "delete_file_response",
 		Data: map[string]interface{}{"success": fileToDelete.OriginalFileName},
 	})

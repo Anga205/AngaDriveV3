@@ -3,8 +3,8 @@ package requestHandler
 import (
 	"angadrive/accounts"
 	"angadrive/database"
+	"angadrive/globals"
 	"angadrive/info"
-	"angadrive/vars"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -16,30 +16,30 @@ import (
 )
 
 var (
-	ActiveWebsockets      = make(map[*websocket.Conn]WebsocketData)
+	ActiveWebsockets      = make(map[*websocket.Conn]globals.WebsocketData)
 	ActiveWebsocketsMutex sync.RWMutex
 )
 
 func genericUserPulse(token string, message map[string]interface{}) {
-	var connectionsToUpdate []connInfo
+	var connectionsToUpdate []globals.WebsocketInfo
 	ActiveWebsocketsMutex.RLock()
 	for conn, connData := range ActiveWebsockets {
-		connectionsToUpdate = append(connectionsToUpdate, connInfo{conn: conn, data: &connData})
+		connectionsToUpdate = append(connectionsToUpdate, globals.WebsocketInfo{Conn: conn, Data: &connData})
 	}
 	ActiveWebsocketsMutex.RUnlock()
 	for _, ci := range connectionsToUpdate {
-		go func(ci connInfo, token string) {
-			if ci.data.UserInfo.Token == token {
-				ci.data.Mutex.Lock()
-				ci.conn.WriteJSON(message)
-				ci.data.Mutex.Unlock()
-			} else if ci.data.UserInfo.Email != "" && ci.data.UserInfo.HashedPassword != "" {
-				if accounts.AuthenticateHashed(ci.data.UserInfo.Email, ci.data.UserInfo.HashedPassword) {
-					user, _ := database.FindUserByEmail(ci.data.UserInfo.Email)
+		go func(ci globals.WebsocketInfo, token string) {
+			if ci.Data.UserInfo.Token == token {
+				ci.Data.Mutex.Lock()
+				ci.Conn.WriteJSON(message)
+				ci.Data.Mutex.Unlock()
+			} else if ci.Data.UserInfo.Email != "" && ci.Data.UserInfo.HashedPassword != "" {
+				if accounts.AuthenticateHashed(ci.Data.UserInfo.Email, ci.Data.UserInfo.HashedPassword) {
+					user, _ := database.FindUserByEmail(ci.Data.UserInfo.Email)
 					if user.Token == token {
-						ci.data.Mutex.Lock()
-						ci.conn.WriteJSON(message)
-						ci.data.Mutex.Unlock()
+						ci.Data.Mutex.Lock()
+						ci.Conn.WriteJSON(message)
+						ci.Data.Mutex.Unlock()
 					}
 				}
 			}
@@ -54,10 +54,10 @@ func SetupWebsocket(r *gin.Engine) {
 	go initSpaceUsedPulser()
 	go sysinfoPulse()
 	r.GET("/ws", func(c *gin.Context) {
-		if c.Request.Host != vars.WebURL {
+		if c.Request.Host != globals.WebURL {
 			// if gin.Mode() != gin.ReleaseMode {
 			// 	fmt.Printf("Websocket connection attempt from disallowed host: %s\n", c.Request.Host)
-			// 	fmt.Printf("Try with host: %s\n", vars.WebURL)
+			// 	fmt.Printf("Try with host: %s\n", globals.WebURL)
 			// } // TODO: redo the env var checking
 			c.JSON(http.StatusForbidden, gin.H{"error": "Websocket connection not allowed from this host"})
 			return
@@ -70,10 +70,10 @@ func SetupWebsocket(r *gin.Engine) {
 		defer conn.Close()
 
 		ActiveWebsocketsMutex.Lock()
-		ActiveWebsockets[conn] = WebsocketData{
+		ActiveWebsockets[conn] = globals.WebsocketData{
 			Mutex:                 &sync.Mutex{},
 			HomePageUpdates:       false,
-			UserInfo:              UserInfo{"", "", ""},
+			UserInfo:              globals.UserInfo{Email: "", Token: "", HashedPassword: ""},
 			SubscribedCollections: make(map[string]bool),
 		}
 		ActiveWebsocketsMutex.Unlock()
@@ -111,7 +111,7 @@ func reader(conn *websocket.Conn, done chan bool) {
 		}
 
 		if messageType == websocket.TextMessage {
-			var message IncomingMessage
+			var message globals.IncomingMessage
 			if err := json.Unmarshal(msg, &message); err != nil {
 				now := time.Now()
 				timestamp := now.Format("03:04:05 PM, 02 Jan 2006")

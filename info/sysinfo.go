@@ -1,7 +1,7 @@
 package info
 
 import (
-	"angadrive/vars"
+	"angadrive/globals"
 	"log"
 	"os"
 	"path/filepath"
@@ -57,7 +57,7 @@ func getRAMinfo() (RAMInfo, error) {
 
 func getSpaceUsed() (int, error) {
 	var totalSize int
-	err := filepath.Walk(vars.UPLOAD_DIR, func(_ string, info os.FileInfo, err error) error {
+	err := filepath.Walk(globals.UPLOAD_DIR, func(_ string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}

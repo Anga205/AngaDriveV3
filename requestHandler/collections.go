@@ -3,6 +3,7 @@ package requestHandler
 import (
 	"angadrive/accounts"
 	"angadrive/database"
+	"angadrive/globals"
 	"fmt"
 
 	"github.com/gorilla/websocket"
@@ -86,16 +87,16 @@ func CollectionPulse(toggle bool, collection database.Collection) {
 			Timestamp:      collection.Timestamp,
 		},
 	}
-	var connectionsToUpdate []connInfo
+	var connectionsToUpdate []globals.WebsocketInfo
 	ActiveWebsocketsMutex.RLock()
 	for conn, connData := range ActiveWebsockets {
 		if (connData.UserInfo.Email != "" && connData.UserInfo.HashedPassword != "") || (connData.UserInfo.Token != "") {
-			connectionsToUpdate = append(connectionsToUpdate, connInfo{conn: conn, data: &connData})
+			connectionsToUpdate = append(connectionsToUpdate, globals.WebsocketInfo{Conn: conn, Data: &connData})
 		}
 	}
 	ActiveWebsocketsMutex.RUnlock()
 	for _, ci := range connectionsToUpdate {
-		go func(conn *websocket.Conn, connData *WebsocketData, newCollection database.Collection, update CollectionCardUpdate) {
+		go func(conn *websocket.Conn, connData *globals.WebsocketData, newCollection database.Collection, update CollectionCardUpdate) {
 			connData.Mutex.Lock()
 			defer connData.Mutex.Unlock()
 			if connData.UserInfo.Email != "" || connData.UserInfo.HashedPassword != "" {
@@ -122,7 +123,7 @@ func CollectionPulse(toggle bool, collection database.Collection) {
 				conn.Close()
 				return
 			}
-		}(ci.conn, ci.data, collection, collectionCard)
+		}(ci.Conn, ci.Data, collection, collectionCard)
 	}
 }
 

@@ -2,7 +2,7 @@ package requestHandler
 
 import (
 	"angadrive/database"
-	"angadrive/vars"
+	"angadrive/globals"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
@@ -96,7 +96,7 @@ func GithubImportHandler(req ImportGithubRepoRequest) (string, error) {
 		"data": "Starting Import....",
 	})
 	clonedUUID := uuid.New().String()
-	folderToCloneTo := filepath.Join(vars.UPLOAD_DIR, "repos", clonedUUID)
+	folderToCloneTo := filepath.Join(globals.UPLOAD_DIR, "repos", clonedUUID)
 	// this creates a context with a timeout of 15 minutes, so if a git import takes longer than that, it will be cancelled
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
@@ -151,7 +151,7 @@ func GithubImportHandler(req ImportGithubRepoRequest) (string, error) {
 					}
 					newFile.Insert()
 					parentDir.AddFile(newFile.FileDirectory)
-					newPath := filepath.Join(vars.UPLOAD_DIR, "i", fileSHA256+fileExtension)
+					newPath := filepath.Join(globals.UPLOAD_DIR, "i", fileSHA256+fileExtension)
 					err := os.Rename(path, newPath)
 					if err != nil {
 						fmt.Println("Error moving file:", err)

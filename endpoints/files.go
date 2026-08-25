@@ -2,8 +2,8 @@ package endpoints
 
 import (
 	"angadrive/database"
+	"angadrive/globals"
 	"angadrive/requestHandler"
-	"angadrive/vars"
 	"os"
 	"path/filepath"
 
@@ -15,7 +15,7 @@ func getFilePath(file_directory string) string {
 	if err != nil {
 		return ""
 	}
-	return vars.UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + File.Sha256sum
+	return globals.UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + File.Sha256sum
 }
 
 func getFileName(file_directory string) string {

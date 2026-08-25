@@ -2,8 +2,8 @@ package previews
 
 import (
 	"angadrive/database"
+	"angadrive/globals"
 	"angadrive/requestHandler"
-	"angadrive/vars"
 	"fmt"
 	"image/jpeg"
 	"os"
@@ -24,7 +24,7 @@ func ReturnPDFPreview(c *gin.Context) {
 		c.String(404, "File not found")
 		return
 	}
-	previewsDir := vars.UPLOAD_DIR + string(os.PathSeparator) + "pdf_previews"
+	previewsDir := globals.UPLOAD_DIR + string(os.PathSeparator) + "pdf_previews"
 	previewFile := previewsDir + string(os.PathSeparator) + file.Sha256sum + ".jpg"
 
 	if _, err := os.Stat(previewFile); !os.IsNotExist(err) {
@@ -40,7 +40,7 @@ func ReturnPDFPreview(c *gin.Context) {
 }
 
 func generatePDFPreview(file database.FileData, previewsDir string, previewFilePath string) error {
-	doc, err := fitz.New(vars.UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + file.Sha256sum)
+	doc, err := fitz.New(globals.UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + file.Sha256sum)
 	if err != nil {
 		return fmt.Errorf("failed to open PDF document: %w", err)
 	}

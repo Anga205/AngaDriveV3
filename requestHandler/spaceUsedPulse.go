@@ -1,6 +1,7 @@
 package requestHandler
 
 import (
+	"angadrive/globals"
 	"angadrive/info"
 	"time"
 
@@ -24,16 +25,16 @@ func SpaceUsedPulse() {
 	}
 	LastXDays = new_LastXDays
 	SpaceUsedArr = new_SpaceUsedArr
-	var connectionsToUpdate []connInfo
+	var connectionsToUpdate []globals.WebsocketInfo
 	ActiveWebsocketsMutex.RLock()
 	for conn, connData := range ActiveWebsockets {
 		if connData.HomePageUpdates {
-			connectionsToUpdate = append(connectionsToUpdate, connInfo{conn: conn, data: &connData})
+			connectionsToUpdate = append(connectionsToUpdate, globals.WebsocketInfo{Conn: conn, Data: &connData})
 		}
 	}
 	ActiveWebsocketsMutex.RUnlock()
 	for _, ci := range connectionsToUpdate {
-		go func(conn *websocket.Conn, connData *WebsocketData) {
+		go func(conn *websocket.Conn, connData *globals.WebsocketData) {
 			connData.Mutex.Lock()
 			defer connData.Mutex.Unlock()
 			if !connData.HomePageUpdates {
@@ -54,7 +55,7 @@ func SpaceUsedPulse() {
 				ActiveWebsocketsMutex.Unlock()
 				conn.Close()
 			}
-		}(ci.conn, ci.data)
+		}(ci.Conn, ci.Data)
 	}
 }
 
