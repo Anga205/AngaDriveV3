@@ -1,6 +1,7 @@
 package requestHandler
 
 import (
+	"angadrive/globals"
 	"angadrive/info"
 	"fmt"
 	"time"
@@ -11,7 +12,7 @@ import (
 func sysinfoPulse() {
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
-	var connectionsToUpdate []connInfo
+	var connectionsToUpdate []globals.WebsocketInfo
 	for {
 		<-ticker.C
 		sysInfo, _ := info.GetSysInfo()
@@ -21,13 +22,13 @@ func sysinfoPulse() {
 		ActiveWebsocketsMutex.RLock()
 		for conn, connMutex := range ActiveWebsockets {
 			if connMutex.HomePageUpdates {
-				connectionsToUpdate = append(connectionsToUpdate, connInfo{conn, &connMutex})
+				connectionsToUpdate = append(connectionsToUpdate, globals.WebsocketInfo{Conn: conn, Data: &connMutex})
 			}
 		}
 		ActiveWebsocketsMutex.RUnlock()
 
 		for _, c := range connectionsToUpdate {
-			go func(conn *websocket.Conn, connMutex *WebsocketData) {
+			go func(conn *websocket.Conn, connMutex *globals.WebsocketData) {
 				connMutex.Mutex.Lock()
 				defer connMutex.Mutex.Unlock()
 				err := conn.WriteJSON(map[string]any{
@@ -41,7 +42,7 @@ func sysinfoPulse() {
 					ActiveWebsocketsMutex.Unlock()
 					conn.Close()
 				}
-			}(c.conn, c.data)
+			}(c.Conn, c.Data)
 		}
 	}
 }

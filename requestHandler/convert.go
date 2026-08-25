@@ -2,7 +2,7 @@ package requestHandler
 
 import (
 	"angadrive/database"
-	"angadrive/vars"
+	"angadrive/globals"
 	"bytes"
 	"crypto/sha256"
 	"fmt"
@@ -111,8 +111,8 @@ func performConversion(inputFile database.FileData) {
 	// Ensure the file is removed from the tasks map when the conversion is done.
 	defer conversionTasks.Delete(inputFile.Sha256sum)
 
-	inputFilePath := vars.UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + inputFile.Sha256sum
-	outputFilePath := vars.UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + removeExtension(inputFile.Sha256sum) + ".mp4"
+	inputFilePath := globals.UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + inputFile.Sha256sum
+	outputFilePath := globals.UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + removeExtension(inputFile.Sha256sum) + ".mp4"
 	if _, err := os.Stat(inputFilePath); os.IsNotExist(err) {
 		go genericUserPulse(inputFile.AccountToken, map[string]interface{}{
 			"type": "error",
@@ -176,7 +176,7 @@ func performConversion(inputFile database.FileData) {
 		})
 		return
 	}
-	err = os.Rename(outputFilePath, vars.UPLOAD_DIR+string(os.PathSeparator)+"i"+string(os.PathSeparator)+outputSha256sum+".mp4")
+	err = os.Rename(outputFilePath, globals.UPLOAD_DIR+string(os.PathSeparator)+"i"+string(os.PathSeparator)+outputSha256sum+".mp4")
 	if err != nil {
 		go genericUserPulse(inputFile.AccountToken, map[string]interface{}{
 			"type": "error",

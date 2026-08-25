@@ -3,7 +3,7 @@ package requestHandler
 import (
 	"angadrive/accounts"
 	"angadrive/database"
-	"angadrive/vars"
+	"angadrive/globals"
 	"fmt"
 	"os"
 	"strings"
@@ -21,15 +21,15 @@ func getExtension(filename string) string {
 
 func RemoveFileIfNoClonesExist(fileToDelete database.FileData) {
 	if !database.CheckForFilesWithSha256sum(fileToDelete.Sha256sum) {
-		os.Remove(vars.UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + fileToDelete.Sha256sum)
+		os.Remove(globals.UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + fileToDelete.Sha256sum)
 		ext := strings.ToLower(getExtension(fileToDelete.OriginalFileName))
 		if ext == "pdf" {
-			os.Remove(vars.UPLOAD_DIR + string(os.PathSeparator) + "pdf_previews" + string(os.PathSeparator) + fileToDelete.Sha256sum + ".png")
+			os.Remove(globals.UPLOAD_DIR + string(os.PathSeparator) + "pdf_previews" + string(os.PathSeparator) + fileToDelete.Sha256sum + ".png")
 		} else {
 			imageExtensions := []string{"jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff"}
 			for _, imgExt := range imageExtensions {
 				if ext == imgExt {
-					os.Remove(vars.UPLOAD_DIR + string(os.PathSeparator) + "image_previews" + string(os.PathSeparator) + fileToDelete.Sha256sum)
+					os.Remove(globals.UPLOAD_DIR + string(os.PathSeparator) + "image_previews" + string(os.PathSeparator) + fileToDelete.Sha256sum)
 					break
 				}
 			}
@@ -128,12 +128,12 @@ func deleteFileInternal(fileToDelete database.FileData) error {
 	}
 	ext := strings.ToLower(getExtension(fileToDelete.OriginalFileName))
 	if ext == "pdf" {
-		os.Remove(vars.UPLOAD_DIR + string(os.PathSeparator) + "pdf_previews" + string(os.PathSeparator) + fileToDelete.FileDirectory + ".png")
+		os.Remove(globals.UPLOAD_DIR + string(os.PathSeparator) + "pdf_previews" + string(os.PathSeparator) + fileToDelete.FileDirectory + ".png")
 	} else {
 		imageExtensions := []string{"jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff"}
 		for _, imgExt := range imageExtensions {
 			if ext == imgExt {
-				os.Remove(vars.UPLOAD_DIR + string(os.PathSeparator) + "image_previews" + string(os.PathSeparator) + fileToDelete.FileDirectory)
+				os.Remove(globals.UPLOAD_DIR + string(os.PathSeparator) + "image_previews" + string(os.PathSeparator) + fileToDelete.FileDirectory)
 				break
 			}
 		}

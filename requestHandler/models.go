@@ -4,33 +4,7 @@ import (
 	"angadrive/accounts"
 	"angadrive/database"
 	"fmt"
-	"sync"
-
-	"github.com/gorilla/websocket"
 )
-
-type UserInfo struct {
-	Token          string
-	Email          string
-	HashedPassword string
-}
-
-type WebsocketData struct {
-	Mutex                 *sync.Mutex
-	HomePageUpdates       bool
-	UserInfo              UserInfo
-	SubscribedCollections map[string]bool
-}
-
-type IncomingMessage struct {
-	Type string      `json:"type"`
-	Data interface{} `json:"data"`
-}
-
-type OutgoingResponse struct {
-	Type string      `json:"type"`
-	Data interface{} `json:"data"`
-}
 
 type GraphData struct {
 	XAxis       []string `json:"x_axis"`
@@ -108,11 +82,6 @@ type FileDeleteError struct {
 type BulkDeleteResponse struct {
 	Deleted []string          `json:"deleted"`
 	Errors  []FileDeleteError `json:"errors"`
-}
-
-type connInfo struct {
-	conn *websocket.Conn
-	data *WebsocketData
 }
 
 type CreateCollectionRequest struct {

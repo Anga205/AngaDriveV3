@@ -1,4 +1,4 @@
-package vars
+package globals
 
 import (
 	"os"
