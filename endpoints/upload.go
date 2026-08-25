@@ -14,7 +14,7 @@ import (
 
 	"angadrive/accounts"
 	"angadrive/database"
-	"angadrive/socketHandler"
+	"angadrive/requestHandler"
 	"angadrive/vars"
 
 	"github.com/gin-gonic/gin"
@@ -188,12 +188,12 @@ func finalizeUpload(c *gin.Context) {
 
 	// If a collection ID is provided, add the file to the collection
 	if collectionID != "" {
-		addReq := socketHandler.AddFileToCollectionRequest{
+		addReq := requestHandler.AddFileToCollectionRequest{
 			CollectionID:  collectionID,
 			FileDirectory: fileData.FileDirectory,
-			Auth:          socketHandler.AuthInfo{Token: accountToken},
+			Auth:          requestHandler.AuthInfo{Token: accountToken},
 		}
-		if _, err := socketHandler.AddFileToCollection(addReq); err != nil {
+		if _, err := requestHandler.AddFileToCollection(addReq); err != nil {
 			// Log this error, but don't fail the entire upload.
 			// The file is uploaded, just not added to the collection.
 			fmt.Printf("Warning: Failed to add file %s to collection %s: %v\n", fileData.FileDirectory, collectionID, err)
@@ -213,11 +213,11 @@ func finalizeUpload(c *gin.Context) {
 		fmt.Printf("Warning: Failed to remove chunk directory %s: %v\n", uploadPath, err)
 	}
 
-	var FileUpdate socketHandler.FileUpdate
+	var FileUpdate requestHandler.FileUpdate
 	FileUpdate.File = fileData
 	FileUpdate.Toggle = true
-	go socketHandler.UserFilesPulse(FileUpdate)
-	go socketHandler.UpdateUserCount()
+	go requestHandler.UserFilesPulse(FileUpdate)
+	go requestHandler.UpdateUserCount()
 
 	c.JSON(200, gin.H{
 		"message":       "Upload successful and file assembled",

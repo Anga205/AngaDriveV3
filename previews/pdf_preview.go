@@ -2,7 +2,7 @@ package previews
 
 import (
 	"angadrive/database"
-	"angadrive/socketHandler"
+	"angadrive/requestHandler"
 	"angadrive/vars"
 	"fmt"
 	"image/jpeg"
@@ -15,7 +15,7 @@ import (
 )
 
 func ReturnPDFPreview(c *gin.Context) {
-	go socketHandler.SiteActivityPulse()
+	go requestHandler.SiteActivityPulse()
 
 	file_directory := c.Param("file_id")
 	file_directory = strings.TrimSuffix(file_directory, ".jpg")

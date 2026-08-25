@@ -1,7 +1,7 @@
 package endpoints
 
 import (
-	"angadrive/socketHandler"
+	"angadrive/requestHandler"
 	"angadrive/vars"
 	"bytes"
 	"compress/gzip"
@@ -288,7 +288,7 @@ func collectionHandler(indexFile CachedFile) gin.HandlerFunc {
 		}
 
 		// No legacy id (e.g. /collection or /collection/) -> serve the SPA.
-		go socketHandler.SiteActivityPulse()
+		go requestHandler.SiteActivityPulse()
 		serveCachedFile(c, indexFile)
 	}
 }
@@ -312,7 +312,7 @@ func setupRoutes(r *gin.Engine, cache map[string]CachedFile) {
 		route := route
 		r.GET(route, func(c *gin.Context) {
 			if c.Request.Host == vars.WebURL {
-				go socketHandler.SiteActivityPulse()
+				go requestHandler.SiteActivityPulse()
 				serveCachedFile(c, indexFile)
 			} else if route == "/" && c.Request.Host == vars.AssetsURL {
 				scheme := "http"
