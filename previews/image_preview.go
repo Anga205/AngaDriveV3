@@ -2,7 +2,7 @@ package previews
 
 import (
 	"angadrive/database"
-	"angadrive/socketHandler"
+	"angadrive/requestHandler"
 	"angadrive/vars"
 	"bytes"
 	"fmt"
@@ -32,7 +32,7 @@ const previewMaxDimension = 512
 const previewJPEGQuality = 80
 
 func ReturnImagePreview(c *gin.Context) {
-	go socketHandler.SiteActivityPulse()
+	go requestHandler.SiteActivityPulse()
 
 	fileDirectory := c.Param("file_id")
 

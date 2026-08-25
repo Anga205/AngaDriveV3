@@ -2,7 +2,7 @@ package endpoints
 
 import (
 	"angadrive/database"
-	"angadrive/socketHandler"
+	"angadrive/requestHandler"
 	"angadrive/vars"
 	"os"
 	"path/filepath"
@@ -27,7 +27,7 @@ func getFileName(file_directory string) string {
 }
 
 func returnFile(c *gin.Context) {
-	go socketHandler.SiteActivityPulse()
+	go requestHandler.SiteActivityPulse()
 	file_directory := c.Param("file_directory")
 
 	filePath := getFilePath(file_directory)
@@ -42,7 +42,7 @@ func returnFile(c *gin.Context) {
 }
 
 func returnNamedFile(c *gin.Context) {
-	go socketHandler.SiteActivityPulse()
+	go requestHandler.SiteActivityPulse()
 	file_directory := c.Param("file_directory")
 	original_name := c.Param("original_name")
 	filepath := getFilePath(file_directory + filepath.Ext(original_name))
@@ -56,7 +56,7 @@ func returnNamedFile(c *gin.Context) {
 }
 
 func downloadFile(c *gin.Context) {
-	go socketHandler.SiteActivityPulse()
+	go requestHandler.SiteActivityPulse()
 	file_directory := c.Param("file_directory")
 
 	filePath := getFilePath(file_directory)

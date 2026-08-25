@@ -4,7 +4,7 @@ import (
 	"angadrive/database"
 	"angadrive/endpoints"
 	"angadrive/info"
-	"angadrive/socketHandler"
+	"angadrive/requestHandler"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
@@ -38,7 +38,7 @@ func main() {
 	}
 	database.InitializeDatabase()
 	info.GetSpaceUsedGraph()
-	socketHandler.SetupWebsocket(r)
+	requestHandler.SetupWebsocket(r)
 	endpoints.InitEndpoints(r)
 
 	r.Run()

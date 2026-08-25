@@ -1,29 +1,31 @@
-package socketHandler
+package requestHandler
 
 import (
-	"angadrive/info"
-	"time"
+	"angadrive/database"
+	"fmt"
 
 	"github.com/gorilla/websocket"
 )
 
-const X = info.X
+var userCount int64
 
-var (
-	LastXDays    [X]string
-	SpaceUsedArr [X]int64
-)
+func initializeUserCount() {
+	userCount, _ = database.GetCumulativeUserCount()
+}
 
-func SpaceUsedPulse() {
-	new_LastXDays, new_SpaceUsedArr, err := info.GetSpaceUsedGraph()
+func UpdateUserCount() {
+	localUserCount, err := database.GetCumulativeUserCount()
 	if err != nil {
-		return
+		fmt.Print("[socketHandler/userCountPulse.go] Error fetching user count: ", err)
+	} else {
+		if localUserCount != userCount {
+			userCount = localUserCount
+			go UserCountPulse()
+		}
 	}
-	if LastXDays == new_LastXDays && SpaceUsedArr == new_SpaceUsedArr {
-		return
-	}
-	LastXDays = new_LastXDays
-	SpaceUsedArr = new_SpaceUsedArr
+}
+
+func UserCountPulse() {
 	var connectionsToUpdate []connInfo
 	ActiveWebsocketsMutex.RLock()
 	for conn, connData := range ActiveWebsockets {
@@ -40,29 +42,16 @@ func SpaceUsedPulse() {
 				return
 			}
 			err := conn.WriteJSON(map[string]any{
-				"type": "graph_data",
-				"data": GraphData{
-					XAxis:       LastXDays[:],
-					YAxis:       SpaceUsedArr[:],
-					Label:       "Space Used",
-					BeginAtZero: false,
-				},
+				"type": "user_count",
+				"data": userCount,
 			})
 			if err != nil {
+				fmt.Printf("Error writing to websocket: %v\n", err)
 				ActiveWebsocketsMutex.Lock()
 				delete(ActiveWebsockets, conn)
 				ActiveWebsocketsMutex.Unlock()
 				conn.Close()
 			}
 		}(ci.conn, ci.data)
-	}
-}
-
-func initSpaceUsedPulser() {
-	ticker := time.NewTicker(10 * time.Second)
-	defer ticker.Stop()
-	for {
-		<-ticker.C
-		SpaceUsedPulse()
 	}
 }
