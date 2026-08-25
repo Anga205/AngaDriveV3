@@ -1,0 +1,78 @@
+name: Integration Tester
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.24'
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Set up Bun
+        uses: antongolub/action-setup-bun@v1
+        with:
+          bun-version: '1.2.4'
+
+      - name: Build Frontend
+        # The Go server serves the SPA from ./dist, which is gitignored. In CI
+        # it does not exist, so we build it here (the server would otherwise
+        # try to build it on startup).
+        working-directory: ./web
+        run: bun install && bun run build
+
+      - name: Move dist to backend root
+        # compileFrontend normally moves web/dist -> ./dist; do it manually so
+        # the server finds it and skips its own build step.
+        run: mv web/dist ./dist
+
+      - name: Start Go server
+        # Start the server in the background and wait for it to accept
+        # connections on :8080 before running the tests.
+        run: |
+          go build -o ./angadrive-server .
+          ./angadrive-server &
+          SERVER_PID=$!
+          echo "SERVER_PID=$SERVER_PID" >> "$GITHUB_ENV"
+          # Wait up to 30s for the server to come up.
+          for i in $(seq 1 30); do
+            if curl -s -o /dev/null http://localhost:8080/; then
+              echo "Server is up."
+              break
+            fi
+            sleep 1
+          done
+          # Verify the server is actually listening before proceeding.
+          if ! curl -s -o /dev/null http://localhost:8080/; then
+            echo "Server failed to start."
+            exit 1
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install test dependencies
+        run: pip install websockets aiohttp bcrypt
+
+      - name: Run integration tests
+        # The suite exits non-zero if any assertion failed, which fails this
+        # step and therefore the job.
+        run: python -m tester.main
+
+      - name: Stop Go server
+        if: always()
+        run: |
+          if [ -n "$SERVER_PID" ]; then
+            kill "$SERVER_PID" || true
+          fi
