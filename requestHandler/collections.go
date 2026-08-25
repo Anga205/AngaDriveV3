@@ -214,9 +214,13 @@ func updateCollectionFiles(collectionID, fileDirectory string, auth AuthInfo, ad
 		return GetCollectionResponse{}, fmt.Errorf("user is not an editor of the collection")
 	}
 	if add {
-		collection.AddFile(fileDirectory)
+		if err := collection.AddFile(fileDirectory); err != nil {
+			fmt.Printf("AddFileToCollection: failed to add file %s to collection %s: %v\n", fileDirectory, collectionID, err)
+		}
 	} else {
-		collection.RemoveFile(fileDirectory)
+		if err := collection.RemoveFile(fileDirectory); err != nil {
+			fmt.Printf("RemoveFileFromCollection: failed to remove file %s from collection %s: %v\n", fileDirectory, collectionID, err)
+		}
 	}
 	go PulseCollectionSubscribers(collection)
 	return Collection(collection).getCollectionResponse(token), nil

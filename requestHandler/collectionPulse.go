@@ -31,12 +31,19 @@ func PulseCollectionSubscribers(collection database.Collection) {
 		} else {
 			token = ci.Data.UserInfo.Token
 		}
-		ci.Data.Mutex.Unlock()
-		ci.Conn.WriteJSON(map[string]interface{}{
+		err := ci.Conn.WriteJSON(map[string]interface{}{
 			"type": "get_collection_response",
 			"data": Collection(collection).getCollectionResponse(token),
 		})
-		ci.Conn.WriteJSON(map[string]interface{}{
+		if err != nil {
+			ci.Data.Mutex.Unlock()
+			ActiveWebsocketsMutex.Lock()
+			delete(ActiveWebsockets, ci.Conn)
+			ActiveWebsocketsMutex.Unlock()
+			ci.Conn.Close()
+			continue
+		}
+		err = ci.Conn.WriteJSON(map[string]interface{}{
 			"type": "collection_card_update",
 			"data": CollectionCardData{
 				CollectionID:   collection.ID,
@@ -49,5 +56,11 @@ func PulseCollectionSubscribers(collection database.Collection) {
 			},
 		})
 		ci.Data.Mutex.Unlock()
+		if err != nil {
+			ActiveWebsocketsMutex.Lock()
+			delete(ActiveWebsockets, ci.Conn)
+			ActiveWebsocketsMutex.Unlock()
+			ci.Conn.Close()
+		}
 	}
 }
