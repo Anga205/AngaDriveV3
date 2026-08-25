@@ -12,19 +12,6 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// MessageHandler defines a generic interface for handling websocket messages.
-type MessageHandler interface {
-	Handle(*websocket.Conn, json.RawMessage)
-}
-
-// HandlerFunc is an adapter to allow the use of ordinary functions as MessageHandlers.
-type HandlerFunc func(*websocket.Conn, json.RawMessage)
-
-// Handle calls f(conn, data).
-func (f HandlerFunc) Handle(conn *websocket.Conn, data json.RawMessage) {
-	f(conn, data)
-}
-
 // processRequest is a generic function to handle common request-response patterns.
 func processRequest[T any, R any](conn *websocket.Conn, data json.RawMessage, handler func(T) (R, error), responseType string) {
 	var req T
@@ -91,64 +78,57 @@ func sendJSON(conn *websocket.Conn, v interface{}) {
 	fmt.Printf("Skipping websocket write: no per-connection state for %p\n", conn)
 }
 
-// messageHandlers maps message types to their handlers.
-var messageHandlers = map[string]MessageHandler{
-	"register": HandlerFunc(func(conn *websocket.Conn, data json.RawMessage) {
+// dispatchMessage routes an incoming websocket message to its handler based on
+// the message type. A switch is used instead of a map so that every handler
+// call is statically type-checked against its request type.
+func dispatchMessage(conn *websocket.Conn, messageType string, data json.RawMessage) {
+	switch messageType {
+	case "register":
 		processRequest(conn, data, accounts.RegisterUser, "register_response")
 		go UpdateUserCount()
-	}),
-	"login": HandlerFunc(func(conn *websocket.Conn, data json.RawMessage) {
+	case "login":
 		processRequest(conn, data, accounts.LoginUser, "login_response")
-	}),
-	"change_password": HandlerFunc(func(conn *websocket.Conn, data json.RawMessage) {
+	case "change_password":
 		processRequest(conn, data, accounts.ChangeUserPassword, "change_password_response")
-	}),
-	"change_email": HandlerFunc(func(conn *websocket.Conn, data json.RawMessage) {
+	case "change_email":
 		processRequest(conn, data, accounts.ChangeUserEmail, "change_email_response")
-	}),
-	"change_display_name": HandlerFunc(func(conn *websocket.Conn, data json.RawMessage) {
+	case "change_display_name":
 		processRequest(conn, data, accounts.ChangeUserDisplayName, "change_display_name_response")
-	}),
-	"get_user_files":       HandlerFunc(handleGetUserFiles),
-	"get_user_collections": HandlerFunc(handleGetUserCollections),
-	"convert_video": HandlerFunc(func(conn *websocket.Conn, data json.RawMessage) {
+	case "get_user_files":
+		handleGetUserFiles(conn, data)
+	case "get_user_collections":
+		handleGetUserCollections(conn, data)
+	case "convert_video":
 		processRequest(conn, data, HandleConversionRequest, "convert_video_response")
-	}),
-	"delete_file": HandlerFunc(handleDeleteFile),
-	"bulk_delete_files": HandlerFunc(func(conn *websocket.Conn, data json.RawMessage) {
+	case "delete_file":
+		handleDeleteFile(conn, data)
+	case "bulk_delete_files":
 		processRequest(conn, data, BulkDeleteFile, "bulk_delete_files_response")
-	}),
-	"new_collection": HandlerFunc(func(conn *websocket.Conn, data json.RawMessage) {
+	case "new_collection":
 		processRequest(conn, data, CreateNewCollection, "new_collection_response")
-	}),
-	"delete_collection": HandlerFunc(func(conn *websocket.Conn, data json.RawMessage) {
+	case "delete_collection":
 		processRequest(conn, data, DeleteCollection, "delete_collection_response")
-	}),
-	"get_collection": HandlerFunc(func(conn *websocket.Conn, data json.RawMessage) {
+	case "get_collection":
 		processRequest(conn, data, GetCollection, "get_collection_response")
-	}),
-	"enable_homepage_updates": HandlerFunc(handleEnableHomepageUpdates),
-	"add_folder_to_collection": HandlerFunc(func(conn *websocket.Conn, data json.RawMessage) {
+	case "enable_homepage_updates":
+		handleEnableHomepageUpdates(conn, data)
+	case "add_folder_to_collection":
 		processRequest(conn, data, AddFolder, "get_collection_response")
-	}),
-	"remove_folder_from_collection": HandlerFunc(func(conn *websocket.Conn, data json.RawMessage) {
+	case "remove_folder_from_collection":
 		processRequest(conn, data, RemoveFolder, "get_collection_response")
-	}),
-	"create_folder_in_collection": HandlerFunc(func(conn *websocket.Conn, data json.RawMessage) {
+	case "create_folder_in_collection":
 		processRequest(conn, data, CreateFolderInCollection, "get_collection_response")
-	}),
-	"add_file_to_collection": HandlerFunc(func(conn *websocket.Conn, data json.RawMessage) {
+	case "add_file_to_collection":
 		processRequest(conn, data, AddFileToCollection, "get_collection_response")
-	}),
-	"remove_file_from_collection": HandlerFunc(func(conn *websocket.Conn, data json.RawMessage) {
+	case "remove_file_from_collection":
 		processRequest(conn, data, RemoveFileFromCollection, "get_collection_response")
-	}),
-	"import_from_github": HandlerFunc(func(conn *websocket.Conn, data json.RawMessage) {
+	case "import_from_github":
 		processRequest(conn, data, GithubImportHandler, "success_notification")
-	}),
-	"delete_account": HandlerFunc(func(conn *websocket.Conn, data json.RawMessage) {
+	case "delete_account":
 		processRequest(conn, data, removeAccountHandler, "success_notification")
-	}),
+	default:
+		fmt.Printf("Unknown message type: %s\n", messageType)
+	}
 }
 
 func handleEnableHomepageUpdates(conn *websocket.Conn, data json.RawMessage) {
