@@ -5,15 +5,12 @@ import (
 	"angadrive/endpoints"
 	"angadrive/info"
 	"angadrive/socketHandler"
-	"angadrive/vars"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
-
-	vars.UPLOAD_DIR = "uploaded_files"
 
 	r := gin.Default()
 	// FOR DEVELOPMENT ONLY
