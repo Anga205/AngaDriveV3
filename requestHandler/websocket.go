@@ -119,12 +119,8 @@ func reader(conn *websocket.Conn, done chan bool) {
 				continue
 			}
 
-			if handler, ok := messageHandlers[message.Type]; ok {
-				rawData, _ := json.Marshal(message.Data)
-				handler.Handle(conn, rawData)
-			} else {
-				fmt.Printf("Unknown message type: %s\n", message.Type)
-			}
+			rawData, _ := json.Marshal(message.Data)
+			dispatchMessage(conn, message.Type, rawData)
 		}
 	}
 }
