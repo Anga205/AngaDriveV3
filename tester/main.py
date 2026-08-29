@@ -32,12 +32,15 @@ TESTS = [
     test_collections.test_collection_lifecycle,
     test_collections.test_collection_folder_and_file_ops,
     test_files.test_upload_and_file_pulse,
+    test_files.test_upload_updates_all_user_websockets,
     test_files.test_delete_file,
     test_files.test_bulk_delete_files,
     test_files.test_convert_video_invalid,
+    test_files.test_video_preview_generation,
     test_misc.test_import_from_github_invalid,
     test_homepage.test_enable_homepage_updates,
     test_homepage.test_homepage_pulse_on_upload,
+    test_homepage.test_homepage_pulse_reaches_all_subscribers,
     test_accounts.test_delete_account,
 ]
 
