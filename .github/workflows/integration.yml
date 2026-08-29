@@ -57,6 +57,12 @@ jobs:
             exit 1
           fi
 
+      - name: Install ffmpeg
+        # The video preview test generates an MP4 and the server transcodes
+        # GIF previews with ffmpeg/ffprobe. The ubuntu-latest runner does not
+        # ship ffmpeg, so install it here.
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
