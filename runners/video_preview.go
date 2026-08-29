@@ -62,6 +62,11 @@ func (r *VideoPreviewRunner) Run(job Job) error {
 
 // generatePreview produces a GIF preview for a video file and writes it to the
 // video_previews directory as <sha256>.gif.
+//
+// If the source video is corrupted or not actually a video, generation will
+// fail. In that case an empty GIF is written to the output path so the file is
+// marked as "cannot be previewed" and the runner will not attempt to generate
+// it again (the preview endpoint sees the file exists and serves it).
 func (r *VideoPreviewRunner) generatePreview(inputFile database.FileData) error {
 	inputFilePath := filepath.Join(globals.UPLOAD_DIR, "i", inputFile.Sha256sum)
 	previewsDir := filepath.Join(globals.UPLOAD_DIR, "video_previews")
@@ -79,6 +84,9 @@ func (r *VideoPreviewRunner) generatePreview(inputFile database.FileData) error 
 
 	duration, err := getVideoDuration(inputFilePath)
 	if err != nil {
+		// Corrupted or non-video file: mark it with an empty GIF so we never
+		// try again, and notify the owner.
+		r.writeEmptyGIF(outputFilePath)
 		r.notifier.NotifyUser(inputFile.AccountToken, map[string]interface{}{
 			"type": "error",
 			"data": map[string]interface{}{
@@ -106,6 +114,9 @@ func (r *VideoPreviewRunner) generatePreview(inputFile database.FileData) error 
 	defer os.Remove(tempPath)
 
 	if err := generateGIF(inputFilePath, tempPath, speed); err != nil {
+		// Generation failed (corrupted/unsupported source). Mark it with an
+		// empty GIF so we never try again, and notify the owner.
+		r.writeEmptyGIF(outputFilePath)
 		r.notifier.NotifyUser(inputFile.AccountToken, map[string]interface{}{
 			"type": "error",
 			"data": map[string]interface{}{
@@ -119,6 +130,27 @@ func (r *VideoPreviewRunner) generatePreview(inputFile database.FileData) error 
 		return fmt.Errorf("failed to finalize video preview: %w", err)
 	}
 	return nil
+}
+
+// writeEmptyGIF writes a minimal valid 1x1 transparent GIF to the given path.
+// It is used to mark a video whose preview could not be generated (e.g. a
+// corrupted or non-video file), so the backfill loop and preview endpoint stop
+// trying to generate a preview for it.
+func (r *VideoPreviewRunner) writeEmptyGIF(path string) {
+	// A minimal 1x1 transparent GIF89a.
+	emptyGIF := []byte{
+		0x47, 0x49, 0x46, 0x38, 0x39, 0x61, // "GIF89a"
+		0x01, 0x00, 0x01, 0x00, // 1x1
+		0x80, 0x00, 0x00, // GCT flag, 1 color
+		0x00, 0x00, 0x00, 0x00, // transparent color
+		0x2c, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, // image descriptor
+		0x02, 0x02, 0x44, 0x01, 0x00, // image data
+		0x3b, // trailer
+	}
+	if err := os.MkdirAll(filepath.Dir(path), os.ModePerm); err != nil {
+		return
+	}
+	_ = os.WriteFile(path, emptyGIF, 0o644)
 }
 
 // getVideoDuration returns the duration (seconds) of a video using ffprobe.
@@ -141,35 +173,29 @@ func getVideoDuration(inputPath string) (float64, error) {
 	return duration, nil
 }
 
-// generateGIF produces a GIF from a video using a two-pass palette approach for
-// good quality and broad compatibility. The filter scales to fit within
-// 512x512 (preserving aspect ratio), runs at 24fps, and speeds up the video by
-// the given factor so the output is at most 15 seconds.
+// generateGIF produces a GIF from a video using a single-pass palette
+// approach. Both palette generation and mapping are done in one filter graph
+// via split, which avoids the timestamp/frame mismatches that can occur when
+// running palettegen and paletteuse as two separate ffmpeg passes. The
+// resulting GIF is robust across browsers (no "corrupt or truncated" errors).
+//
+// The filter scales to fit within 512x512 (preserving aspect ratio), runs at
+// 24fps, and speeds up the video by the given factor so the output is at most
+// 15 seconds.
 func generateGIF(inputPath, outputPath string, speed float64) error {
 	filter := fmt.Sprintf(
-		"setpts=PTS/%v,fps=%d,scale=%d:%d:force_original_aspect_ratio=decrease:flags=lanczos",
+		"setpts=PTS/%v,fps=%d,scale=%d:%d:force_original_aspect_ratio=decrease:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse",
 		speed, videoPreviewFPS, videoPreviewMaxDim, videoPreviewMaxDim,
 	)
 	maxDuration := strconv.FormatFloat(videoPreviewMaxDuration, 'f', -1, 64)
 
-	// Pass 1: generate a palette from the (filtered) frames.
-	palettePath := outputPath + ".palette.png"
-	defer os.Remove(palettePath)
-	paletteCmd := exec.Command("ffmpeg", "-y", "-i", inputPath,
-		"-vf", filter+",palettegen",
+	cmd := exec.Command("ffmpeg", "-y", "-v", "error",
+		"-i", inputPath,
+		"-filter_complex", filter,
 		"-t", maxDuration,
-		palettePath,
-	)
-	var paletteErr bytes.Buffer
-	paletteCmd.Stderr = &paletteErr
-	if err := paletteCmd.Run(); err != nil {
-		return fmt.Errorf("palette generation failed: %v: %s", err, paletteErr.String())
-	}
-
-	// Pass 2: apply the palette to produce the final gif.
-	cmd := exec.Command("ffmpeg", "-y", "-i", inputPath, "-i", palettePath,
-		"-filter_complex", filter+"[x];[x][1:v]paletteuse",
-		"-t", maxDuration,
+		"-loop", "0", // always loop for a thumbnail preview
+		"-gifflags", "+transdiff", // improve compression + compatibility
+		"-an", // discard any audio stream
 		outputPath,
 	)
 	var stderr bytes.Buffer

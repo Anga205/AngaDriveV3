@@ -165,6 +165,9 @@ func Init(notifier Notifier) {
 	defaultManager = NewManager(maxConcurrent, queueSize, notifier)
 	defaultManager.Register(&VideoRunner{notifier: notifier})
 	defaultManager.Register(&VideoPreviewRunner{notifier: notifier})
+	// Start the backfill loop so any videos without previews get one generated
+	// whenever the manager is idle.
+	StartBackfillLoop(defaultManager)
 }
 
 // Submit enqueues a job on the default manager.
