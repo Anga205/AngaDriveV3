@@ -38,7 +38,7 @@ export function webSocketUrl(route: string): string {
   const normalizedRoute = normalizeRoute(route);
 
   if (!import.meta.env.DEV) {
-    return `wss://${window.location.host}${normalizedRoute}`;
+    return `${isLocalHost(window.location.host) ? "ws" : "wss"}://${window.location.host}${normalizedRoute}`;
   }
 
   const host = resolveHost(import.meta.env.VITE_API_URL);

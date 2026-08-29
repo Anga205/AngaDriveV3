@@ -13,8 +13,14 @@ that a ``file_update`` pulse reaches a connection other than the one that
 triggered the upload.
 """
 
+import asyncio
+import os
+import tempfile
+import uuid
+
 from .harness import check, check_in
-from .helpers import (open_ws, recv_until, send_and_wait, upload_file)
+from .helpers import (fetch_preview_status, generate_test_video, open_ws,
+                      recv_until, send_and_wait, upload_file)
 from .test_accounts import register_and_login
 
 
@@ -169,3 +175,101 @@ async def test_convert_video_invalid():
         check_in("convert error", "record not found", resp["data"])
 
     await ws.close()
+
+
+async def test_video_preview_generation():
+    """Upload a video and verify its GIF preview is generated within 1 minute.
+
+    Sequence:
+      1. Generate a small MP4 with ffmpeg.
+      2. Upload it.
+      3. Request the preview (expect 425 Too Early the first time).
+      4. Poll the preview endpoint until it returns 200 (generated), failing
+         if it is not generated within 60 seconds.
+    """
+    print("\n[test] video preview generation")
+    email, password = await register_and_login()
+
+    # Generate a small test video. The seed makes the content unique per run so
+    # the preview is not already cached from a previous run.
+    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
+        video_path = tmp.name
+    try:
+        seed = uuid.uuid4().hex[:8]
+        generated = generate_test_video(video_path, duration=3, size="320x240", fps=24, seed=seed)
+        check("ffmpeg generated test video", generated)
+        if not generated:
+            return
+        with open(video_path, "rb") as f:
+            content = f.read()
+    finally:
+        os.unlink(video_path)
+
+    up = await upload_file(email=email, password=password, filename="preview.mp4",
+                           content=content)
+    check("upload video succeeds", up is not None)
+    if not up:
+        return
+    file_dir = up["fileDirectory"]
+
+    # First request should return 425 (Too Early) since the preview is not
+    # generated yet, and it enqueues a runner.
+    first_status = await fetch_preview_status(file_dir)
+    check("first preview request returns 425", first_status == 425, f"(got {first_status})")
+
+    # Poll until the preview is generated (200) or 60s elapse.
+    generated_ok = False
+    try:
+        async with asyncio.timeout(60):
+            while True:
+                status = await fetch_preview_status(file_dir)
+                if status == 200:
+                    generated_ok = True
+                    break
+                await asyncio.sleep(1)
+    except asyncio.TimeoutError:
+        generated_ok = False
+
+    check("video preview generated within 60s", generated_ok)
+
+
+async def test_upload_updates_all_user_websockets():
+    """Verify an upload sends a ``file_update`` pulse to ALL of the user's websockets.
+
+    Sequence:
+      1. The user opens two websocket connections (A and B), both authenticated.
+      2. A third connection (C) performs the upload.
+      3. Both A and B should receive a ``file_update`` pulse for the new file.
+    """
+    print("\n[test] upload updates all user websockets")
+    email, password = await register_and_login()
+
+    # Two websocket connections for the same user, both authenticated.
+    user_conns = []
+    for _ in range(2):
+        ws = await open_ws()
+        await send_and_wait(ws, "get_user_files",
+                            {"email": email, "password": password},
+                            "get_user_files_response")
+        user_conns.append(ws)
+
+    # A third connection performs the upload.
+    ws_c = await open_ws()
+    await send_and_wait(ws_c, "get_user_files",
+                        {"email": email, "password": password},
+                        "get_user_files_response")
+    up = await upload_file(email=email, password=password, filename="multi_ws.txt",
+                           content=b"multi websocket pulse")
+    check("upload succeeds", up is not None)
+
+    # Both user connections should receive a file_update pulse.
+    for i, ws in enumerate(user_conns):
+        pulse = await recv_until(ws, lambda m: m.get("type") == "file_update")
+        check(f"user conn {i} received file_update", pulse is not None)
+        if pulse:
+            check(f"user conn {i} toggle true", pulse["data"].get("toggle") is True)
+            check(f"user conn {i} has file dir",
+                  bool(pulse["data"].get("File", {}).get("file_directory")))
+        await ws.close()
+
+    await ws_c.close()

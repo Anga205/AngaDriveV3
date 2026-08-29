@@ -164,6 +164,7 @@ func Init(notifier Notifier) {
 	queueSize := envInt("MAX_QUEUE_SIZE", DefaultQueueSize)
 	defaultManager = NewManager(maxConcurrent, queueSize, notifier)
 	defaultManager.Register(&VideoRunner{notifier: notifier})
+	defaultManager.Register(&VideoPreviewRunner{notifier: notifier})
 }
 
 // Submit enqueues a job on the default manager.

@@ -30,3 +30,10 @@ func initRunners() {
 func SubmitVideoConversion(file database.FileData) error {
 	return runners.Submit("video", runners.VideoJob{File: file})
 }
+
+// SubmitVideoPreview enqueues a video preview generation job on the runners
+// manager. It returns an error if a preview for the same source video is
+// already queued or running (the runners manager dedups by source sha256).
+func SubmitVideoPreview(file database.FileData) error {
+	return runners.Submit("video_preview", runners.VideoPreviewJob{File: file})
+}

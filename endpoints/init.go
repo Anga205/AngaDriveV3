@@ -29,6 +29,11 @@ func InitEndpoints(r *gin.Engine) {
 			previews.ReturnImagePreview(c)
 		}
 	})
+	r.GET("/preview-video/:file_directory", func(c *gin.Context) {
+		if c.Request.Host == globals.AssetsURL {
+			previews.ReturnVideoPreview(c)
+		}
+	})
 	r.GET("/download/:file_directory", func(c *gin.Context) {
 		if c.Request.Host == globals.AssetsURL {
 			downloadFile(c)

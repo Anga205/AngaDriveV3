@@ -89,3 +89,48 @@ async def test_homepage_pulse_on_upload():
 
     await ws_a.close()
     await ws_b.close()
+
+
+async def test_homepage_pulse_reaches_all_subscribers():
+    """Verify an upload updates ALL active homepage subscribers.
+
+    Sequence:
+      1. Connections A and B both subscribe to homepage updates and drain the
+         initial burst.
+      2. Connection C uploads a file.
+      3. Both A and B should receive a ``files_hosted_count`` pulse.
+    """
+    print("\n[test] homepage pulse reaches all subscribers on upload")
+    email, password = await register_and_login()
+
+    # Two homepage subscribers.
+    subscribers = []
+    for _ in range(2):
+        ws = await open_ws()
+        await ws.send(make_msg("enable_homepage_updates", True))
+        # Drain the 5 immediate messages.
+        try:
+            async with asyncio.timeout(5.0):
+                for _ in range(5):
+                    await ws.recv()
+        except (asyncio.TimeoutError, websockets.ConnectionClosed):
+            pass
+        subscribers.append(ws)
+
+    # Connection C uploads a file.
+    ws_c = await open_ws()
+    await send_and_wait(ws_c, "get_user_files",
+                        {"email": email, "password": password},
+                        "get_user_files_response")
+    await upload_file(email=email, password=password, filename="multi_home.txt",
+                      content=b"multi homepage pulse")
+
+    # Both subscribers should receive a files_hosted_count pulse.
+    for i, ws in enumerate(subscribers):
+        pulse = await recv_until(ws, lambda m: m.get("type") == "files_hosted_count")
+        check(f"subscriber {i} received files_hosted_count", pulse is not None)
+        if pulse:
+            check(f"subscriber {i} count is int", isinstance(pulse["data"], int))
+        await ws.close()
+
+    await ws_c.close()

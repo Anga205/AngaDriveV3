@@ -15,6 +15,8 @@ assert on the result directly.
 import asyncio
 import gzip
 import json
+import os
+import subprocess
 import uuid
 
 import websockets
@@ -132,3 +134,39 @@ async def upload_file(email=None, password=None, token=None, collection_id="",
             if resp.status != 200:
                 return None
             return await resp.json()
+
+
+def generate_test_video(path, duration=3, size="320x240", fps=24, seed=None):
+    """Generate a small test MP4 video using ffmpeg.
+
+    ``seed`` (if given) is drawn into the frame so that videos generated with
+    different seeds have different content (and therefore different sha256),
+    which keeps preview tests isolated across runs.
+
+    Returns True on success, False if ffmpeg is unavailable or fails.
+    """
+    try:
+        # Draw the seed text into the frame so content differs per seed.
+        draw = ""
+        if seed is not None:
+            draw = f",drawtext=text='{seed}':fontsize=24:fontcolor=white:x=10:y=10"
+        subprocess.run(
+            ["ffmpeg", "-y", "-f", "lavfi", "-i", f"testsrc=duration={duration}:size={size}:rate={fps}",
+             "-vf", f"format=yuv420p{draw}",
+             "-pix_fmt", "yuv420p", path],
+            check=True, capture_output=True,
+        )
+        return True
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return False
+
+
+async def fetch_preview_status(file_directory):
+    """Request a video preview and return the HTTP status code.
+
+    Returns the status code (int), or None on connection error.
+    """
+    import aiohttp
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f"{config.HTTP_URL}/preview-video/{file_directory}.gif") as resp:
+            return resp.status

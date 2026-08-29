@@ -127,11 +127,8 @@ const FilePreview: Component<{ file: FileData }> = (props) => {
             return <PreviewImage src={assetsUrl(`/preview-image/${props.file.file_directory}`)} />;
         }
 
-        if (isVideo && props.file.file_size <= preview_size_limit) {
-            if (props.file.file_size > preview_size_limit) {
-                return <FileTextSVG class="max-h-full p-4 opacity-50" />;
-            }
-            return <video src={assetsUrl(`/i/${props.file.file_directory}`)} controls class="max-h-full max-w-full" preload="metadata" />;
+        if (isVideo) {
+            return <PreviewImage src={assetsUrl(`/preview-video/${props.file.file_directory}.gif`)} />;
         }
         if (isAudio && props.file.file_size <= preview_size_limit) {
             return <audio src={assetsUrl(`/i/${props.file.file_directory}`)} controls class="w-full" />;
