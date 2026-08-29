@@ -37,6 +37,7 @@ TESTS = [
     test_files.test_bulk_delete_files,
     test_files.test_convert_video_invalid,
     test_files.test_video_preview_generation,
+    test_files.test_corrupted_video_preview_marker,
     test_misc.test_import_from_github_invalid,
     test_homepage.test_enable_homepage_updates,
     test_homepage.test_homepage_pulse_on_upload,

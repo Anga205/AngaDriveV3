@@ -233,6 +233,48 @@ async def test_video_preview_generation():
     check("video preview generated within 60s", generated_ok)
 
 
+async def test_corrupted_video_preview_marker():
+    """Verify a corrupted video gets an empty GIF marker (not retried forever).
+
+    Sequence:
+      1. Upload a file with a .mp4 extension but invalid (non-video) content.
+      2. Request the preview (expect 425 the first time).
+      3. The runner should fail to generate a real preview and instead write an
+         empty GIF marker, so subsequent requests return 200 (the marker is
+         served) and the runner never retries the corrupted file.
+    """
+    print("\n[test] corrupted video preview marker")
+    email, password = await register_and_login()
+
+    # Invalid "video" content (not a real mp4).
+    up = await upload_file(email=email, password=password, filename="corrupt.mp4",
+                           content=b"this is not a real video file")
+    check("upload corrupted video succeeds", up is not None)
+    if not up:
+        return
+    file_dir = up["fileDirectory"]
+
+    # First request enqueues a runner and returns 425.
+    first_status = await fetch_preview_status(file_dir)
+    check("first corrupted preview request returns 425", first_status == 425, f"(got {first_status})")
+
+    # The runner should fail and write an empty GIF marker, so the endpoint
+    # eventually serves it (200) instead of retrying forever.
+    marker_ok = False
+    try:
+        async with asyncio.timeout(60):
+            while True:
+                status = await fetch_preview_status(file_dir)
+                if status == 200:
+                    marker_ok = True
+                    break
+                await asyncio.sleep(1)
+    except asyncio.TimeoutError:
+        marker_ok = False
+
+    check("corrupted video gets a preview marker (200)", marker_ok)
+
+
 async def test_upload_updates_all_user_websockets():
     """Verify an upload sends a ``file_update`` pulse to ALL of the user's websockets.
 

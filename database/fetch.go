@@ -212,6 +212,17 @@ func CountFiles() (int64, error) {
 	return count, nil
 }
 
+// GetAllFiles returns every file in the database.
+func GetAllFiles() ([]FileData, error) {
+	db := GetDB()
+	var files []FileData
+	err := db.Find(&files).Error
+	if err != nil {
+		return nil, err
+	}
+	return files, nil
+}
+
 type SizeAndTime struct {
 	Size int64
 	Time int64
