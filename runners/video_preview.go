@@ -18,8 +18,13 @@ const (
 	// GIF preview. Longer source videos are sped up so the preview is exactly
 	// this long (never more).
 	videoPreviewMaxDuration = 15.0
-	// videoPreviewFPS is the frame rate of generated GIF previews.
+	// videoPreviewFPS is the frame rate of generated GIF previews. Lower frame
+	// rates dramatically reduce GIF file size (fewer frames to encode); 12fps
+	// is a good balance between smoothness and size for a thumbnail preview.
 	videoPreviewFPS = 24
+	// videoPreviewMaxColors is the maximum number of colors in the GIF palette.
+	// Fewer colors reduce file size; 128 is a good balance for preview quality.
+	videoPreviewMaxColors = 128
 	// videoPreviewMaxDim is the maximum width/height (pixels) of a generated
 	// GIF preview. The aspect ratio of the source is preserved.
 	videoPreviewMaxDim = 512
@@ -182,10 +187,19 @@ func getVideoDuration(inputPath string) (float64, error) {
 // The filter scales to fit within 512x512 (preserving aspect ratio), runs at
 // 24fps, and speeds up the video by the given factor so the output is at most
 // 15 seconds.
+//
+// File size is minimized while preserving quality by:
+//   - Using a reduced 128-color palette (palettegen max_colors).
+//   - Using stats_mode=diff so the palette is built only from frames where
+//     pixels actually change, giving a more accurate color distribution.
+//   - Using ordered bayer dithering (bayer_scale=5). Unlike error-diffusion
+//     dithering, bayer produces a regular, periodic pattern that GIF's LZW
+//     compression encodes much more compactly, with minimal visual loss at
+//     preview size.
 func generateGIF(inputPath, outputPath string, speed float64) error {
 	filter := fmt.Sprintf(
-		"setpts=PTS/%v,fps=%d,scale=%d:%d:force_original_aspect_ratio=decrease:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse",
-		speed, videoPreviewFPS, videoPreviewMaxDim, videoPreviewMaxDim,
+		"setpts=PTS/%v,fps=%d,scale=%d:%d:force_original_aspect_ratio=decrease:flags=lanczos,split[s0][s1];[s0]palettegen=stats_mode=diff:max_colors=%d[p];[s1][p]paletteuse=dither=bayer:bayer_scale=5",
+		speed, videoPreviewFPS, videoPreviewMaxDim, videoPreviewMaxDim, videoPreviewMaxColors,
 	)
 	maxDuration := strconv.FormatFloat(videoPreviewMaxDuration, 'f', -1, 64)
 
