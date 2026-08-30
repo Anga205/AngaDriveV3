@@ -18,9 +18,11 @@ import os
 import tempfile
 import uuid
 
+from . import config
 from .harness import check, check_in
-from .helpers import (fetch_preview_status, generate_test_video, open_ws,
-                      recv_until, send_and_wait, upload_file)
+from .helpers import (fetch_preview, fetch_preview_status, finalize_upload,
+                      generate_test_video, open_ws, recv_until, send_and_wait,
+                      send_chunk, upload_file, upload_file_full)
 from .test_accounts import register_and_login
 
 
@@ -156,6 +158,146 @@ async def test_bulk_delete_files():
     await ws.close()
 
 
+async def test_upload_missing_auth():
+    """Finalize an upload without credentials; expect 400."""
+    print("\n[test] upload missing auth")
+    import uuid as _uuid
+    upload_id = _uuid.uuid4().hex
+    status, body = await finalize_upload(upload_id, 1, "noauth.txt")
+    check("upload without auth returns 400", status == 400, f"(got {status})")
+    if isinstance(body, str):
+        check_in("missing auth message", "Missing authentication", body)
+
+
+async def test_upload_invalid_credentials():
+    """Finalize an upload with wrong credentials; expect 401."""
+    print("\n[test] upload invalid credentials")
+    import uuid as _uuid
+    upload_id = _uuid.uuid4().hex
+    status, body = await finalize_upload(upload_id, 1, "badauth.txt",
+                                         email="nobody@example.com", password="wrong")
+    check("upload with bad credentials returns 401", status == 401, f"(got {status})")
+
+
+async def test_upload_missing_filename():
+    """Finalize an upload with no originalFileName; expect 400."""
+    print("\n[test] upload missing filename")
+    email, password = await register_and_login()
+    import uuid as _uuid
+    upload_id = _uuid.uuid4().hex
+    status, body = await finalize_upload(upload_id, 1, "",
+                                         email=email, password=password)
+    check("upload without filename returns 400", status == 400, f"(got {status})")
+
+
+async def test_upload_missing_chunks():
+    """Finalize an upload where some chunks were never sent; expect 400."""
+    print("\n[test] upload missing chunks")
+    email, password = await register_and_login()
+    import uuid as _uuid
+    upload_id = _uuid.uuid4().hex
+
+    # Send only chunk 0 of a 3-chunk upload.
+    await send_chunk(upload_id, 0, b"only chunk zero")
+
+    status, body = await finalize_upload(upload_id, 3, "partial.txt",
+                                         email=email, password=password)
+    check("upload with missing chunks returns 400", status == 400, f"(got {status})")
+    if isinstance(body, dict):
+        missing = body.get("missingChunks", [])
+        check("missing chunks reported", missing == [1, 2], f"(got {missing})")
+
+
+async def test_upload_invalid_total_chunks():
+    """Finalize an upload with a non-numeric totalChunks; expect 400."""
+    print("\n[test] upload invalid total chunks")
+    email, password = await register_and_login()
+    import uuid as _uuid
+    upload_id = _uuid.uuid4().hex
+    await send_chunk(upload_id, 0, b"data")
+
+    # Send totalChunks as a non-integer string.
+    import aiohttp
+    async with aiohttp.ClientSession() as session:
+        form = aiohttp.FormData()
+        form.add_field("totalChunks", "not-a-number")
+        form.add_field("originalFileName", "bad.txt")
+        form.add_field("email", email)
+        form.add_field("password", password)
+        async with session.post(f"{config.HTTP_URL}/upload/success/{upload_id}", data=form) as resp:
+            status = resp.status
+    check("upload with invalid totalChunks returns 400", status == 400, f"(got {status})")
+
+
+async def test_upload_multiple_chunks():
+    """Upload a file split across multiple chunks and verify it assembles.
+
+    Sequence:
+      1. Split content into 4 chunks and send each.
+      2. Finalize with totalChunks=4.
+      3. Verify the upload succeeds and returns a file_directory.
+    """
+    print("\n[test] upload multiple chunks")
+    email, password = await register_and_login()
+
+    content = b"multi-chunk-content-" * 100  # ~2000 bytes
+    status, body = await upload_file_full(email=email, password=password,
+                                          filename="multi.txt", content=content,
+                                          total_chunks=4)
+    check("multi-chunk upload succeeds", status == 200, f"(got {status})")
+    if isinstance(body, dict):
+        check("multi-chunk upload returns file_directory", bool(body.get("fileDirectory")))
+
+
+async def test_upload_empty_file():
+    """Upload an empty file (zero bytes) and verify it succeeds."""
+    print("\n[test] upload empty file")
+    email, password = await register_and_login()
+
+    status, body = await upload_file_full(email=email, password=password,
+                                          filename="empty.txt", content=b"")
+    check("empty file upload succeeds", status == 200, f"(got {status})")
+    if isinstance(body, dict):
+        check("empty file upload returns file_directory", bool(body.get("fileDirectory")))
+
+
+async def test_upload_large_file():
+    """Upload a larger file (a few MB) and verify it succeeds."""
+    print("\n[test] upload large file")
+    email, password = await register_and_login()
+
+    # ~3 MB of pseudo-random-ish content.
+    content = os.urandom(3 * 1024 * 1024)
+    status, body = await upload_file_full(email=email, password=password,
+                                          filename="large.bin", content=content,
+                                          chunk_size=512 * 1024)
+    check("large file upload succeeds", status == 200, f"(got {status})")
+    if isinstance(body, dict):
+        check("large file upload returns file_directory", bool(body.get("fileDirectory")))
+
+
+async def test_upload_duplicate_content_dedup():
+    """Upload two files with identical content; verify both succeed.
+
+    The server content-addresses files by sha256, so two uploads of the same
+    bytes should both succeed (they share the same on-disk file but get
+    distinct file_directories).
+    """
+    print("\n[test] upload duplicate content")
+    email, password = await register_and_login()
+
+    content = b"identical-content-for-dedup-test"
+    up1 = await upload_file(email=email, password=password, filename="dup_a.txt",
+                            content=content)
+    up2 = await upload_file(email=email, password=password, filename="dup_b.txt",
+                            content=content)
+    check("first duplicate upload succeeds", up1 is not None)
+    check("second duplicate upload succeeds", up2 is not None)
+    if up1 and up2:
+        check("duplicate uploads get distinct directories",
+              up1["fileDirectory"] != up2["fileDirectory"])
+
+
 async def test_convert_video_invalid():
     """Request a video conversion for a non-existent file; expect an error.
 
@@ -273,6 +415,145 @@ async def test_corrupted_video_preview_marker():
         marker_ok = False
 
     check("corrupted video gets a preview marker (200)", marker_ok)
+
+
+async def _upload_generated_video(email, password, filename="preview.mp4",
+                                  duration=3, size="320x240", fps=24):
+    """Generate a unique test video, upload it, and return the file_directory.
+
+    Returns ``None`` if ffmpeg is unavailable or the upload fails.
+    """
+    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
+        video_path = tmp.name
+    try:
+        seed = uuid.uuid4().hex[:8]
+        generated = generate_test_video(video_path, duration=duration, size=size,
+                                        fps=fps, seed=seed)
+        if not generated:
+            return None
+        with open(video_path, "rb") as f:
+            content = f.read()
+    finally:
+        os.unlink(video_path)
+
+    up = await upload_file(email=email, password=password, filename=filename,
+                           content=content)
+    if not up:
+        return None
+    return up["fileDirectory"]
+
+
+async def _wait_for_preview(file_dir, timeout=60):
+    """Poll the preview endpoint until it returns 200; return the body bytes.
+
+    Returns ``(True, body)`` on success or ``(False, None)`` on timeout.
+    """
+    try:
+        async with asyncio.timeout(timeout):
+            while True:
+                status, body = await fetch_preview(file_dir)
+                if status == 200:
+                    return True, body
+                await asyncio.sleep(1)
+    except asyncio.TimeoutError:
+        return False, None
+
+
+async def test_preview_serves_valid_gif():
+    """Verify a generated preview is a valid GIF with the expected magic bytes.
+
+    Sequence:
+      1. Upload a generated video.
+      2. Wait for the preview to be generated (200).
+      3. Assert the served body starts with the GIF89a magic bytes and is
+         non-trivial in size (a real preview, not the empty marker).
+    """
+    print("\n[test] preview serves valid gif")
+    email, password = await register_and_login()
+
+    file_dir = await _upload_generated_video(email, password)
+    check("upload generated video succeeds", file_dir is not None)
+    if not file_dir:
+        return
+
+    ok, body = await _wait_for_preview(file_dir)
+    check("preview generated within 60s", ok)
+    if not ok:
+        return
+
+    check("preview body is non-empty", len(body) > 0)
+    check("preview starts with GIF89a magic", body[:6] == b"GIF89a",
+          f"(got {body[:6]!r})")
+    # A real preview should be larger than the 33-byte empty marker.
+    check("preview is a real gif (not empty marker)", len(body) > 33,
+          f"(got {len(body)} bytes)")
+
+
+async def test_preview_unknown_file_returns_404():
+    """Request a preview for a file that does not exist; expect 404."""
+    print("\n[test] preview unknown file returns 404")
+    status, _ = await fetch_preview("does_not_exist.mp4")
+    check("unknown file preview returns 404", status == 404, f"(got {status})")
+
+
+async def test_preview_dedup_no_duplicate_jobs():
+    """Verify repeated preview requests do not enqueue duplicate jobs.
+
+    Sequence:
+      1. Upload a generated video.
+      2. Fire several preview requests in quick succession (all before the
+         preview is generated).
+      3. The first returns 425; the preview should still be generated exactly
+         once and eventually served (200). Because jobs are deduplicated by
+         sha256, the extra requests must not break generation.
+    """
+    print("\n[test] preview dedup no duplicate jobs")
+    email, password = await register_and_login()
+
+    file_dir = await _upload_generated_video(email, password)
+    check("upload generated video succeeds", file_dir is not None)
+    if not file_dir:
+        return
+
+    # Fire several requests immediately; the first enqueues, the rest should
+    # be deduplicated (all 425 until generated).
+    statuses = []
+    for _ in range(5):
+        statuses.append(await fetch_preview_status(file_dir))
+
+    check("all early preview requests return 425", all(s == 425 for s in statuses),
+          f"(got {statuses})")
+
+    ok, body = await _wait_for_preview(file_dir)
+    check("preview still generated after dedup requests", ok)
+    if ok:
+        check("dedup preview is a real gif", len(body) > 33, f"(got {len(body)} bytes)")
+
+
+async def test_preview_serves_cached_after_generation():
+    """Verify a generated preview is served from cache on subsequent requests.
+
+    Sequence:
+      1. Upload a generated video and wait for its preview (200).
+      2. Request the preview again; it should still return 200 with the same
+         body (served from disk, not regenerated).
+    """
+    print("\n[test] preview served from cache after generation")
+    email, password = await register_and_login()
+
+    file_dir = await _upload_generated_video(email, password)
+    check("upload generated video succeeds", file_dir is not None)
+    if not file_dir:
+        return
+
+    ok, first_body = await _wait_for_preview(file_dir)
+    check("preview generated within 60s", ok)
+    if not ok:
+        return
+
+    status, second_body = await fetch_preview(file_dir)
+    check("second preview request returns 200", status == 200, f"(got {status})")
+    check("cached preview body identical", second_body == first_body)
 
 
 async def test_upload_updates_all_user_websockets():

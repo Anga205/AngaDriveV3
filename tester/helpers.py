@@ -170,3 +170,117 @@ async def fetch_preview_status(file_directory):
     async with aiohttp.ClientSession() as session:
         async with session.get(f"{config.HTTP_URL}/preview-video/{file_directory}.gif") as resp:
             return resp.status
+
+
+async def fetch_preview(file_directory):
+    """Request a video preview and return ``(status, body_bytes)``.
+
+    Unlike :func:`fetch_preview_status`, this also returns the response body so
+    tests can inspect the served content (e.g. verify GIF magic bytes).
+    """
+    import aiohttp
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f"{config.HTTP_URL}/preview-video/{file_directory}.gif") as resp:
+            body = await resp.read()
+            return resp.status, body
+
+
+async def send_chunk(upload_id, chunk_index, content):
+    """Send a single gzipped chunk to ``/upload/{upload_id}``.
+
+    Returns the HTTP status code (int), or None on connection error.
+    """
+    import aiohttp
+    chunk = gzip.compress(content)
+    async with aiohttp.ClientSession() as session:
+        data = aiohttp.FormData()
+        data.add_field("chunk", chunk, filename="chunk", content_type="application/octet-stream")
+        data.add_field("chunkIndex", str(chunk_index))
+        async with session.post(f"{config.HTTP_URL}/upload/{upload_id}", data=data) as resp:
+            return resp.status
+
+
+async def finalize_upload(upload_id, total_chunks, filename, email=None,
+                          password=None, token=None, collection_id=""):
+    """Finalize an upload and return ``(status, body)``.
+
+    This is the low-level counterpart to :func:`upload_file`; it returns the
+    raw HTTP status and parsed JSON body (or raw text) so tests can assert on
+    error codes and messages.
+    """
+    import aiohttp
+    async with aiohttp.ClientSession() as session:
+        form = aiohttp.FormData()
+        form.add_field("totalChunks", str(total_chunks))
+        form.add_field("originalFileName", filename)
+        form.add_field("collectionId", collection_id)
+        if token:
+            form.add_field("token", token)
+        if email:
+            form.add_field("email", email)
+        if password:
+            form.add_field("password", password)
+        async with session.post(f"{config.HTTP_URL}/upload/success/{upload_id}", data=form) as resp:
+            text = await resp.text()
+            try:
+                body = json.loads(text)
+            except json.JSONDecodeError:
+                body = text
+            return resp.status, body
+
+
+async def upload_file_full(email=None, password=None, token=None, collection_id="",
+                           filename="hello.txt", content=b"hello world",
+                           total_chunks=1, chunk_size=None):
+    """Upload a file via the chunked endpoint, returning ``(status, body)``.
+
+    Splits ``content`` into ``total_chunks`` (or into ``chunk_size``-byte
+    pieces) and sends each chunk before finalizing. Returns the finalize
+    response as ``(status, body)``.
+    """
+    import aiohttp
+
+    upload_id = uuid.uuid4().hex
+
+    # Split content into chunks.
+    if chunk_size is not None:
+        pieces = [content[i:i + chunk_size] for i in range(0, len(content), chunk_size)] or [b""]
+    else:
+        # Split into total_chunks roughly equal pieces.
+        n = max(1, total_chunks)
+        base = len(content) // n
+        rem = len(content) % n
+        pieces = []
+        idx = 0
+        for i in range(n):
+            size = base + (1 if i < rem else 0)
+            pieces.append(content[idx:idx + size])
+            idx += size
+
+    async with aiohttp.ClientSession() as session:
+        for i, piece in enumerate(pieces):
+            chunk = gzip.compress(piece)
+            data = aiohttp.FormData()
+            data.add_field("chunk", chunk, filename="chunk", content_type="application/octet-stream")
+            data.add_field("chunkIndex", str(i))
+            async with session.post(f"{config.HTTP_URL}/upload/{upload_id}", data=data) as resp:
+                if resp.status != 200:
+                    return resp.status, None
+
+        form = aiohttp.FormData()
+        form.add_field("totalChunks", str(len(pieces)))
+        form.add_field("originalFileName", filename)
+        form.add_field("collectionId", collection_id)
+        if token:
+            form.add_field("token", token)
+        if email:
+            form.add_field("email", email)
+        if password:
+            form.add_field("password", password)
+        async with session.post(f"{config.HTTP_URL}/upload/success/{upload_id}", data=form) as resp:
+            text = await resp.text()
+            try:
+                body = json.loads(text)
+            except json.JSONDecodeError:
+                body = text
+            return resp.status, body
