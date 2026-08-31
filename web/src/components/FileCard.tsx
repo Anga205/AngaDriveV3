@@ -205,9 +205,19 @@ const DeleteButton: Component<{ file: FileData }> = (props) => {
         getSocket()?.send(JSON.stringify(deleteRequest));
         setOpen(false);
     }
+    const handleTriggerClick = (e: MouseEvent) => {
+        if (e.shiftKey) {
+            e.preventDefault();
+            e.stopPropagation();
+            handleDelete();
+        }
+    }
     return (
         <Dialog open={open()} onOpenChange={setOpen}>
-            <Dialog.Trigger class="flex items-center justify-center p-2 text-red-700 bg-red-800/30 hover:bg-red-900/20 rounded-xl">
+            <Dialog.Trigger
+                class="flex items-center justify-center p-2 text-red-700 bg-red-800/30 hover:bg-red-900/20 rounded-xl"
+                onClick={handleTriggerClick}
+            >
                 <BinSVG />
             </Dialog.Trigger>
             <Dialog.Portal>
