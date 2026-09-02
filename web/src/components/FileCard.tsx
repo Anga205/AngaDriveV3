@@ -1,11 +1,11 @@
 import type { FileData } from "../library/types"
 import { BinSVG, CheckSVG, CopySVG, CrossSVG, DownloadSVG, EyeSVG, FileTextSVG, RefreshSVG } from "../assets/SvgFiles";
-import { formatFileSize, getFileType } from "../library/functions";
+import { formatFileSize, getFileType, getCollectionPathIds } from "../library/functions";
 import toast from "solid-toast";
 import { useWebSocket } from "../Websockets";
-import { useLocation, useParams } from "@solidjs/router";
+import { useLocation } from "@solidjs/router";
 import { AppContext } from "../Context";
-import { createSignal, onCleanup, Component, Show, useContext } from "solid-js";
+import { createSignal, createMemo, onCleanup, Component, Show, useContext } from "solid-js";
 import Dialog from '@corvu/dialog';
 import { assetsUrl } from "@/assets/ApiUrl";
 
@@ -251,17 +251,20 @@ const DeleteButton: Component<{ file: FileData }> = (props) => {
 const RemoveFromCollectionButton: Component<{ file: FileData }> = (props) => {
     const { socket: getSocket } = useWebSocket();
     const ctx = useContext(AppContext)!;
-    const params = useParams();
+    const location = useLocation();
     // Get the current collection ID from the path (last segment)
-    const rawPath = params.collectionPath;
-    const pathSegments: string[] = rawPath ? rawPath.split("/") : [];
-    const collectionId = pathSegments[pathSegments.length - 1] || "";
+    const pathIds = createMemo(() => getCollectionPathIds(location.pathname));
+    const collectionId = () => pathIds()[pathIds().length - 1] || "";
+    const canRemove = () => {
+        const id = collectionId();
+        return location.pathname.startsWith("/collection") && !!id && (ctx.knownCollections()[id]?.isOwned || false);
+    };
     const handleRemove = async () => {
         const removeRequest = {
             type: "remove_file_from_collection",
             data: {
                 file_directory: props.file.file_directory,
-                collection_id: collectionId,
+                collection_id: collectionId(),
                 auth: {
                     token: localStorage.getItem("token") || "",
                     email: localStorage.getItem("email") || "",
@@ -274,13 +277,21 @@ const RemoveFromCollectionButton: Component<{ file: FileData }> = (props) => {
             return;
         }
         getSocket()?.send(JSON.stringify(removeRequest));
+        toast.success("Removed from collection", {
+            duration: 2000,
+            position: "bottom-right",
+            style: {
+                background: "#1f1f1f",
+                color: "#ffffff"
+            }
+        });
     }
     return (
-        ctx.knownCollections()[collectionId]?.isOwned && (
-            <button class="flex items-center justify-center p-2 text-red-700 bg-red-800/30 hover:bg-red-900/20 rounded-xl" onClick={handleRemove}>
+        <Show when={canRemove()}>
+            <button class="flex items-center justify-center p-2 text-red-700 bg-red-800/30 hover:bg-red-900/20 rounded-xl" onClick={handleRemove} title="Remove from collection">
                 <CrossSVG />
             </button>
-        )
+        </Show>
     )
 }
 
