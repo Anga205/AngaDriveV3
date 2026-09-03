@@ -68,7 +68,7 @@ const Popup = () => {
             setGithubURL('');
             setModifying(null);
         }}>
-            <Dialog.Trigger class="cursor-pointer hover:text-gray-300 text-white flex justify-center items-center bg-green-600 hover:bg-green-800 py-[0.2vh] px-[1vh] rounded-[1vh] font-bold md:translate-y-[4vh]">
+            <Dialog.Trigger class="cursor-pointer hover:text-gray-300 text-white flex justify-center items-center bg-green-600 hover:bg-green-800 py-[0.2vh] px-[1vh] rounded-[1vh] font-bold">
                 <span class="text-4xl text-center">+</span>&nbsp;Create&nbsp;Collection
             </Dialog.Trigger>
             <Dialog.Portal>
