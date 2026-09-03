@@ -1,5 +1,6 @@
-import { createSignal } from 'solid-js';
+import { createMemo, createSignal } from 'solid-js';
 import { Toaster } from 'solid-toast';
+import type { CollectionCardData } from '@/library/types';
 import DesktopCollections from './Desktop/DesktopCollections';
 import MobileCollections from './Mobile/MobileCollections';
 
@@ -11,10 +12,21 @@ const MyCollections = () => {
     };
     window.addEventListener('resize', handleResize);
 
+    const [searchQuery, setSearchQuery] = createSignal('');
+    const filteredCollections = createMemo(() => {
+        const query = searchQuery().trim().toLowerCase();
+        if (!query) return undefined;
+        return (collections: CollectionCardData[]) => collections.filter((collection) =>
+            collection.name.toLowerCase().includes(query) || collection.id.toLowerCase().includes(query)
+        );
+    });
+
     return (
         <>
             <title>My Collections | DriveV3</title>
-            {isMobile() ? <MobileCollections/> : <DesktopCollections/>}
+            {isMobile() ?
+                <MobileCollections searchQuery={searchQuery} setSearch={setSearchQuery} filterCollections={filteredCollections()} /> :
+                <DesktopCollections searchQuery={searchQuery} setSearch={setSearchQuery} filterCollections={filteredCollections()} />}
             <Toaster
             position="bottom-right"
             gutter={8}
