@@ -26,7 +26,7 @@ const DesktopCollections = (props: { searchQuery: Accessor<string>; setSearch: (
             <div class="flex flex-col w-full h-full px-[2vh] p-[1vh]">
                 <div class="w-full flex justify-between items-center">
                     <p class="text-white font-black text-[4vh]">My Collections</p>
-                    <div class="flex gap-3 items-center">
+                    <div class="flex gap-3 items-center md:translate-y-[4vh]">
                         <div class="relative w-80">
                             <input
                                 class="w-full bg-neutral-900 placeholder-neutral-500 text-neutral-200 rounded-lg px-3 py-2 pr-10 border border-neutral-800 focus:outline-none"
