@@ -27,3 +27,6 @@ uploaded_files/
 main
 .env
 docs/
+*/__pycache__/*
+*.pyc
+*.yml
