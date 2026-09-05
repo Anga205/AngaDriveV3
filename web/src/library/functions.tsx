@@ -44,10 +44,27 @@ const UniversalMessageHandler = (message: MessageEvent, ctx: AppContextType) => 
         return b.timestamp - a.timestamp;
       }) || []);
   } else if (data.type === "file_update") {
-      if (data.data.toggle === true) {
-          ctx.setFiles((prev: FileData[]) => [data.data.File, ...prev]);
+      const updatedFile = data.data.File || data.data.file;
+      if (data.data.replace === true) {
+        ctx.setFiles((prev: FileData[]) => prev.map((file: FileData) =>
+          file.file_directory === updatedFile.file_directory ? updatedFile : file
+        ));
+        ctx.setKnownCollections(prev => {
+          const next = { ...prev };
+          for (const [collectionId, collection] of Object.entries(next)) {
+            next[collectionId] = {
+              ...collection,
+              files: collection.files.map(file =>
+                file.file_directory === updatedFile.file_directory ? updatedFile : file
+              )
+            };
+          }
+          return next;
+        });
+      } else if (data.data.toggle === true) {
+        ctx.setFiles((prev: FileData[]) => [updatedFile, ...prev]);
       } else if (data.data.toggle === false) {
-          ctx.setFiles((prev: FileData[]) => prev.filter((file: FileData) => file.file_directory !== data.data.File.file_directory));
+        ctx.setFiles((prev: FileData[]) => prev.filter((file: FileData) => file.file_directory !== updatedFile.file_directory));
       }
   } else if (data.type === "get_user_collections_response") {
       const collections: CollectionCardData[] = data.data || [];

@@ -42,6 +42,7 @@ TESTS = [
     test_files.test_upload_empty_file,
     test_files.test_upload_large_file,
     test_files.test_upload_duplicate_content_dedup,
+    test_files.test_rename_file,
     test_files.test_delete_file,
     test_files.test_bulk_delete_files,
     test_files.test_convert_video_invalid,

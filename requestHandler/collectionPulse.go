@@ -6,6 +6,45 @@ import (
 	"angadrive/globals"
 )
 
+func PulseFileSubscribers(file database.FileData) {
+	database.CollectionFilesMutex.RLock()
+	var collectionIDs []string
+	for collectionID, files := range database.CollectionFiles {
+		if files.Contains(file.FileDirectory) {
+			collectionIDs = append(collectionIDs, collectionID)
+		}
+	}
+	database.CollectionFilesMutex.RUnlock()
+
+	ActiveWebsocketsMutex.RLock()
+	var connections []globals.WebsocketInfo
+	for conn, connData := range ActiveWebsockets {
+		for _, collectionID := range collectionIDs {
+			if connData.SubscribedCollections[collectionID] {
+				connections = append(connections, globals.WebsocketInfo{Conn: conn, Data: &connData})
+				break
+			}
+		}
+	}
+	ActiveWebsocketsMutex.RUnlock()
+
+	for _, connection := range connections {
+		go func(connection globals.WebsocketInfo) {
+			connection.Data.Mutex.Lock()
+			defer connection.Data.Mutex.Unlock()
+			if err := connection.Conn.WriteJSON(map[string]interface{}{
+				"type": "file_update",
+				"data": FileUpdate{Toggle: true, Replace: true, File: file},
+			}); err != nil {
+				ActiveWebsocketsMutex.Lock()
+				delete(ActiveWebsockets, connection.Conn)
+				ActiveWebsocketsMutex.Unlock()
+				connection.Conn.Close()
+			}
+		}(connection)
+	}
+}
+
 func PulseCollectionSubscribers(collection database.Collection) {
 	if collection.ID == "" {
 		return
