@@ -14,8 +14,9 @@ type GraphData struct {
 }
 
 type FileUpdate struct {
-	Toggle bool `json:"toggle"` // If this is true then it means "append a file to this page", false means the file already exists and we are removing it
-	File   database.FileData
+	Toggle  bool `json:"toggle"` // If this is true then it means "append a file to this page", false means the file already exists and we are removing it
+	Replace bool `json:"replace"`
+	File    database.FileData
 }
 
 type CollectionCardData struct {
@@ -66,6 +67,12 @@ type ConvertVideoRequest struct {
 
 type DeleteFileRequest struct {
 	FileDirectory string   `json:"file_directory"`
+	Auth          AuthInfo `json:"auth"`
+}
+
+type RenameFileRequest struct {
+	FileDirectory string   `json:"file_directory"`
+	NewFileName   string   `json:"new_file_name"`
 	Auth          AuthInfo `json:"auth"`
 }
 

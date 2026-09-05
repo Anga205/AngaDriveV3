@@ -6,8 +6,10 @@ import { useWebSocket } from "../Websockets";
 import { useLocation } from "@solidjs/router";
 import { AppContext } from "../Context";
 import { createSignal, createMemo, onCleanup, Component, Show, useContext } from "solid-js";
+import { createEffect } from "solid-js";
 import Dialog from '@corvu/dialog';
 import { assetsUrl } from "@/assets/ApiUrl";
+import Pencil from "lucide-solid/icons/pencil";
 
 const PreviewImage: Component<{ src: string }> = (props) => {
     const [failed, setFailed] = createSignal(false);
@@ -296,16 +298,68 @@ const RemoveFromCollectionButton: Component<{ file: FileData }> = (props) => {
 }
 
 const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: string) => void; isSelected?: boolean }> = (props) => {
-    let DownloadLink = assetsUrl(`/download/${props.File.file_directory}`);
-    let link = assetsUrl(`/i/${props.File.file_directory}`);
-    link = link.split('.').slice(0, -1).join('.');
-    link += "/" + props.File.original_file_name;
-    while (link.includes(" ")) {
-        link = link.replace(" ", "%20");
-    }
+    const DownloadLink = createMemo(() => assetsUrl(`/download/${props.File.file_directory}`));
+    const link = createMemo(() => {
+        let fileLink = assetsUrl(`/i/${props.File.file_directory}`);
+        fileLink = fileLink.split('.').slice(0, -1).join('.');
+        fileLink += "/" + encodeURIComponent(props.File.original_file_name);
+        return fileLink;
+    });
     const location = useLocation();
     const ctx = useContext(AppContext)!;
+    const { socket: getSocket } = useWebSocket();
+    const [isRenaming, setIsRenaming] = createSignal(false);
+    const [draftName, setDraftName] = createSignal(props.File.original_file_name);
+    let renameInput: HTMLInputElement | undefined;
     const selectable = !!props.onSelectionToggle;
+
+    createEffect(() => {
+        if (!isRenaming()) setDraftName(props.File.original_file_name);
+    });
+
+    const startRename = (event: MouseEvent) => {
+        event.stopPropagation();
+        setDraftName(props.File.original_file_name);
+        setIsRenaming(true);
+        requestAnimationFrame(() => {
+            renameInput?.focus();
+            renameInput?.select();
+        });
+    };
+
+    const cancelRename = (event?: Event) => {
+        event?.stopPropagation();
+        setDraftName(props.File.original_file_name);
+        setIsRenaming(false);
+    };
+
+    const submitRename = (event?: Event) => {
+        event?.preventDefault();
+        event?.stopPropagation();
+        if (getSocket()?.readyState !== WebSocket.OPEN) {
+            toast.error("WebSocket is not available");
+            return;
+        }
+        getSocket()?.send(JSON.stringify({
+            type: "rename_file",
+            data: {
+                file_directory: props.File.file_directory,
+                new_file_name: draftName(),
+                auth: {
+                    token: localStorage.getItem("token") || "",
+                    email: localStorage.getItem("email") || "",
+                    password: localStorage.getItem("password") || ""
+                }
+            }
+        }));
+        setIsRenaming(false);
+    };
+
+    const handleRenameKeyDown = (event: KeyboardEvent) => {
+        if (event.key === "Enter") submitRename(event);
+        if (event.key === "Escape") cancelRename(event);
+    };
+
     const handleCardClick = () => {
         if (selectable) {
             props.onSelectionToggle?.(props.File.file_directory);
@@ -335,11 +389,39 @@ const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: stri
                     </Show>
                     </Show>
                     <div class="w-2"/>
-                    <p class="text-white text-2xl font-semibold text-nowrap font-sans flex-1 text-center truncate">{props.File.original_file_name}</p>
+                    <Show when={isRenaming()} fallback={
+                        <>
+                            <p class="text-white text-2xl font-semibold text-nowrap font-sans flex-1 text-center truncate" title={props.File.original_file_name}>{props.File.original_file_name}</p>
+                            <Show when={location.pathname === "/my_drive"}>
+                                <button
+                                    type="button"
+                                    class="flex shrink-0 items-center justify-center p-2 text-neutral-300 hover:text-white hover:bg-neutral-700 rounded-lg"
+                                    onClick={startRename}
+                                    aria-label={`Rename ${props.File.original_file_name}`}
+                                    title="Rename file"
+                                >
+                                    <Pencil class="w-5 h-5 opacity-10" />
+                                </button>
+                            </Show>
+                        </>
+                    }>
+                        <form class="flex min-w-0 flex-1 items-center gap-1" onSubmit={submitRename} onClick={(e) => e.stopPropagation()}>
+                            <input
+                                ref={renameInput}
+                                class="min-w-0 w-full rounded bg-neutral-800 px-2 py-1 text-center text-lg text-white outline-none ring-1 ring-blue-500"
+                                value={draftName()}
+                                onInput={(e) => setDraftName(e.currentTarget.value)}
+                                onKeyDown={handleRenameKeyDown}
+                                aria-label="New filename"
+                            />
+                            <button type="submit" class="shrink-0 rounded bg-green-700/40 px-2 py-1 text-green-300 hover:bg-green-700/60" aria-label="Save filename" title="Save filename">✓</button>
+                            <button type="button" class="shrink-0 rounded bg-neutral-700 px-2 py-1 text-neutral-200 hover:bg-neutral-600" onClick={cancelRename} aria-label="Cancel rename" title="Cancel rename">×</button>
+                        </form>
+                    </Show>
                 </div>
                 <a
                     class="flex justify-center items-center w-full h-[58.5480093677%] overflow-hidden"
-                    href={link}
+                    href={link()}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => {
@@ -377,12 +459,12 @@ const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: stri
             </div>
             <div class="w-full flex justify-between p-2 h-[14.6%]" onClick={(e) => e.stopPropagation()}>
                 <div />
-                <a class="flex items-center justify-center p-2 bg-yellow-700/30 hover:bg-yellow-700/20 rounded-xl text-yellow-600" href={link} target="_blank">
+                    <a class="flex items-center justify-center p-2 bg-yellow-700/30 hover:bg-yellow-700/20 rounded-xl text-yellow-600" href={link()} target="_blank">
                     <EyeSVG />
                 </a>
                 <div />
                 <button class="flex items-center justify-center p-2 bg-cyan-700/30 hover:bg-cyan-700/20 rounded-xl text-cyan-500" onClick={() => {
-                    navigator.clipboard.writeText(link)
+                    navigator.clipboard.writeText(link())
                     toast.success("Link copied to clipboard!", {
                         duration: 2000,
                         position: "bottom-right",
@@ -399,7 +481,7 @@ const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: stri
                     class="flex items-center justify-center p-2 bg-green-700/30 hover:bg-green-700/20 rounded-xl text-green-500 cursor-pointer"
                     onClick={() => {
                         const anchor = document.createElement("a");
-                        anchor.href = DownloadLink;
+                        anchor.href = DownloadLink();
                         anchor.download = "";
                         anchor.rel = "noopener noreferrer";
                         document.body.appendChild(anchor);

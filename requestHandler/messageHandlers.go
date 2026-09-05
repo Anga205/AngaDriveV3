@@ -102,6 +102,8 @@ func dispatchMessage(conn *websocket.Conn, messageType string, data json.RawMess
 		processRequest(conn, data, HandleConversionRequest, "convert_video_response")
 	case "delete_file":
 		handleDeleteFile(conn, data)
+	case "rename_file":
+		handleRenameFile(conn, data)
 	case "bulk_delete_files":
 		processRequest(conn, data, BulkDeleteFile, "bulk_delete_files_response")
 	case "new_collection":
@@ -246,4 +248,37 @@ func handleDeleteFile(conn *websocket.Conn, data json.RawMessage) {
 		Type: "delete_file_response",
 		Data: map[string]interface{}{"success": fileToDelete.OriginalFileName},
 	})
+}
+
+func handleRenameFile(conn *websocket.Conn, data json.RawMessage) {
+	var req RenameFileRequest
+	if err := json.Unmarshal(data, &req); err != nil {
+		sendJSON(conn, globals.OutgoingResponse{Type: "rename_file_response", Data: map[string]interface{}{"error": "invalid request data"}})
+		return
+	}
+
+	token, err := req.Auth.GetToken()
+	if err != nil {
+		sendJSON(conn, globals.OutgoingResponse{Type: "rename_file_response", Data: map[string]interface{}{"error": err.Error()}})
+		return
+	}
+	file, err := database.GetFile(req.FileDirectory)
+	if err != nil {
+		sendJSON(conn, globals.OutgoingResponse{Type: "rename_file_response", Data: map[string]interface{}{"error": "file not found"}})
+		return
+	}
+	if file.AccountToken != token {
+		sendJSON(conn, globals.OutgoingResponse{Type: "rename_file_response", Data: map[string]interface{}{"error": "unauthorized rename attempt"}})
+		return
+	}
+	updatedFile, err := database.RenameFile(req.FileDirectory, req.NewFileName)
+	if err != nil {
+		sendJSON(conn, globals.OutgoingResponse{Type: "rename_file_response", Data: map[string]interface{}{"error": err.Error()}})
+		return
+	}
+
+	update := FileUpdate{Toggle: true, Replace: true, File: updatedFile}
+	go UserFilesPulse(update)
+	go PulseFileSubscribers(updatedFile)
+	sendJSON(conn, globals.OutgoingResponse{Type: "rename_file_response", Data: map[string]interface{}{"success": updatedFile.OriginalFileName}})
 }

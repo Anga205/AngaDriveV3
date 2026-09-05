@@ -132,6 +132,124 @@ async def test_delete_file():
     await ws.close()
 
 
+async def test_rename_file():
+    """Rename metadata without changing content, ownership, or file identity."""
+    print("\n[test] rename file")
+    email, password = await register_and_login()
+    other_email, other_password = await register_and_login()
+    ws_a = await open_ws()
+    ws_b = await open_ws()
+    await send_and_wait(ws_a, "get_user_files", {"email": email, "password": password}, "get_user_files_response")
+    await send_and_wait(ws_b, "get_user_files", {"email": email, "password": password}, "get_user_files_response")
+
+    content = b"rename without reupload"
+    up = await upload_file(email=email, password=password, filename="before.txt", content=content)
+    check("rename setup upload succeeds", up is not None)
+    if not up:
+        await ws_a.close()
+        await ws_b.close()
+        return
+    file_dir = up["fileDirectory"]
+
+    # Drain the upload pulse on the second connection before testing rename.
+    await recv_until(ws_b, lambda m: m.get("type") == "file_update" and
+                     m.get("data", {}).get("File", {}).get("file_directory") == file_dir)
+
+    import aiohttp
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f"{config.HTTP_URL}/download/{file_dir}") as response:
+            original_content = await response.read()
+            original_size = len(original_content)
+    check("downloaded content matches before rename", original_content == content)
+
+    renamed = "renamed file with extension.txt"
+    resp = await send_and_wait(ws_a, "rename_file",
+                               {"file_directory": file_dir,
+                                "new_file_name": renamed,
+                                "auth": {"email": email, "password": password}},
+                               "rename_file_response")
+    check("rename responds", resp is not None)
+    if resp:
+        check("rename succeeds", "success" in resp["data"])
+
+    pulse = await recv_until(ws_b, lambda m: m.get("type") == "file_update" and
+                             m.get("data", {}).get("replace") is True and
+                             m.get("data", {}).get("File", {}).get("file_directory") == file_dir)
+    check("rename pulse reaches second websocket", pulse is not None)
+    if pulse:
+        check("rename pulse has new filename", pulse["data"]["File"]["original_file_name"] == renamed)
+
+    files = await send_and_wait(ws_a, "get_user_files",
+                                {"email": email, "password": password},
+                                "get_user_files_response")
+    renamed_file = next((file for file in (files or {}).get("data", [])
+                         if file.get("file_directory") == file_dir), None)
+    check("renamed file remains in user list", renamed_file is not None)
+    if renamed_file:
+        check("new filename is persisted", renamed_file["original_file_name"] == renamed)
+        check("old filename is absent", renamed_file["original_file_name"] != "before.txt")
+        check("file directory is unchanged", renamed_file["file_directory"] == file_dir)
+        check("file size is unchanged", renamed_file["file_size"] == original_size)
+
+    # Repeated renames, long names, and invalid names use the same file identity.
+    long_name = "x" * 200 + ".txt"
+    for new_name in (long_name, "final-name.md"):
+        repeated = await send_and_wait(ws_a, "rename_file",
+                                       {"file_directory": file_dir,
+                                        "new_file_name": new_name,
+                                        "auth": {"email": email, "password": password}},
+                                       "rename_file_response")
+        check(f"rename to {new_name[:12]} succeeds", repeated is not None and "success" in repeated["data"])
+
+    for invalid_name in ("", ".", "../escape.txt", "bad\\name.txt"):
+        invalid = await send_and_wait(ws_a, "rename_file",
+                                      {"file_directory": file_dir,
+                                       "new_file_name": invalid_name,
+                                       "auth": {"email": email, "password": password}},
+                                      "rename_file_response")
+        check(f"invalid filename {invalid_name!r} is rejected",
+              invalid is not None and "error" in invalid["data"])
+
+    missing = await send_and_wait(ws_a, "rename_file",
+                                  {"file_directory": "missing-file-directory",
+                                   "new_file_name": "missing.txt",
+                                   "auth": {"email": email, "password": password}},
+                                  "rename_file_response")
+    check("renaming nonexistent file fails", missing is not None and "error" in missing["data"])
+
+    unauthenticated = await send_and_wait(ws_a, "rename_file",
+                                          {"file_directory": file_dir,
+                                           "new_file_name": "unauthenticated.txt",
+                                           "auth": {}},
+                                          "rename_file_response")
+    check("unauthenticated rename fails", unauthenticated is not None and "error" in unauthenticated["data"])
+
+    invalid_auth = await send_and_wait(ws_a, "rename_file",
+                                       {"file_directory": file_dir,
+                                        "new_file_name": "invalid-auth.txt",
+                                        "auth": {"email": email, "password": "wrong"}},
+                                       "rename_file_response")
+    check("invalid authentication rename fails", invalid_auth is not None and "error" in invalid_auth["data"])
+
+    ws_other = await open_ws()
+    unauthorized = await send_and_wait(ws_other, "rename_file",
+                                       {"file_directory": file_dir,
+                                        "new_file_name": "other-user.txt",
+                                        "auth": {"email": other_email, "password": other_password}},
+                                       "rename_file_response")
+    check("other user cannot rename file", unauthorized is not None and "error" in unauthorized["data"])
+    await ws_other.close()
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f"{config.HTTP_URL}/download/{file_dir}") as response:
+            renamed_content = await response.read()
+    check("file content is unchanged", renamed_content == original_content)
+    check("file size is unchanged after repeated renames", len(renamed_content) == original_size)
+
+    await ws_a.close()
+    await ws_b.close()
+
+
 async def test_bulk_delete_files():
     """Upload two files and delete them both in a single bulk request."""
     print("\n[test] bulk delete files")
