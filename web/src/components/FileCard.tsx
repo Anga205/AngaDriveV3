@@ -10,6 +10,8 @@ import { createEffect } from "solid-js";
 import Dialog from '@corvu/dialog';
 import { assetsUrl } from "@/assets/ApiUrl";
 import Pencil from "lucide-solid/icons/pencil";
+import Check from "lucide-solid/icons/check";
+import X from "lucide-solid/icons/x";
 
 const PreviewImage: Component<{ src: string }> = (props) => {
     const [failed, setFailed] = createSignal(false);
@@ -312,6 +314,9 @@ const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: stri
     const [draftName, setDraftName] = createSignal(props.File.original_file_name);
     let renameInput: HTMLInputElement | undefined;
     const selectable = !!props.onSelectionToggle;
+    const originalHasLeadingSpace = () => /^\s/.test(props.File.original_file_name);
+    const originalHasTrailingSpace = () => /\s$/.test(props.File.original_file_name);
+    const canSubmitRename = () => draftName() !== props.File.original_file_name && draftName().trim() !== "";
 
     createEffect(() => {
         if (!isRenaming()) setDraftName(props.File.original_file_name);
@@ -333,9 +338,24 @@ const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: stri
         setIsRenaming(false);
     };
 
+    createEffect(() => {
+        if (!isRenaming()) return;
+
+        const handleEscape = (event: KeyboardEvent) => {
+            if (event.key !== "Escape") return;
+            event.preventDefault();
+            event.stopPropagation();
+            cancelRename(event);
+        };
+
+        window.addEventListener("keydown", handleEscape, true);
+        onCleanup(() => window.removeEventListener("keydown", handleEscape, true));
+    });
+
     const submitRename = (event?: Event) => {
         event?.preventDefault();
         event?.stopPropagation();
+        if (!canSubmitRename()) return;
         if (getSocket()?.readyState !== WebSocket.OPEN) {
             toast.error("WebSocket is not available");
             return;
@@ -357,7 +377,6 @@ const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: stri
 
     const handleRenameKeyDown = (event: KeyboardEvent) => {
         if (event.key === "Enter") submitRename(event);
-        if (event.key === "Escape") cancelRename(event);
     };
 
     const handleCardClick = () => {
@@ -410,12 +429,20 @@ const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: stri
                                 ref={renameInput}
                                 class="min-w-0 w-full rounded bg-neutral-800 px-2 py-1 text-center text-lg text-white outline-none ring-1 ring-blue-500"
                                 value={draftName()}
-                                onInput={(e) => setDraftName(e.currentTarget.value)}
+                                onInput={(e) => {
+                                    let value = e.currentTarget.value;
+                                    if (!originalHasLeadingSpace()) value = value.replace(/^\s+/, "");
+                                    if (!originalHasTrailingSpace()) value = value.replace(/\s+$/, "");
+                                    if (e.currentTarget.value !== value) e.currentTarget.value = value;
+                                    setDraftName(value);
+                                }}
                                 onKeyDown={handleRenameKeyDown}
                                 aria-label="New filename"
                             />
-                            <button type="submit" class="shrink-0 rounded bg-green-700/40 px-2 py-1 text-green-300 hover:bg-green-700/60" aria-label="Save filename" title="Save filename">✓</button>
-                            <button type="button" class="shrink-0 rounded bg-neutral-700 px-2 py-1 text-neutral-200 hover:bg-neutral-600" onClick={cancelRename} aria-label="Cancel rename" title="Cancel rename">×</button>
+                            <Show when={canSubmitRename()}>
+                                <button type="submit" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-green-700/60 text-green-100 hover:bg-green-700" aria-label="Save filename" title="Save filename"><Check class="h-6 w-6" /></button>
+                            </Show>
+                            <button type="button" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-neutral-600 text-neutral-100 hover:bg-neutral-500" onClick={cancelRename} aria-label="Cancel rename" title="Cancel rename"><X class="h-6 w-6" /></button>
                         </form>
                     </Show>
                 </div>
