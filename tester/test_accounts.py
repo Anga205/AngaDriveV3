@@ -71,6 +71,12 @@ async def register_and_login():
     return email, password
 
 
+async def test_register_and_login():
+    """Verify the account registration and login round-trip independently."""
+    print("\n[test] register and login")
+    await register_and_login()
+
+
 async def test_change_display_name():
     """Change a user's display name and verify the response reflects it."""
     print("\n[test] change display name")
