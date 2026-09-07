@@ -19,6 +19,34 @@ import sys
 PASS = 0
 FAIL = 0
 FAILURES = []  # names of failed assertions
+CURRENT_TEST = None
+TEST_RESULTS = []
+
+
+def start_test(name):
+    """Start an isolated assertion scope for one integration test."""
+    global PASS, FAIL, FAILURES, CURRENT_TEST
+    PASS = 0
+    FAIL = 0
+    FAILURES = []
+    CURRENT_TEST = name
+    print(f"\n=== START {name} ===")
+
+
+def finish_test():
+    """Record and print the result of the current test."""
+    result = {
+        "name": CURRENT_TEST,
+        "passed": FAIL == 0,
+        "assertions_passed": PASS,
+        "assertions_failed": FAIL,
+        "failures": list(FAILURES),
+    }
+    TEST_RESULTS.append(result)
+    status = "PASS" if result["passed"] else "FAIL"
+    print(f"=== END {CURRENT_TEST}: {status} "
+          f"({PASS} passed, {FAIL} failed) ===")
+    return result
 
 
 def check(name, condition, detail=""):
@@ -36,7 +64,8 @@ def check(name, condition, detail=""):
         print(f"  [PASS] {name}")
     else:
         FAIL += 1
-        FAILURES.append(name)
+        failure = f"{CURRENT_TEST}: {name}" if CURRENT_TEST else name
+        FAILURES.append(failure)
         print(f"  [FAIL] {name}")
         if detail:
             print(f"         expected: {detail}")
@@ -52,16 +81,24 @@ def check_in(name, needle, haystack):
     check(name, needle in haystack, f"{needle!r} in {haystack!r}")
 
 
-def summary():
-    """Print the final totals and return True if everything passed."""
+def summary(results=None):
+    """Print assertion and independently identifiable test totals."""
+    results = TEST_RESULTS if results is None else results
+    passed_tests = sum(result["passed"] for result in results)
+    failed_tests = len(results) - passed_tests
     print("\n" + "=" * 60)
-    print(f"TOTAL: {PASS} passed, {FAIL} failed")
-    if FAILURES:
-        print("Failed assertions:")
-        for f in FAILURES:
-            print(f"  - {f}")
+    print(f"TESTS: {passed_tests} passed, {failed_tests} failed")
+    print(f"ASSERTIONS: {sum(r['assertions_passed'] for r in results)} passed, "
+          f"{sum(r['assertions_failed'] for r in results)} failed")
+    failed_results = [result for result in results if not result["passed"]]
+    if failed_results:
+        print("Failed tests:")
+        for result in failed_results:
+            print(f"  - {result['name']}")
+            for failure in result["failures"]:
+                print(f"    {failure}")
     print("=" * 60)
-    return FAIL == 0
+    return failed_tests == 0
 
 
 def exit_with_result(ok):

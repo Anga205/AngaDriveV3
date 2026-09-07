@@ -5,8 +5,54 @@ on:
   pull_request:
 
 jobs:
-  integration:
+  discover:
     runs-on: ubuntu-latest
+    outputs:
+      tests: ${{ steps.tests.outputs.tests }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install test dependencies
+        run: pip install websockets aiohttp bcrypt
+
+      - name: Discover integration tests
+        id: tests
+        run: echo "tests=$(python -m tester.main --list --json)" >> "$GITHUB_OUTPUT"
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: antongolub/action-setup-bun@v1
+        with:
+          bun-version: '1.2.4'
+
+      - name: Build Frontend
+        working-directory: ./web
+        run: bun install && bun run build
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: web/dist
+
+  integration:
+    needs: [discover, frontend]
+    name: Integration (${{ matrix.test }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        test: ${{ fromJSON(needs.discover.outputs.tests) }}
 
     steps:
       - uses: actions/checkout@v4
@@ -18,29 +64,23 @@ jobs:
           cache: true
           cache-dependency-path: go.sum
 
-      - name: Set up Bun
-        uses: antongolub/action-setup-bun@v1
+      - name: Download frontend artifact
+        uses: actions/download-artifact@v4
         with:
-          bun-version: '1.2.4'
-
-      - name: Build Frontend
-        # The Go server serves the SPA from ./dist, which is gitignored. In CI
-        # it does not exist, so we build it here (the server would otherwise
-        # try to build it on startup).
-        working-directory: ./web
-        run: bun install && bun run build
-
-      - name: Move dist to backend root
-        # compileFrontend normally moves web/dist -> ./dist; do it manually so
-        # the server finds it and skips its own build step.
-        run: mv web/dist ./dist
+          name: frontend-dist
+          path: dist
 
       - name: Start Go server
-        # Start the server in the background and wait for it to accept
-        # connections on :8080 before running the tests.
+        env:
+          WEB_URL: localhost:8080
+          ASSETS_URL: localhost:8080
+          SAVE_DRIVE_RAM: 'true'
         run: |
+          # Every matrix job has its own checkout, but remove ignored runtime
+          # data explicitly so reruns cannot inherit a database or files.
+          rm -rf uploaded_files
           go build -o ./angadrive-server .
-          ./angadrive-server &
+          ./angadrive-server > server.log 2>&1 &
           SERVER_PID=$!
           echo "SERVER_PID=$SERVER_PID" >> "$GITHUB_ENV"
           # Wait up to 30s for the server to come up.
@@ -58,9 +98,6 @@ jobs:
           fi
 
       - name: Install ffmpeg
-        # The video preview test generates an MP4 and the server transcodes
-        # GIF previews with ffmpeg/ffprobe. The ubuntu-latest runner does not
-        # ship ffmpeg, so install it here.
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
       - name: Set up Python
@@ -71,14 +108,19 @@ jobs:
       - name: Install test dependencies
         run: pip install websockets aiohttp bcrypt
 
-      - name: Run integration tests
-        # The suite exits non-zero if any assertion failed, which fails this
-        # step and therefore the job.
-        run: python -m tester.main
+      - name: Run ${{ matrix.test }}
+        env:
+          API_URL: localhost:8080
+          TEST_TIMEOUT: '180'
+        run: python -m tester.main --test "${{ matrix.test }}"
 
       - name: Stop Go server
         if: always()
         run: |
           if [ -n "$SERVER_PID" ]; then
             kill "$SERVER_PID" || true
+          fi
+          if [ -f server.log ]; then
+            echo '--- Go server log ---'
+            cat server.log
           fi

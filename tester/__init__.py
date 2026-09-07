@@ -14,7 +14,8 @@ Layout:
     test_collections.py- collection tests (create/get/delete/folder/file ops)
     test_homepage.py   - homepage pulse tests
     test_misc.py       - misc tests (unknown type, github import)
-    main.py            - entry point that runs all tests
+    registry.py        - automatic discovery of async test functions
+    main.py            - entry point for full or single-test runs
 
 Run from the repo root:
     python -m tester.main

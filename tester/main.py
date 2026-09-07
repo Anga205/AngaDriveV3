@@ -13,51 +13,15 @@ Requirements:
     The Go server must be running (go run .) with a reachable database.
 """
 
+import argparse
 import asyncio
+import json
 import sys
 
 from . import config
-from .harness import check, exit_with_result, summary
-from .helpers import open_ws
-from . import test_accounts, test_collections, test_files, test_homepage, test_misc
-
-# Ordered list of test functions to run. Add new tests here to include them.
-TESTS = [
-    test_misc.test_unknown_message_type,
-    test_accounts.register_and_login,
-    test_accounts.test_change_display_name,
-    test_accounts.test_change_email,
-    test_accounts.test_change_password,
-    test_files.test_get_user_files_and_collections,
-    test_collections.test_collection_lifecycle,
-    test_collections.test_collection_folder_and_file_ops,
-    test_files.test_upload_and_file_pulse,
-    test_files.test_upload_updates_all_user_websockets,
-    test_files.test_upload_missing_auth,
-    test_files.test_upload_invalid_credentials,
-    test_files.test_upload_missing_filename,
-    test_files.test_upload_missing_chunks,
-    test_files.test_upload_invalid_total_chunks,
-    test_files.test_upload_multiple_chunks,
-    test_files.test_upload_empty_file,
-    test_files.test_upload_large_file,
-    test_files.test_upload_duplicate_content_dedup,
-    test_files.test_rename_file,
-    test_files.test_delete_file,
-    test_files.test_bulk_delete_files,
-    test_files.test_convert_video_invalid,
-    test_files.test_video_preview_generation,
-    test_files.test_preview_serves_valid_gif,
-    test_files.test_preview_unknown_file_returns_404,
-    test_files.test_preview_dedup_no_duplicate_jobs,
-    test_files.test_preview_serves_cached_after_generation,
-    test_files.test_corrupted_video_preview_marker,
-    test_misc.test_import_from_github_invalid,
-    test_homepage.test_enable_homepage_updates,
-    test_homepage.test_homepage_pulse_on_upload,
-    test_homepage.test_homepage_pulse_reaches_all_subscribers,
-    test_accounts.test_delete_account,
-]
+from .harness import check, finish_test, start_test, summary
+from .helpers import close_open_websockets, open_ws
+from .registry import discover_tests, find_test
 
 
 async def _sanity_check_server():
@@ -72,17 +36,48 @@ async def _sanity_check_server():
         sys.exit(1)
 
 
-async def main():
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(description="Run AngaDrive WebSocket integration tests")
+    parser.add_argument("--test", help="run exactly one test by its stable name")
+    parser.add_argument("--list", action="store_true", help="list available test names")
+    parser.add_argument("--json", action="store_true", help="format --list output as JSON")
+    return parser.parse_args(argv)
+
+
+async def main(argv=None):
+    args = parse_args(argv)
+    tests = discover_tests()
+
+    if args.list:
+        names = [test.name for test in tests]
+        print(json.dumps(names) if args.json else "\n".join(names))
+        return 0
+
+    if args.test:
+        selected = find_test(args.test)
+        if selected is None:
+            print(f"ERROR: unknown integration test: {args.test}", file=sys.stderr)
+            print("Available tests:", file=sys.stderr)
+            print("\n".join(test.name for test in tests), file=sys.stderr)
+            return 2
+        tests = [selected]
+
     await _sanity_check_server()
 
-    for t in TESTS:
+    results = []
+    for test in tests:
+        start_test(test.name)
         try:
-            await t()
+            async with asyncio.timeout(config.TEST_TIMEOUT):
+                await test.function()
         except Exception as e:
-            check(f"{t.__name__} raised", False, f"(exception: {e!r})")
+            check(f"{test.name} raised", False, f"(exception: {e!r})")
+        finally:
+            await close_open_websockets()
+        results.append(finish_test())
 
-    exit_with_result(summary())
+    return 0 if summary(results) else 1
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    sys.exit(asyncio.run(main()))

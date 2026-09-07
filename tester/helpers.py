@@ -23,6 +23,8 @@ import websockets
 
 from . import config
 
+OPEN_WEBSOCKETS = set()
+
 
 def make_msg(msg_type, data):
     """Build a websocket message in the ``{"type": ..., "data": ...}`` shape."""
@@ -47,7 +49,17 @@ def random_email():
 
 async def open_ws():
     """Open a websocket connection to the server."""
-    return await websockets.connect(config.WS_URL)
+    ws = await websockets.connect(config.WS_URL, open_timeout=config.DEFAULT_TIMEOUT)
+    OPEN_WEBSOCKETS.add(ws)
+    return ws
+
+
+async def close_open_websockets():
+    """Close connections left behind by a failed test."""
+    connections = list(OPEN_WEBSOCKETS)
+    OPEN_WEBSOCKETS.clear()
+    if connections:
+        await asyncio.gather(*(ws.close() for ws in connections), return_exceptions=True)
 
 
 async def recv_until(ws, predicate, timeout=config.DEFAULT_TIMEOUT):

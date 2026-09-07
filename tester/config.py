@@ -20,3 +20,7 @@ DEFAULT_TIMEOUT = 5.0
 
 # How long to wait when we expect NO response (e.g. unknown message type).
 NO_RESPONSE_TIMEOUT = 1.5
+
+# Upper bound for one selected test. Individual preview tests have their own
+# 60-second polling window inside this budget.
+TEST_TIMEOUT = float(os.getenv("TEST_TIMEOUT", "180"))

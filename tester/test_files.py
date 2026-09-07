@@ -457,7 +457,9 @@ async def test_video_preview_generation():
     try:
         seed = uuid.uuid4().hex[:8]
         generated = generate_test_video(video_path, duration=3, size="320x240", fps=24, seed=seed)
-        check("ffmpeg generated test video", generated)
+        check("ffmpeg generated test video", generated,
+              "ffmpeg is not installed or failed; install it with "
+              "'sudo apt-get install -y ffmpeg' (CI installs it automatically)")
         if not generated:
             return
         with open(video_path, "rb") as f:
@@ -548,6 +550,9 @@ async def _upload_generated_video(email, password, filename="preview.mp4",
         generated = generate_test_video(video_path, duration=duration, size=size,
                                         fps=fps, seed=seed)
         if not generated:
+            print("  [SKIP-CAUSE] ffmpeg is not installed or failed; install it "
+                  "with 'sudo apt-get install -y ffmpeg' (CI installs it "
+                  "automatically)")
             return None
         with open(video_path, "rb") as f:
             content = f.read()
