@@ -8,10 +8,13 @@ import { AppContext } from "../Context";
 import { createSignal, createMemo, onCleanup, Component, Show, useContext } from "solid-js";
 import { createEffect } from "solid-js";
 import Dialog from '@corvu/dialog';
+import Tooltip from "@corvu/tooltip";
 import { assetsUrl } from "@/assets/ApiUrl";
+import EllipsisVertical from "lucide-solid/icons/ellipsis-vertical";
 import Pencil from "lucide-solid/icons/pencil";
 import Check from "lucide-solid/icons/check";
 import X from "lucide-solid/icons/x";
+import RotateCcw from "lucide-solid/icons/rotate-ccw";
 
 const PreviewImage: Component<{ src: string }> = (props) => {
     const [failed, setFailed] = createSignal(false);
@@ -152,7 +155,7 @@ const FilePreview: Component<{ file: FileData }> = (props) => {
     );
 };
 
-const ConvertButton: Component<{ file: FileData }> = (props) => {
+const ConvertButton: Component<{ file: FileData; onConvert?: () => void }> = (props) => {
     const { socket: getSocket } = useWebSocket();
     const handleConvert = async () => {
         const convertRequest = {
@@ -171,18 +174,16 @@ const ConvertButton: Component<{ file: FileData }> = (props) => {
             return;
         }
         getSocket()?.send(JSON.stringify(convertRequest));
+        props.onConvert?.();
         toast.success("Conversion started for " + props.file.original_file_name)
     };
 
     return (
         ["mkv", "avi", "mov", "wmv", "flv", "webm"].includes(props.file.original_file_name.split('.').pop()?.toLowerCase() || '') ?
-            <>
-                <div />
-                <button class="flex items-center justify-center p-2 bg-blue-700/30 hover:bg-blue-700/20 rounded-xl text-blue-500" onClick={handleConvert}>
-                    <RefreshSVG />
+            <button class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-neutral-100 hover:bg-neutral-700" onClick={handleConvert}>
+                    <RotateCcw class="h-4 w-4 text-neutral-100" />
+                    <span>Convert to MP4</span>
                 </button>
-                <div />
-            </>
             : <div />
     );
 }
@@ -218,12 +219,17 @@ const DeleteButton: Component<{ file: FileData }> = (props) => {
     }
     return (
         <Dialog open={open()} onOpenChange={setOpen}>
-            <Dialog.Trigger
-                class="flex items-center justify-center p-2 text-red-700 bg-red-800/30 hover:bg-red-900/20 rounded-xl"
-                onClick={handleTriggerClick}
-            >
-                <BinSVG />
-            </Dialog.Trigger>
+            <Tooltip placement="bottom" openDelay={0} closeDelay={0}>
+                <Tooltip.Trigger
+                    as={Dialog.Trigger}
+                    class="flex items-center justify-center p-2 text-red-700 bg-red-800/30 hover:bg-red-900/20 rounded-xl"
+                    onClick={handleTriggerClick}
+                    aria-label="Delete file"
+                >
+                    <BinSVG />
+                </Tooltip.Trigger>
+                <Tooltip.Content class="bg-neutral-900 text-white px-2 py-1 rounded">Delete File</Tooltip.Content>
+            </Tooltip>
             <Dialog.Portal>
                 <Dialog.Overlay class="fixed inset-0 bg-black/50 z-40" />
                 <Dialog.Content class="flex z-50 justify-center flex-col fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-neutral-800 p-6 rounded-md shadow-lg text-white w-[clamp(300px,50vw,500px)]">
@@ -292,9 +298,16 @@ const RemoveFromCollectionButton: Component<{ file: FileData }> = (props) => {
     }
     return (
         <Show when={canRemove()}>
-            <button class="flex items-center justify-center p-2 text-red-700 bg-red-800/30 hover:bg-red-900/20 rounded-xl" onClick={handleRemove} title="Remove from collection">
-                <CrossSVG />
-            </button>
+            <Tooltip placement="bottom" openDelay={0} closeDelay={0}>
+                <Tooltip.Trigger
+                    class="flex items-center justify-center p-2 text-red-700 bg-red-800/30 hover:bg-red-900/20 rounded-xl"
+                    onClick={handleRemove}
+                    aria-label="Remove from collection"
+                >
+                    <CrossSVG />
+                </Tooltip.Trigger>
+                <Tooltip.Content class="bg-neutral-900 text-white px-2 py-1 rounded">Remove From Collection</Tooltip.Content>
+            </Tooltip>
         </Show>
     )
 }
@@ -311,6 +324,7 @@ const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: stri
     const ctx = useContext(AppContext)!;
     const { socket: getSocket } = useWebSocket();
     const [isRenaming, setIsRenaming] = createSignal(false);
+    const [optionsOpen, setOptionsOpen] = createSignal(false);
     const [draftName, setDraftName] = createSignal(props.File.original_file_name);
     let renameInput: HTMLInputElement | undefined;
     const selectable = !!props.onSelectionToggle;
@@ -324,6 +338,7 @@ const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: stri
 
     const startRename = (event: MouseEvent) => {
         event.stopPropagation();
+        setOptionsOpen(false);
         setDraftName(props.File.original_file_name);
         setIsRenaming(true);
         requestAnimationFrame(() => {
@@ -331,6 +346,23 @@ const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: stri
             renameInput?.select();
         });
     };
+
+    createEffect(() => {
+        if (!optionsOpen()) return;
+
+        const closeOptions = () => setOptionsOpen(false);
+        const handleOptionsKeyDown = (event: KeyboardEvent) => {
+            if (event.key !== "Escape") return;
+            event.preventDefault();
+            setOptionsOpen(false);
+        };
+        document.addEventListener("click", closeOptions);
+        document.addEventListener("keydown", handleOptionsKeyDown);
+        onCleanup(() => {
+            document.removeEventListener("click", closeOptions);
+            document.removeEventListener("keydown", handleOptionsKeyDown);
+        });
+    });
 
     const cancelRename = (event?: Event) => {
         event?.stopPropagation();
@@ -412,15 +444,35 @@ const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: stri
                         <>
                             <p class="text-white text-2xl font-semibold text-nowrap font-sans flex-1 text-center truncate" title={props.File.original_file_name}>{props.File.original_file_name}</p>
                             <Show when={location.pathname === "/my_drive"}>
-                                <button
-                                    type="button"
-                                    class="flex shrink-0 items-center justify-center p-2 text-neutral-300 hover:text-white hover:bg-neutral-700 rounded-lg"
-                                    onClick={startRename}
-                                    aria-label={`Rename ${props.File.original_file_name}`}
-                                    title="Rename file"
-                                >
-                                    <Pencil class="w-5 h-5 opacity-10" />
-                                </button>
+                                <div class="relative shrink-0">
+                                    <button
+                                        type="button"
+                                        class="flex items-center justify-center p-2 text-neutral-300 hover:text-white hover:bg-neutral-700 rounded-lg"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setOptionsOpen((open) => !open);
+                                        }}
+                                        aria-label="File options"
+                                        title="File options"
+                                    >
+                                        <EllipsisVertical class="w-5 h-5" />
+                                    </button>
+                                    <Show when={optionsOpen()}>
+                                        <div class="absolute right-0 top-full z-20 mt-1 min-w-44 rounded-lg border border-neutral-700 bg-neutral-800 p-1 shadow-xl" onClick={(e) => e.stopPropagation()}>
+                                            <button
+                                                type="button"
+                                                class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-neutral-100 hover:bg-neutral-700"
+                                                onClick={startRename}
+                                            >
+                                                <Pencil class="h-4 w-4 text-neutral-100" />
+                                                <span>Edit File Name</span>
+                                            </button>
+                                            <Show when={["mkv", "avi", "mov", "wmv", "flv", "webm"].includes(props.File.original_file_name.split('.').pop()?.toLowerCase() || '')}>
+                                                <ConvertButton file={props.File} onConvert={() => setOptionsOpen(false)} />
+                                            </Show>
+                                        </div>
+                                    </Show>
+                                </div>
                             </Show>
                         </>
                     }>
@@ -486,47 +538,67 @@ const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: stri
             </div>
             <div class="w-full flex justify-between p-2 h-[14.6%]" onClick={(e) => e.stopPropagation()}>
                 <div />
-                    <a class="flex items-center justify-center p-2 bg-yellow-700/30 hover:bg-yellow-700/20 rounded-xl text-yellow-600" href={link()} target="_blank">
-                    <EyeSVG />
-                </a>
+                <Tooltip placement="bottom" openDelay={0} closeDelay={0}>
+                    <Tooltip.Trigger
+                        class="flex items-center justify-center p-2 bg-yellow-700/30 hover:bg-yellow-700/20 rounded-xl text-yellow-600"
+                        as="a"
+                        href={link()}
+                        target="_blank"
+                        aria-label="View file"
+                    >
+                        <EyeSVG />
+                    </Tooltip.Trigger>
+                    <Tooltip.Content class="bg-neutral-900 text-white px-2 py-1 rounded">View File</Tooltip.Content>
+                </Tooltip>
                 <div />
-                <button class="flex items-center justify-center p-2 bg-cyan-700/30 hover:bg-cyan-700/20 rounded-xl text-cyan-500" onClick={() => {
-                    navigator.clipboard.writeText(link())
-                    toast.success("Link copied to clipboard!", {
-                        duration: 2000,
-                        position: "bottom-right",
-                        style: {
-                            background: "#1f2937",
-                            color: "#ffffff"
-                        }
-                    });
-                }}>
-                    <CopySVG />
-                </button>
+                <Tooltip placement="bottom" openDelay={0} closeDelay={0}>
+                    <Tooltip.Trigger
+                        class="flex items-center justify-center p-2 bg-cyan-700/30 hover:bg-cyan-700/20 rounded-xl text-cyan-500"
+                        aria-label="Copy file link"
+                        onClick={() => {
+                            navigator.clipboard.writeText(link())
+                            toast.success("Link copied to clipboard!", {
+                                duration: 2000,
+                                position: "bottom-right",
+                                style: {
+                                    background: "#1f2937",
+                                    color: "#ffffff"
+                                }
+                            });
+                        }}
+                    >
+                        <CopySVG />
+                    </Tooltip.Trigger>
+                    <Tooltip.Content class="bg-neutral-900 text-white px-2 py-1 rounded">Copy Link</Tooltip.Content>
+                </Tooltip>
                 <div />
-                <button
-                    class="flex items-center justify-center p-2 bg-green-700/30 hover:bg-green-700/20 rounded-xl text-green-500 cursor-pointer"
-                    onClick={() => {
-                        const anchor = document.createElement("a");
-                        anchor.href = DownloadLink();
-                        anchor.download = "";
-                        anchor.rel = "noopener noreferrer";
-                        document.body.appendChild(anchor);
-                        anchor.click();
-                        anchor.remove();
-                        toast.success("Download started!", {
-                            duration: 2000,
-                            position: "bottom-right",
-                            style: {
-                                background: "#1f1f1f",
-                                color: "#ffffff"
-                            }
-                        });
-                    }}
-                >
-                    <DownloadSVG />
-                </button>
-                {location.pathname === "/my_drive" ? <ConvertButton file={props.File} /> : <div />}
+                <Tooltip placement="bottom" openDelay={0} closeDelay={0}>
+                    <Tooltip.Trigger
+                        class="flex items-center justify-center p-2 bg-green-700/30 hover:bg-green-700/20 rounded-xl text-green-500 cursor-pointer"
+                        aria-label="Download file"
+                        onClick={() => {
+                            const anchor = document.createElement("a");
+                            anchor.href = DownloadLink();
+                            anchor.download = "";
+                            anchor.rel = "noopener noreferrer";
+                            document.body.appendChild(anchor);
+                            anchor.click();
+                            anchor.remove();
+                            toast.success("Download started!", {
+                                duration: 2000,
+                                position: "bottom-right",
+                                style: {
+                                    background: "#1f1f1f",
+                                    color: "#ffffff"
+                                }
+                            });
+                        }}
+                    >
+                        <DownloadSVG />
+                    </Tooltip.Trigger>
+                    <Tooltip.Content class="bg-neutral-900 text-white px-2 py-1 rounded">Download File</Tooltip.Content>
+                </Tooltip>
+                <div />
                 {location.pathname === "/my_drive" ? <DeleteButton file={props.File} /> : <RemoveFromCollectionButton file={props.File} />}
                 <div />
             </div>
