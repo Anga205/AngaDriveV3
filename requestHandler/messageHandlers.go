@@ -104,6 +104,8 @@ func dispatchMessage(conn *websocket.Conn, messageType string, data json.RawMess
 		handleDeleteFile(conn, data)
 	case "rename_file":
 		handleRenameFile(conn, data)
+	case "duplicate_file":
+		handleDuplicateFile(conn, data)
 	case "bulk_delete_files":
 		processRequest(conn, data, BulkDeleteFile, "bulk_delete_files_response")
 	case "new_collection":
@@ -281,4 +283,24 @@ func handleRenameFile(conn *websocket.Conn, data json.RawMessage) {
 	go UserFilesPulse(update)
 	go PulseFileSubscribers(updatedFile)
 	sendJSON(conn, globals.OutgoingResponse{Type: "rename_file_response", Data: map[string]interface{}{"success": updatedFile.OriginalFileName}})
+}
+
+func handleDuplicateFile(conn *websocket.Conn, data json.RawMessage) {
+	var req DuplicateFileRequest
+	if err := json.Unmarshal(data, &req); err != nil {
+		sendJSON(conn, globals.OutgoingResponse{Type: "duplicate_file_response", Data: map[string]interface{}{"error": "invalid request data"}})
+		return
+	}
+
+	duplicatedFile, err := DuplicateFile(req)
+	if err != nil {
+		sendJSON(conn, globals.OutgoingResponse{Type: "duplicate_file_response", Data: map[string]interface{}{"error": err.Error()}})
+		return
+	}
+
+	go UserFilesPulse(FileUpdate{Toggle: true, File: duplicatedFile})
+	sendJSON(conn, globals.OutgoingResponse{
+		Type: "duplicate_file_response",
+		Data: map[string]interface{}{"success": duplicatedFile.OriginalFileName},
+	})
 }

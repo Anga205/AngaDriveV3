@@ -1,5 +1,5 @@
 import type { FileData } from "../library/types"
-import { BinSVG, CheckSVG, CopySVG, CrossSVG, DownloadSVG, EyeSVG, FileTextSVG, RefreshSVG } from "../assets/SvgFiles";
+import { BinSVG, CheckSVG, CopySVG, CrossSVG, DownloadSVG, EyeSVG, FileTextSVG, StickyNotes } from "../assets/SvgFiles";
 import { formatFileSize, getFileType, getCollectionPathIds } from "../library/functions";
 import toast from "solid-toast";
 import { useWebSocket } from "../Websockets";
@@ -181,9 +181,9 @@ const ConvertButton: Component<{ file: FileData; onConvert?: () => void }> = (pr
     return (
         ["mkv", "avi", "mov", "wmv", "flv", "webm"].includes(props.file.original_file_name.split('.').pop()?.toLowerCase() || '') ?
             <button class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-neutral-100 hover:bg-neutral-700" onClick={handleConvert}>
-                    <RotateCcw class="h-4 w-4 text-neutral-100" />
-                    <span>Convert to MP4</span>
-                </button>
+                <RotateCcw class="h-4 w-4 text-neutral-100" />
+                <span>Convert to MP4</span>
+            </button>
             : <div />
     );
 }
@@ -228,7 +228,7 @@ const DeleteButton: Component<{ file: FileData }> = (props) => {
                 >
                     <BinSVG />
                 </Tooltip.Trigger>
-                <Tooltip.Content class="bg-neutral-900 text-white px-2 py-1 rounded">Delete File</Tooltip.Content>
+                <Tooltip.Content class="bg-neutral-900 text-white px-2 py-1 rounded">Delete&nbsp;File</Tooltip.Content>
             </Tooltip>
             <Dialog.Portal>
                 <Dialog.Overlay class="fixed inset-0 bg-black/50 z-40" />
@@ -306,7 +306,9 @@ const RemoveFromCollectionButton: Component<{ file: FileData }> = (props) => {
                 >
                     <CrossSVG />
                 </Tooltip.Trigger>
-                <Tooltip.Content class="bg-neutral-900 text-white px-2 py-1 rounded">Remove From Collection</Tooltip.Content>
+                <Tooltip.Content class="bg-neutral-900 text-white px-2 py-1 rounded">
+                    Remove&nbsp;From&nbsp;Collection
+                </Tooltip.Content>
             </Tooltip>
         </Show>
     )
@@ -424,22 +426,22 @@ const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: stri
             <div class="w-full h-[calc(14%+50%+21.4%)]">
                 <div class="flex items-center justify-center w-full h-[16.393442623%] bg-neutral-900 rounded-t-lg pl-3 pr-1">
                     <Show when={(ctx.selectedFiles?.()?.size || 0) > 0}>
-                    <Show when={selectable}>
-                        <button
-                            class={`flex items-center justify-center w-4 h-4 rounded-full border-2 transition-colors duration-150 ${props.isSelected ? "bg-blue-700 border-blue-500" : "bg-neutral-800 border-neutral-500 hover:border-blue-400"}`}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                props.onSelectionToggle?.(props.File.file_directory);
-                            }}
-                            aria-label={props.isSelected ? "Unselect file" : "Select file"}
-                        >
-                            <Show when={props.isSelected}>
-                                <CheckSVG />
-                            </Show>
-                        </button>
+                        <Show when={selectable}>
+                            <button
+                                class={`flex items-center justify-center w-4 h-4 rounded-full border-2 transition-colors duration-150 ${props.isSelected ? "bg-blue-700 border-blue-500" : "bg-neutral-800 border-neutral-500 hover:border-blue-400"}`}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    props.onSelectionToggle?.(props.File.file_directory);
+                                }}
+                                aria-label={props.isSelected ? "Unselect file" : "Select file"}
+                            >
+                                <Show when={props.isSelected}>
+                                    <CheckSVG />
+                                </Show>
+                            </button>
+                        </Show>
                     </Show>
-                    </Show>
-                    <div class="w-2"/>
+                    <div class="w-2" />
                     <Show when={isRenaming()} fallback={
                         <>
                             <p class="text-white text-2xl font-semibold text-nowrap font-sans flex-1 text-center truncate" title={props.File.original_file_name}>{props.File.original_file_name}</p>
@@ -466,6 +468,31 @@ const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: stri
                                             >
                                                 <Pencil class="h-4 w-4 text-neutral-100" />
                                                 <span>Edit File Name</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-neutral-100 hover:bg-neutral-700"
+                                                onClick={() => {
+                                                    if (getSocket()?.readyState !== WebSocket.OPEN) {
+                                                        toast.error("WebSocket is not available");
+                                                        return;
+                                                    }
+                                                    getSocket()?.send(JSON.stringify({
+                                                        type: "duplicate_file",
+                                                        data: {
+                                                            file_directory: props.File.file_directory,
+                                                            auth: {
+                                                                token: localStorage.getItem("token") || "",
+                                                                email: localStorage.getItem("email") || "",
+                                                                password: localStorage.getItem("password") || ""
+                                                            }
+                                                        }
+                                                    }));
+                                                    setOptionsOpen(false);
+                                                }}
+                                            >
+                                                <StickyNotes class="w-4 h-4" />
+                                                <span>Duplicate File</span>
                                             </button>
                                             <Show when={["mkv", "avi", "mov", "wmv", "flv", "webm"].includes(props.File.original_file_name.split('.').pop()?.toLowerCase() || '')}>
                                                 <ConvertButton file={props.File} onConvert={() => setOptionsOpen(false)} />
@@ -548,7 +575,7 @@ const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: stri
                     >
                         <EyeSVG />
                     </Tooltip.Trigger>
-                    <Tooltip.Content class="bg-neutral-900 text-white px-2 py-1 rounded">View File</Tooltip.Content>
+                    <Tooltip.Content class="bg-neutral-900 text-white px-2 py-1 rounded">View&nbsp;File</Tooltip.Content>
                 </Tooltip>
                 <div />
                 <Tooltip placement="bottom" openDelay={0} closeDelay={0}>
@@ -569,7 +596,7 @@ const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: stri
                     >
                         <CopySVG />
                     </Tooltip.Trigger>
-                    <Tooltip.Content class="bg-neutral-900 text-white px-2 py-1 rounded">Copy Link</Tooltip.Content>
+                    <Tooltip.Content class="bg-neutral-900 text-white px-2 py-1 rounded">Copy&nbsp;Link</Tooltip.Content>
                 </Tooltip>
                 <div />
                 <Tooltip placement="bottom" openDelay={0} closeDelay={0}>
@@ -596,7 +623,7 @@ const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: stri
                     >
                         <DownloadSVG />
                     </Tooltip.Trigger>
-                    <Tooltip.Content class="bg-neutral-900 text-white px-2 py-1 rounded">Download File</Tooltip.Content>
+                    <Tooltip.Content class="bg-neutral-900 text-white px-2 py-1 rounded">Download&nbsp;File</Tooltip.Content>
                 </Tooltip>
                 <div />
                 {location.pathname === "/my_drive" ? <DeleteButton file={props.File} /> : <RemoveFromCollectionButton file={props.File} />}

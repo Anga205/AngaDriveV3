@@ -76,6 +76,11 @@ type RenameFileRequest struct {
 	Auth          AuthInfo `json:"auth"`
 }
 
+type DuplicateFileRequest struct {
+	FileDirectory string   `json:"file_directory"`
+	Auth          AuthInfo `json:"auth"`
+}
+
 type BulkDeleteRequest struct {
 	FileDirectories []string `json:"file_directories"`
 	Auth            AuthInfo `json:"auth"`
