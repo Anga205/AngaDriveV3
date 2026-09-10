@@ -250,6 +250,65 @@ async def test_rename_file():
     await ws_b.close()
 
 
+async def test_duplicate_file():
+    """Duplicate a file and verify its content and metadata are independent."""
+    print("\n[test] duplicate file")
+    email, password = await register_and_login()
+    ws = await open_ws()
+
+    content = b"duplicate file content"
+    up = await upload_file(email=email, password=password, filename="original.txt", content=content)
+    check("duplicate setup upload succeeds", up is not None)
+    if not up:
+        await ws.close()
+        return
+    original_dir = up["fileDirectory"]
+
+    response = await send_and_wait(
+        ws, "duplicate_file",
+        {"file_directory": original_dir,
+         "auth": {"email": email, "password": password}},
+        "duplicate_file_response",
+    )
+    check("duplicate_file responds", response is not None)
+    check("duplicate_file succeeds", response is not None and "success" in response["data"])
+
+    files = await send_and_wait(ws, "get_user_files",
+                                {"email": email, "password": password},
+                                "get_user_files_response")
+    entries = (files or {}).get("data", [])
+    duplicate = next((file for file in entries
+                      if file.get("file_directory") != original_dir and
+                      file.get("original_file_name") == "Copy of original.txt"), None)
+    original = next((file for file in entries
+                     if file.get("file_directory") == original_dir), None)
+    check("duplicate has a new file ID", duplicate is not None and duplicate["file_directory"] != original_dir)
+    check("original and duplicate are separately persisted", original is not None and duplicate is not None)
+
+    import aiohttp
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f"{config.HTTP_URL}/download/{original_dir}") as response:
+            original_content = await response.read()
+        async with session.get(f"{config.HTTP_URL}/download/{duplicate['file_directory']}") as response:
+            duplicate_content = await response.read()
+    check("duplicate retains the same SHA256 content", duplicate_content == original_content == content)
+
+    delete_response = await send_and_wait(
+        ws, "delete_file",
+        {"file_directory": original_dir,
+         "auth": {"email": email, "password": password}},
+        "delete_file_response",
+    )
+    check("original can be deleted independently", delete_response is not None and "success" in delete_response["data"])
+    if duplicate:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"{config.HTTP_URL}/download/{duplicate['file_directory']}") as response:
+                remaining_content = await response.read()
+        check("duplicate remains after original deletion", remaining_content == content)
+
+    await ws.close()
+
+
 async def test_bulk_delete_files():
     """Upload two files and delete them both in a single bulk request."""
     print("\n[test] bulk delete files")

@@ -40,6 +40,12 @@ const MyDrive: Component = () => {
             } else {
                 toast.success(`File renamed successfully: ${data.data.success}`);
             }
+        } else if (data.type === "duplicate_file_response") {
+            if (data.data.error) {
+                toast.error(`Error duplicating file: ${data.data.error}`);
+            } else {
+                toast.success(`File duplicated successfully: ${data.data.success}`);
+            }
         } else if (data.type === "bulk_delete_files_response") {
             if (data.data.error) {
                 toast.error(`Error deleting files: ${data.data.error}`);
