@@ -17,10 +17,22 @@ import X from "lucide-solid/icons/x";
 import RotateCcw from "lucide-solid/icons/rotate-ccw";
 
 const PreviewImage: Component<{ src: string }> = (props) => {
+    const [loaded, setLoaded] = createSignal(false);
     const [failed, setFailed] = createSignal(false);
     return (
         <Show when={!failed()} fallback={<FileTextSVG class="max-h-full p-4 opacity-50" />}>
-            <img src={props.src} loading="lazy" class="max-h-full max-w-full p-2" onError={() => setFailed(true)} />
+            <div class="relative flex items-center justify-center w-full h-full">
+                <Show when={!loaded()}>
+                    <FileTextSVG class="max-h-full p-4 opacity-50" />
+                </Show>
+                <img
+                    src={props.src}
+                    loading="lazy"
+                    class="absolute inset-0 m-auto max-h-full max-w-full p-2"
+                    onLoad={() => setLoaded(true)}
+                    onError={() => setFailed(true)}
+                />
+            </div>
         </Show>
     );
 };
