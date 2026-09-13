@@ -64,6 +64,11 @@ jobs:
           cache: true
           cache-dependency-path: go.sum
 
+      - name: Set up Bun
+        uses: antongolub/action-setup-bun@v1
+        with:
+          bun-version: '1.2.4'
+
       - name: Download frontend artifact
         uses: actions/download-artifact@v4
         with:
