@@ -38,14 +38,54 @@ jobs:
         working-directory: ./web
         run: bun install && bun run build
 
+      - name: Stamp frontend source hash
+        run: |
+          hash="$(
+            find web -type f \
+              ! -path 'web/node_modules/*' \
+              ! -path 'web/dist/*' \
+              ! -name '.frontend-hash' \
+              -print0 |
+            LC_ALL=C sort -z |
+            while IFS= read -r -d '' file; do
+              printf '%s\0' "${file#web/}"
+              cat "$file"
+              printf '\0'
+            done |
+            sha256sum | cut -d ' ' -f1
+          )"
+          printf '%s' "$hash" > web/dist/.frontend-hash
+
       - name: Upload frontend artifact
         uses: actions/upload-artifact@v4
         with:
           name: frontend-dist
           path: web/dist
+          include-hidden-files: true
+
+  server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.24'
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Build server
+        run: go build -o ./angadrive-server .
+
+      - name: Upload server artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: angadrive-server
+          path: angadrive-server
 
   integration:
-    needs: [discover, frontend]
+    needs: [discover, frontend, server]
     name: Integration (${{ matrix.test }})
     runs-on: ubuntu-latest
     strategy:
@@ -57,23 +97,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: '1.24'
-          cache: true
-          cache-dependency-path: go.sum
-
-      - name: Set up Bun
-        uses: antongolub/action-setup-bun@v1
-        with:
-          bun-version: '1.2.4'
-
       - name: Download frontend artifact
         uses: actions/download-artifact@v4
         with:
           name: frontend-dist
           path: dist
+
+      - name: Download server artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: angadrive-server
+          path: server-artifact
 
       - name: Start Go server
         env:
@@ -84,7 +118,8 @@ jobs:
           # Every matrix job has its own checkout, but remove ignored runtime
           # data explicitly so reruns cannot inherit a database or files.
           rm -rf uploaded_files
-          go build -o ./angadrive-server .
+          cp server-artifact/angadrive-server ./angadrive-server
+          chmod +x ./angadrive-server
           ./angadrive-server > server.log 2>&1 &
           SERVER_PID=$!
           echo "SERVER_PID=$SERVER_PID" >> "$GITHUB_ENV"
@@ -103,7 +138,13 @@ jobs:
           fi
 
       - name: Install ffmpeg
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+        run: |
+          if command -v ffmpeg >/dev/null 2>&1; then
+            echo "ffmpeg is already installed."
+          else
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@v5
