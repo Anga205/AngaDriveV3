@@ -28,6 +28,7 @@ func ReturnPDFPreview(c *gin.Context) {
 	previewFile := previewsDir + string(os.PathSeparator) + file.Sha256sum + ".jpg"
 
 	if _, err := os.Stat(previewFile); !os.IsNotExist(err) {
+		c.Header("Cache-Control", "private, max-age=900")
 		c.File(previewFile)
 	} else {
 		err := generatePDFPreview(file, previewsDir, previewFile)
@@ -35,6 +36,7 @@ func ReturnPDFPreview(c *gin.Context) {
 			c.String(500, "Failed to generate preview: "+err.Error())
 			return
 		}
+		c.Header("Cache-Control", "private, max-age=900")
 		c.File(previewFile)
 	}
 }

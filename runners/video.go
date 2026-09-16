@@ -4,9 +4,7 @@ import (
 	"angadrive/database"
 	"angadrive/globals"
 	"bytes"
-	"crypto/sha256"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"time"
@@ -43,30 +41,6 @@ func (r *VideoRunner) Run(job Job) error {
 		return fmt.Errorf("video runner received unexpected job type %T", job)
 	}
 	return r.convert(vj.File)
-}
-
-func removeExtension(filename string) string {
-	for i := len(filename) - 1; i >= 0; i-- {
-		if filename[i] == '.' {
-			return filename[:i]
-		}
-	}
-	return filename
-}
-
-func sha256sum(filepath string) (string, error) {
-	file, err := os.Open(filepath)
-	if err != nil {
-		return "", err
-	}
-	defer file.Close()
-
-	hash := sha256.New()
-	if _, err := io.Copy(hash, file); err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
 
 // convert performs the actual ffmpeg transcode and notifies the user of the

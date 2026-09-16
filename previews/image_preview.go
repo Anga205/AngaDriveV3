@@ -54,6 +54,7 @@ func ReturnImagePreview(c *gin.Context) {
 	previewFile := filepath.Join(previewsDir, file.Sha256sum)
 
 	if _, err := os.Stat(previewFile); !os.IsNotExist(err) {
+		c.Header("Cache-Control", "private, max-age=900")
 		c.File(previewFile)
 		return
 	}
@@ -62,6 +63,7 @@ func ReturnImagePreview(c *gin.Context) {
 		c.String(http.StatusInternalServerError, "Failed to generate preview: "+err.Error())
 		return
 	}
+	c.Header("Cache-Control", "private, max-age=900")
 	c.File(previewFile)
 }
 

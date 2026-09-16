@@ -31,6 +31,13 @@ func SubmitVideoConversion(file database.FileData) error {
 	return runners.Submit("video", runners.VideoJob{File: file})
 }
 
+// SubmitImageConversion enqueues an image-to-PNG conversion job on the runners
+// manager. It returns an error if a conversion for the same source image is
+// already queued or running (the runners manager dedups by source sha256).
+func SubmitImageConversion(file database.FileData) error {
+	return runners.Submit("image", runners.ImageJob{File: file})
+}
+
 // SubmitVideoPreview enqueues a video preview generation job on the runners
 // manager. It returns an error if a preview for the same source video is
 // already queued or running (the runners manager dedups by source sha256).

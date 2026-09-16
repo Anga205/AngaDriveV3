@@ -28,6 +28,12 @@ const MyDrive: Component = () => {
             } else if (data.data.file) {
                 toast.success(`Video converted successfully: ${data.data.file.original_file_name}`);
             }
+        } else if (data.type === "convert_image_response") {
+            if (data.data.error) {
+                toast.error(`${data.data.error}`);
+            } else if (data.data.file) {
+                toast.success(`Image converted to PNG successfully: ${data.data.file.original_file_name}`);
+            }
         } else if (data.type === "delete_file_response") {
             if (data.data.error) {
                 toast.error(`Error deleting file: ${data.data.error}`);

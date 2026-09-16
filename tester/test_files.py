@@ -6,6 +6,7 @@ Covers the file websocket message types and the HTTP upload endpoint:
   * delete_file
   * bulk_delete_files
   * convert_video (invalid-file error path)
+  * convert_image (to-PNG conversion + invalid-file error path)
 
 Uploads are done over HTTP (``/upload/{uuid}`` + ``/upload/success/{uuid}``),
 not the websocket. Several tests need a second websocket connection to verify
@@ -20,9 +21,10 @@ import uuid
 
 from . import config
 from .harness import check, check_in
-from .helpers import (fetch_preview, fetch_preview_status, finalize_upload,
-                      generate_test_video, open_ws, recv_until, send_and_wait,
-                      send_chunk, upload_file, upload_file_full)
+from .helpers import (fetch_file, fetch_preview, fetch_preview_status,
+                      finalize_upload, generate_test_image, generate_test_video,
+                      make_msg, open_ws, recv_until, send_and_wait, send_chunk,
+                      upload_file, upload_file_full)
 from .test_accounts import register_and_login
 
 
@@ -492,6 +494,104 @@ async def test_convert_video_invalid():
     check("convert missing file errors", resp is not None)
     if resp:
         check_in("convert error", "record not found", resp["data"])
+
+    await ws.close()
+
+
+async def test_convert_image_to_png():
+    """Upload a JPEG and verify it is converted to a lossless PNG.
+
+    Sequence:
+      1. Generate a small JPEG with Pillow.
+      2. Upload it.
+      3. Send ``convert_image`` and wait for ``convert_image_response``.
+      4. Assert the response carries a new file whose name ends in ``.png``.
+      5. Fetch the converted file and assert it starts with the PNG magic bytes.
+    """
+    print("\n[test] convert image to png")
+    email, password = await register_and_login()
+    ws = await open_ws()
+    await send_and_wait(ws, "get_user_files",
+                        {"email": email, "password": password},
+                        "get_user_files_response")
+
+    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
+        image_path = tmp.name
+    try:
+        seed = uuid.uuid4().hex[:8]
+        generated = generate_test_image(image_path, fmt="jpeg", size=(64, 64), seed=seed)
+        check("pillow generated test image", generated,
+              "Pillow is not installed; install it with 'pip install pillow'")
+        if not generated:
+            await ws.close()
+            return
+        with open(image_path, "rb") as f:
+            content = f.read()
+    finally:
+        os.unlink(image_path)
+
+    up = await upload_file(email=email, password=password, filename="photo.jpg",
+                           content=content)
+    check("upload jpeg succeeds", up is not None)
+    if not up:
+        await ws.close()
+        return
+    file_dir = up["fileDirectory"]
+
+    # The handler replies immediately with the file directory string, then the
+    # async runner sends a second convert_image_response carrying the new file.
+    # Wait for the async one that contains the converted file object.
+    await ws.send(make_msg("convert_image",
+                           {"file_directory": file_dir,
+                            "auth": {"email": email, "password": password}}))
+    resp = await recv_until(
+        ws,
+        lambda m: (m.get("type") == "convert_image_response"
+                   and isinstance(m.get("data"), dict)
+                   and m["data"].get("file") is not None),
+        timeout=config.DEFAULT_TIMEOUT,
+    )
+    check("convert_image responds", resp is not None)
+    if not resp:
+        await ws.close()
+        return
+
+    check("convert_image has no error", not resp["data"].get("error"),
+          f"unexpected error: {resp['data'].get('error')}")
+    converted = resp["data"].get("file")
+    check("convert_image returns a file", converted is not None)
+    if converted:
+        check("converted file is a png",
+              converted.get("original_file_name", "").lower().endswith(".png"),
+              f"got {converted.get('original_file_name')}")
+        check("converted file has a directory", bool(converted.get("file_directory")))
+
+        # Fetch the converted file and verify PNG magic bytes.
+        status, body = await fetch_file(converted["file_directory"])
+        check("converted file is served", status == 200, f"status {status}")
+        check("converted file has png magic bytes", body.startswith(b"\x89PNG\r\n\x1a\n"),
+              f"first bytes: {body[:8]!r}")
+
+    await ws.close()
+
+
+async def test_convert_image_invalid():
+    """Request an image conversion for a non-existent file; expect an error.
+
+    Error responses use type ``"error"`` (only login keeps its own type on
+    error), so we wait for ``"error"`` rather than ``convert_image_response``.
+    """
+    print("\n[test] convert image (invalid file)")
+    email, password = await register_and_login()
+    ws = await open_ws()
+
+    resp = await send_and_wait(ws, "convert_image",
+                               {"file_directory": "does_not_exist.jpg",
+                                "auth": {"email": email, "password": password}},
+                               "error")
+    check("convert image missing file errors", resp is not None)
+    if resp:
+        check_in("convert image error", "record not found", resp["data"])
 
     await ws.close()
 
