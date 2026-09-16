@@ -41,6 +41,7 @@ func ReturnVideoPreview(c *gin.Context) {
 	previewFile := filepath.Join(previewsDir, file.Sha256sum+".gif")
 
 	if _, err := os.Stat(previewFile); !os.IsNotExist(err) {
+		c.Header("Cache-Control", "private, max-age=900")
 		c.File(previewFile)
 		return
 	}

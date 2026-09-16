@@ -100,6 +100,8 @@ func dispatchMessage(conn *websocket.Conn, messageType string, data json.RawMess
 		handleGetUserCollections(conn, data)
 	case "convert_video":
 		processRequest(conn, data, HandleConversionRequest, "convert_video_response")
+	case "convert_image":
+		processRequest(conn, data, HandleImageConversionRequest, "convert_image_response")
 	case "delete_file":
 		handleDeleteFile(conn, data)
 	case "rename_file":

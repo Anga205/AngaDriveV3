@@ -173,6 +173,32 @@ def generate_test_video(path, duration=3, size="320x240", fps=24, seed=None):
         return False
 
 
+def generate_test_image(path, fmt="jpeg", size=(64, 64), seed=None):
+    """Generate a small non-PNG test image using Pillow.
+
+    ``seed`` (if given) is drawn into the image so that images generated with
+    different seeds have different content (and therefore different sha256),
+    which keeps conversion tests isolated across runs.
+
+    Returns True on success, False if Pillow is unavailable or fails.
+    """
+    try:
+        from PIL import Image, ImageDraw
+    except ImportError:
+        return False
+
+    try:
+        img = Image.new("RGB", size, (30, 40, 50))
+        draw = ImageDraw.Draw(img)
+        if seed is not None:
+            draw.text((4, 4), seed, fill=(255, 255, 255))
+        draw.rectangle([8, 8, size[0] - 8, size[1] - 8], outline=(200, 120, 40), width=2)
+        img.save(path, format=fmt.upper())
+        return True
+    except Exception:
+        return False
+
+
 async def fetch_preview_status(file_directory):
     """Request a video preview and return the HTTP status code.
 
@@ -193,6 +219,19 @@ async def fetch_preview(file_directory):
     import aiohttp
     async with aiohttp.ClientSession() as session:
         async with session.get(f"{config.HTTP_URL}/preview-video/{file_directory}.gif") as resp:
+            body = await resp.read()
+            return resp.status, body
+
+
+async def fetch_file(file_directory):
+    """Request a stored file and return ``(status, body_bytes)``.
+
+    Files are served at ``/i/{file_directory}``. Used to verify the bytes of a
+    converted file (e.g. PNG magic bytes).
+    """
+    import aiohttp
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f"{config.HTTP_URL}/i/{file_directory}") as resp:
             body = await resp.read()
             return resp.status, body
 
