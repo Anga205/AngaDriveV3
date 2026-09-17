@@ -16,6 +16,7 @@ import Check from "lucide-solid/icons/check";
 import X from "lucide-solid/icons/x";
 import RotateCcw from "lucide-solid/icons/rotate-ccw";
 import Image from "lucide-solid/icons/image";
+import { ContextMenu, ContextMenuItem, ContextMenuSubmenu, useMenuContext } from "./ContextMenu";
 
 const PreviewImage: Component<{ src: string }> = (props) => {
     const [loaded, setLoaded] = createSignal(false);
@@ -170,6 +171,7 @@ const FilePreview: Component<{ file: FileData }> = (props) => {
 
 const ConvertButton: Component<{ file: FileData; onConvert?: () => void }> = (props) => {
     const { socket: getSocket } = useWebSocket();
+    const menu = useMenuContext();
     const handleConvert = async () => {
         const convertRequest = {
             type: "convert_video",
@@ -188,6 +190,7 @@ const ConvertButton: Component<{ file: FileData; onConvert?: () => void }> = (pr
         }
         getSocket()?.send(JSON.stringify(convertRequest));
         props.onConvert?.();
+        menu?.close();
         toast.success("Conversion started for " + props.file.original_file_name)
     };
 
@@ -201,13 +204,14 @@ const ConvertButton: Component<{ file: FileData; onConvert?: () => void }> = (pr
     );
 }
 
-const ConvertToPngButton: Component<{ file: FileData; onConvert?: () => void }> = (props) => {
+const ConvertImageButton: Component<{ file: FileData; target: "png" | "jpg"; label?: string; onConvert?: () => void }> = (props) => {
     const { socket: getSocket } = useWebSocket();
     const handleConvert = async () => {
         const convertRequest = {
             type: "convert_image",
             data: {
                 file_directory: props.file.file_directory,
+                target_format: props.target,
                 auth: {
                     token: localStorage.getItem("token") || "",
                     email: localStorage.getItem("email") || "",
@@ -225,45 +229,10 @@ const ConvertToPngButton: Component<{ file: FileData; onConvert?: () => void }> 
     };
 
     return (
-        ["jpg", "jpeg", "gif", "bmp", "webp", "tiff", "heic", "heif"].includes(props.file.original_file_name.split('.').pop()?.toLowerCase() || '') ?
-            <button class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-neutral-100 hover:bg-neutral-700" onClick={handleConvert}>
-                <Image class="h-4 w-4 text-neutral-100" />
-                <span>Convert to PNG</span>
-            </button>
-            : <div />
-    );
-}
-
-const ConvertToJpgButton: Component<{ file: FileData; onConvert?: () => void }> = (props) => {
-    const { socket: getSocket } = useWebSocket();
-    const handleConvert = async () => {
-        const convertRequest = {
-            type: "convert_image",
-            data: {
-                file_directory: props.file.file_directory,
-                auth: {
-                    token: localStorage.getItem("token") || "",
-                    email: localStorage.getItem("email") || "",
-                    password: localStorage.getItem("password") || ""
-                }
-            }
-        }
-        if (getSocket()?.readyState !== WebSocket.OPEN) {
-            toast.error("WebSocket is not available");
-            return;
-        }
-        getSocket()?.send(JSON.stringify(convertRequest));
-        props.onConvert?.();
-        toast.success("Conversion started for " + props.file.original_file_name)
-    };
-
-    return (
-        ["png"].includes(props.file.original_file_name.split('.').pop()?.toLowerCase() || '') ?
-            <button class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-neutral-100 hover:bg-neutral-700" onClick={handleConvert}>
-                <Image class="h-4 w-4 text-neutral-100" />
-                <span>Convert to JPG</span>
-            </button>
-            : <div />
+        <button class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-neutral-100 hover:bg-neutral-700" onClick={handleConvert}>
+            <Image class="h-4 w-4 text-neutral-100" />
+            <span>{props.label || `Convert to ${props.target.toUpperCase()}`}</span>
+        </button>
     );
 }
 
@@ -405,7 +374,6 @@ const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: stri
     const ctx = useContext(AppContext)!;
     const { socket: getSocket } = useWebSocket();
     const [isRenaming, setIsRenaming] = createSignal(false);
-    const [optionsOpen, setOptionsOpen] = createSignal(false);
     const [draftName, setDraftName] = createSignal(props.File.original_file_name);
     let renameInput: HTMLInputElement | undefined;
     const selectable = !!props.onSelectionToggle;
@@ -419,7 +387,6 @@ const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: stri
 
     const startRename = (event: MouseEvent) => {
         event.stopPropagation();
-        setOptionsOpen(false);
         setDraftName(props.File.original_file_name);
         setIsRenaming(true);
         requestAnimationFrame(() => {
@@ -427,23 +394,6 @@ const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: stri
             renameInput?.select();
         });
     };
-
-    createEffect(() => {
-        if (!optionsOpen()) return;
-
-        const closeOptions = () => setOptionsOpen(false);
-        const handleOptionsKeyDown = (event: KeyboardEvent) => {
-            if (event.key !== "Escape") return;
-            event.preventDefault();
-            setOptionsOpen(false);
-        };
-        document.addEventListener("click", closeOptions);
-        document.addEventListener("keydown", handleOptionsKeyDown);
-        onCleanup(() => {
-            document.removeEventListener("click", closeOptions);
-            document.removeEventListener("keydown", handleOptionsKeyDown);
-        });
-    });
 
     const cancelRename = (event?: Event) => {
         event?.stopPropagation();
@@ -525,66 +475,66 @@ const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: stri
                         <>
                             <p class="text-white text-2xl font-semibold text-nowrap font-sans flex-1 text-center truncate" title={props.File.original_file_name}>{props.File.original_file_name}</p>
                             <Show when={location.pathname === "/my_drive"}>
-                                <div class="relative shrink-0">
-                                    <button
-                                        type="button"
-                                        class="flex items-center justify-center p-2 text-neutral-300 hover:text-white hover:bg-neutral-700 rounded-lg"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setOptionsOpen((open) => !open);
-                                        }}
-                                        aria-label="File options"
-                                        title="File options"
-                                    >
-                                        <EllipsisVertical class="w-5 h-5" />
-                                    </button>
-                                    <Show when={optionsOpen()}>
-                                        <div class="absolute right-0 top-full z-20 mt-1 min-w-44 rounded-lg border border-neutral-700 bg-neutral-800 p-1 shadow-xl" onClick={(e) => e.stopPropagation()}>
-                                            <button
-                                                type="button"
-                                                class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-neutral-100 hover:bg-neutral-700"
-                                                onClick={startRename}
-                                            >
-                                                <Pencil class="h-4 w-4 text-neutral-100" />
-                                                <span>Edit File Name</span>
-                                            </button>
-                                            <button
-                                                type="button"
-                                                class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-neutral-100 hover:bg-neutral-700"
-                                                onClick={() => {
-                                                    if (getSocket()?.readyState !== WebSocket.OPEN) {
-                                                        toast.error("WebSocket is not available");
-                                                        return;
+                                <ContextMenu
+                                    trigger={({ toggle }) => (
+                                        <button
+                                            type="button"
+                                            class="flex items-center justify-center p-2 text-neutral-300 hover:text-white hover:bg-neutral-700 rounded-lg"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                toggle();
+                                            }}
+                                            aria-label="File options"
+                                            title="File options"
+                                        >
+                                            <EllipsisVertical class="w-5 h-5" />
+                                        </button>
+                                    )}
+                                >
+                                    <ContextMenuItem icon={<Pencil class="h-4 w-4 text-neutral-100" />} onClick={startRename}>
+                                        Edit File Name
+                                    </ContextMenuItem>
+                                    <ContextMenuItem
+                                        icon={<StickyNotes class="h-4 w-4" />}
+                                        onClick={() => {
+                                            if (getSocket()?.readyState !== WebSocket.OPEN) {
+                                                toast.error("WebSocket is not available");
+                                                return;
+                                            }
+                                            getSocket()?.send(JSON.stringify({
+                                                type: "duplicate_file",
+                                                data: {
+                                                    file_directory: props.File.file_directory,
+                                                    auth: {
+                                                        token: localStorage.getItem("token") || "",
+                                                        email: localStorage.getItem("email") || "",
+                                                        password: localStorage.getItem("password") || ""
                                                     }
-                                                    getSocket()?.send(JSON.stringify({
-                                                        type: "duplicate_file",
-                                                        data: {
-                                                            file_directory: props.File.file_directory,
-                                                            auth: {
-                                                                token: localStorage.getItem("token") || "",
-                                                                email: localStorage.getItem("email") || "",
-                                                                password: localStorage.getItem("password") || ""
-                                                            }
-                                                        }
-                                                    }));
-                                                    setOptionsOpen(false);
-                                                }}
-                                            >
-                                                <StickyNotes class="w-4 h-4" />
-                                                <span>Duplicate File</span>
-                                            </button>
-                                            <Show when={["mkv", "avi", "mov", "wmv", "flv", "webm"].includes(props.File.original_file_name.split('.').pop()?.toLowerCase() || '')}>
-                                                <ConvertButton file={props.File} onConvert={() => setOptionsOpen(false)} />
-                                            </Show>
-                                            <Show when={["jpg", "jpeg", "gif", "bmp", "webp", "tiff", "heic", "heif"].includes(props.File.original_file_name.split('.').pop()?.toLowerCase() || '')}>
-                                                <ConvertToPngButton file={props.File} onConvert={() => setOptionsOpen(false)} />
-                                            </Show>
-                                            <Show when={["png"].includes(props.File.original_file_name.split('.').pop()?.toLowerCase() || '')}>
-                                                <ConvertToJpgButton file={props.File} onConvert={() => setOptionsOpen(false)} />
-                                            </Show>
-                                        </div>
+                                                }
+                                            }));
+                                        }}
+                                    >
+                                        Duplicate File
+                                    </ContextMenuItem>
+                                    <Show when={["mkv", "avi", "mov", "wmv", "flv", "webm"].includes(props.File.original_file_name.split('.').pop()?.toLowerCase() || '')}>
+                                        <ConvertButton file={props.File} />
                                     </Show>
-                                </div>
+                                    <Show when={["jpg", "jpeg", "gif", "bmp", "webp", "tiff", "heic", "heif"].includes(props.File.original_file_name.split('.').pop()?.toLowerCase() || '')}>
+                                        <ContextMenuSubmenu
+                                            icon={<Image class="h-4 w-4 text-neutral-100" />}
+                                            label="Convert&nbsp;Image&nbsp;to..."
+                                        >
+                                            <ConvertImageButton file={props.File} target="png" label="PNG" />
+                                            <ConvertImageButton file={props.File} target="jpg" label="JPG" />
+                                        </ContextMenuSubmenu>
+                                    </Show>
+                                    <Show when={["jpg", "jpeg"].includes(props.File.original_file_name.split('.').pop()?.toLowerCase() || '')}>
+                                        <ConvertImageButton file={props.File} target="png" label="Convert to PNG" />
+                                    </Show>
+                                    <Show when={["png"].includes(props.File.original_file_name.split('.').pop()?.toLowerCase() || '')}>
+                                        <ConvertImageButton file={props.File} target="jpg" label="Convert to JPG" />
+                                    </Show>
+                                </ContextMenu>
                             </Show>
                         </>
                     }>

@@ -20,10 +20,13 @@ import (
 	_ "golang.org/x/image/webp"
 )
 
-// ImageJob is a request to convert a non-PNG image file to a losslessly
-// compressed PNG.
+// ImageJob is a request to convert an image file to a target format.
 type ImageJob struct {
 	File database.FileData
+	// TargetFormat selects the output format ("png" or "jpg"). When empty, the
+	// runner infers the target from the source extension (PNG source -> JPEG,
+	// otherwise -> PNG) for backward compatibility.
+	TargetFormat string
 }
 
 // ID returns the dedup key for the job (the file's content hash).
@@ -51,13 +54,13 @@ func (r *ImageRunner) Run(job Job) error {
 	if !ok {
 		return fmt.Errorf("image runner received unexpected job type %T", job)
 	}
-	return r.convert(ij.File)
+	return r.convert(ij.File, ij.TargetFormat)
 }
 
 // convert decodes the source image and re-encodes it in the target format
 // (PNG source -> JPEG, otherwise -> lossless PNG), registering the result as a
 // new file and notifying the user.
-func (r *ImageRunner) convert(inputFile database.FileData) error {
+func (r *ImageRunner) convert(inputFile database.FileData, targetFormat string) error {
 	inputFilePath := globals.UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + inputFile.Sha256sum
 	if _, err := os.Stat(inputFilePath); os.IsNotExist(err) {
 		r.notifier.NotifyUser(inputFile.AccountToken, map[string]interface{}{
@@ -92,17 +95,36 @@ func (r *ImageRunner) convert(inputFile database.FileData) error {
 		return err
 	}
 
-	// Determine conversion direction from the source extension. PNG sources are
+	// Determine conversion direction from the requested target format. When no
+	// target is given, fall back to the source extension (PNG sources are
 	// converted to a small JPEG; every other image format is converted to a
-	// losslessly compressed PNG.
+	// losslessly compressed PNG).
 	srcExt := strings.ToLower(filepath.Ext(inputFilePath))
 	isPngSource := srcExt == ".png"
+
+	target := strings.ToLower(strings.TrimSpace(targetFormat))
+	if target == "" {
+		if isPngSource {
+			target = "jpg"
+		} else {
+			target = "png"
+		}
+	}
+	if target != "png" && target != "jpg" {
+		r.notifier.NotifyUser(inputFile.AccountToken, map[string]interface{}{
+			"type": "error",
+			"data": map[string]interface{}{
+				"error": "unsupported target format: " + targetFormat,
+			},
+		})
+		return fmt.Errorf("unsupported target format: %s", targetFormat)
+	}
 
 	tempSuffix := ".png-convert-*.tmp"
 	outExt := ".png"
 	outFormat := imaging.PNG
 	encodeOpts := imaging.PNGCompressionLevel(png.BestCompression)
-	if isPngSource {
+	if target == "jpg" {
 		tempSuffix = ".jpg-convert-*.tmp"
 		outExt = ".jpg"
 		outFormat = imaging.JPEG

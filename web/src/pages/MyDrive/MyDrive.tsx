@@ -32,7 +32,10 @@ const MyDrive: Component = () => {
             if (data.data.error) {
                 toast.error(`${data.data.error}`);
             } else if (data.data.file) {
-                toast.success(`Image converted to PNG successfully: ${data.data.file.original_file_name}`);
+                const name = data.data.file.original_file_name || "";
+                const ext = name.split('.').pop()?.toLowerCase() || "";
+                const target = ext === "png" ? "PNG" : ext === "jpg" || ext === "jpeg" ? "JPG" : "image";
+                toast.success(`Image converted to ${target} successfully: ${name}`);
             }
         } else if (data.type === "delete_file_response") {
             if (data.data.error) {

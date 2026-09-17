@@ -26,7 +26,7 @@ func HandleImageConversionRequest(req ConvertImageRequest) (string, error) {
 	if fileToConvert.AccountToken != req.Auth.Token {
 		return "", fmt.Errorf("file %s does not belong to account %s", fileToConvert.FileDirectory, req.Auth.Token)
 	}
-	if err := SubmitImageConversion(fileToConvert); err != nil {
+	if err := SubmitImageConversion(fileToConvert, req.TargetFormat); err != nil {
 		return "", fmt.Errorf("failed to queue conversion: %v", err)
 	}
 	return fileToConvert.FileDirectory, nil
