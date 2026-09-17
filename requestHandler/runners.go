@@ -31,11 +31,13 @@ func SubmitVideoConversion(file database.FileData) error {
 	return runners.Submit("video", runners.VideoJob{File: file})
 }
 
-// SubmitImageConversion enqueues an image-to-PNG conversion job on the runners
-// manager. It returns an error if a conversion for the same source image is
-// already queued or running (the runners manager dedups by source sha256).
-func SubmitImageConversion(file database.FileData) error {
-	return runners.Submit("image", runners.ImageJob{File: file})
+// SubmitImageConversion enqueues an image conversion job on the runners manager.
+// targetFormat selects the output format ("png" or "jpg"); an empty value falls
+// back to the source-extension-based inference in the runner. It returns an
+// error if a conversion for the same source image is already queued or running
+// (the runners manager dedups by source sha256).
+func SubmitImageConversion(file database.FileData, targetFormat string) error {
+	return runners.Submit("image", runners.ImageJob{File: file, TargetFormat: targetFormat})
 }
 
 // SubmitVideoPreview enqueues a video preview generation job on the runners

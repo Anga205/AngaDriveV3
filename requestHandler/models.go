@@ -67,6 +67,7 @@ type ConvertVideoRequest struct {
 
 type ConvertImageRequest struct {
 	FileDirectory string   `json:"file_directory"`
+	TargetFormat  string   `json:"target_format"`
 	Auth          AuthInfo `json:"auth"`
 }
 
