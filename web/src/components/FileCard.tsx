@@ -234,6 +234,39 @@ const ConvertToPngButton: Component<{ file: FileData; onConvert?: () => void }> 
     );
 }
 
+const ConvertToJpgButton: Component<{ file: FileData; onConvert?: () => void }> = (props) => {
+    const { socket: getSocket } = useWebSocket();
+    const handleConvert = async () => {
+        const convertRequest = {
+            type: "convert_image",
+            data: {
+                file_directory: props.file.file_directory,
+                auth: {
+                    token: localStorage.getItem("token") || "",
+                    email: localStorage.getItem("email") || "",
+                    password: localStorage.getItem("password") || ""
+                }
+            }
+        }
+        if (getSocket()?.readyState !== WebSocket.OPEN) {
+            toast.error("WebSocket is not available");
+            return;
+        }
+        getSocket()?.send(JSON.stringify(convertRequest));
+        props.onConvert?.();
+        toast.success("Conversion started for " + props.file.original_file_name)
+    };
+
+    return (
+        ["png"].includes(props.file.original_file_name.split('.').pop()?.toLowerCase() || '') ?
+            <button class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-neutral-100 hover:bg-neutral-700" onClick={handleConvert}>
+                <Image class="h-4 w-4 text-neutral-100" />
+                <span>Convert to JPG</span>
+            </button>
+            : <div />
+    );
+}
+
 const DeleteButton: Component<{ file: FileData }> = (props) => {
     const { socket: getSocket } = useWebSocket();
     const [open, setOpen] = createSignal(false);
@@ -545,6 +578,9 @@ const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: stri
                                             </Show>
                                             <Show when={["jpg", "jpeg", "gif", "bmp", "webp", "tiff", "heic", "heif"].includes(props.File.original_file_name.split('.').pop()?.toLowerCase() || '')}>
                                                 <ConvertToPngButton file={props.File} onConvert={() => setOptionsOpen(false)} />
+                                            </Show>
+                                            <Show when={["png"].includes(props.File.original_file_name.split('.').pop()?.toLowerCase() || '')}>
+                                                <ConvertToJpgButton file={props.File} onConvert={() => setOptionsOpen(false)} />
                                             </Show>
                                         </div>
                                     </Show>

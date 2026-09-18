@@ -54,8 +54,9 @@ func (r *ImageRunner) Run(job Job) error {
 	return r.convert(ij.File)
 }
 
-// convert decodes the source image and re-encodes it as a losslessly
-// compressed PNG, registering the result as a new file and notifying the user.
+// convert decodes the source image and re-encodes it in the target format
+// (PNG source -> JPEG, otherwise -> lossless PNG), registering the result as a
+// new file and notifying the user.
 func (r *ImageRunner) convert(inputFile database.FileData) error {
 	inputFilePath := globals.UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + inputFile.Sha256sum
 	if _, err := os.Stat(inputFilePath); os.IsNotExist(err) {
@@ -91,8 +92,26 @@ func (r *ImageRunner) convert(inputFile database.FileData) error {
 		return err
 	}
 
+	// Determine conversion direction from the source extension. PNG sources are
+	// converted to a small JPEG; every other image format is converted to a
+	// losslessly compressed PNG.
+	srcExt := strings.ToLower(filepath.Ext(inputFilePath))
+	isPngSource := srcExt == ".png"
+
+	tempSuffix := ".png-convert-*.tmp"
+	outExt := ".png"
+	outFormat := imaging.PNG
+	encodeOpts := imaging.PNGCompressionLevel(png.BestCompression)
+	if isPngSource {
+		tempSuffix = ".jpg-convert-*.tmp"
+		outExt = ".jpg"
+		outFormat = imaging.JPEG
+		// Quality 65 keeps the file small while reasonably preserving quality.
+		encodeOpts = imaging.JPEGQuality(65)
+	}
+
 	// Write to a temporary file so a partially-written output is never exposed.
-	tempFile, err := os.CreateTemp(globals.UPLOAD_DIR+string(os.PathSeparator)+"i", ".png-convert-*.tmp")
+	tempFile, err := os.CreateTemp(globals.UPLOAD_DIR+string(os.PathSeparator)+"i", tempSuffix)
 	if err != nil {
 		r.notifier.NotifyUser(inputFile.AccountToken, map[string]interface{}{
 			"type": "error",
@@ -105,14 +124,14 @@ func (r *ImageRunner) convert(inputFile database.FileData) error {
 	tempPath := tempFile.Name()
 	defer os.Remove(tempPath)
 
-	// Lossless PNG with maximum compression preserves the image exactly while
-	// keeping the file as small as possible.
-	if err := imaging.Encode(tempFile, img, imaging.PNG, imaging.PNGCompressionLevel(png.BestCompression)); err != nil {
+	// Direction-aware encoding: PNG source -> JPEG (quality 65), else -> PNG
+	// lossless with maximum compression.
+	if err := imaging.Encode(tempFile, img, outFormat, encodeOpts); err != nil {
 		tempFile.Close()
 		r.notifier.NotifyUser(inputFile.AccountToken, map[string]interface{}{
 			"type": "error",
 			"data": map[string]interface{}{
-				"error": "failed to encode PNG: " + err.Error(),
+				"error": "failed to encode image: " + err.Error(),
 			},
 		})
 		return err
@@ -150,7 +169,7 @@ func (r *ImageRunner) convert(inputFile database.FileData) error {
 		return err
 	}
 
-	outputFilePath := globals.UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + outputSha256sum + ".png"
+	outputFilePath := globals.UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + outputSha256sum + outExt
 	if err := os.Rename(tempPath, outputFilePath); err != nil {
 		r.notifier.NotifyUser(inputFile.AccountToken, map[string]interface{}{
 			"type": "error",
@@ -161,14 +180,14 @@ func (r *ImageRunner) convert(inputFile database.FileData) error {
 		return err
 	}
 
-	uniqueFileName := database.GenerateUniqueFileName(removeExtension(inputFile.OriginalFileName) + ".png")
+	uniqueFileName := database.GenerateUniqueFileName(removeExtension(inputFile.OriginalFileName) + outExt)
 	fileData := database.FileData{
-		OriginalFileName: removeExtension(inputFile.OriginalFileName) + ".png",
+		OriginalFileName: removeExtension(inputFile.OriginalFileName) + outExt,
 		FileDirectory:    uniqueFileName,
 		AccountToken:     inputFile.AccountToken,
 		FileSize:         fileSize,
 		Timestamp:        time.Now().UTC().Unix(),
-		Sha256sum:        outputSha256sum + ".png",
+		Sha256sum:        outputSha256sum + outExt,
 	}
 
 	fileData.Insert()

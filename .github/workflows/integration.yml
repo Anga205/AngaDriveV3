@@ -18,7 +18,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install test dependencies
-        run: pip install websockets aiohttp bcrypt
+        run: pip install -r tester/requirements.txt
 
       - name: Discover integration tests
         id: tests
@@ -152,7 +152,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install test dependencies
-        run: pip install websockets aiohttp bcrypt
+        run: pip install -r tester/requirements.txt
 
       - name: Run ${{ matrix.test }}
         env:
