@@ -20,6 +20,8 @@ interface ContextMenuProps {
     menuClass?: string;
     /** Horizontal alignment of the dropdown relative to the trigger. */
     align?: "left" | "right";
+    /** Notifies the owner when the menu opens or closes. */
+    onOpenChange?: (open: boolean) => void;
 }
 
 /**
@@ -31,18 +33,25 @@ const ContextMenu: Component<ContextMenuProps> = (props) => {
     const [open, setOpen] = createSignal(false);
     let rootRef: HTMLDivElement | undefined;
 
-    const toggle = () => setOpen((o) => !o);
-    const close = () => setOpen(false);
+    const toggle = () => setOpen((o) => {
+        const next = !o;
+        props.onOpenChange?.(next);
+        return next;
+    });
+    const close = () => {
+        setOpen(false);
+        props.onOpenChange?.(false);
+    };
 
     const handleClickOutside = (event: MouseEvent) => {
         if (rootRef && !rootRef.contains(event.target as Node)) {
-            setOpen(false);
+            close();
         }
     };
     const handleKeyDown = (event: KeyboardEvent) => {
         if (event.key === "Escape") {
             event.preventDefault();
-            setOpen(false);
+            close();
         }
     };
 
