@@ -1,7 +1,9 @@
 package info
 
-// this is the number of days for which we want to track site activity and space used. It can be changed as needed, but make sure to change it in all places where it's used.
-const X = 30
+// DaysTracked is the number of days for which we want to track site activity
+// and space used. It can be changed as needed, but make sure to change it in
+// all places where it's used.
+const DaysTracked = 30
 
 type RAMInfo struct {
 	TotalRAM       uint64  `json:"total_ram"`

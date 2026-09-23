@@ -15,10 +15,10 @@ func SiteActivityPulse() {
 		return
 	}
 	database.PushTimeStamp(time.Now().Unix())
-	x_axis, y_axis := info.GetLastXDaysCounts()
+	xAxis, yAxis := info.GetLastXDaysCounts()
 	graphData := GraphData{
-		XAxis:       x_axis,
-		YAxis:       y_axis,
+		XAxis:       xAxis,
+		YAxis:       yAxis,
 		Label:       "Site Activity",
 		BeginAtZero: true,
 	}

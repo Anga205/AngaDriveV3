@@ -1,366 +1,22 @@
 import type { FileData } from "../library/types"
-import { BinSVG, CheckSVG, CopySVG, CrossSVG, DownloadSVG, EyeSVG, FileTextSVG, StickyNotes } from "../assets/SvgFiles";
-import { formatFileSize, getFileType, getCollectionPathIds } from "../library/functions";
+import { CheckSVG, CopySVG, DownloadSVG, EyeSVG, StickyNotes } from "../assets/SvgFiles";
+import { formatFileSize, getFileType } from "../library/functions";
 import toast from "solid-toast";
 import { useWebSocket } from "../Websockets";
 import { useLocation } from "@solidjs/router";
 import { AppContext } from "../Context";
 import { createSignal, createMemo, onCleanup, Component, Show, useContext } from "solid-js";
 import { createEffect } from "solid-js";
-import Dialog from '@corvu/dialog';
 import Tooltip from "@corvu/tooltip";
 import { assetsUrl } from "@/assets/ApiUrl";
 import EllipsisVertical from "lucide-solid/icons/ellipsis-vertical";
 import Pencil from "lucide-solid/icons/pencil";
 import Check from "lucide-solid/icons/check";
 import X from "lucide-solid/icons/x";
-import RotateCcw from "lucide-solid/icons/rotate-ccw";
 import Image from "lucide-solid/icons/image";
-import { ContextMenu, ContextMenuItem, ContextMenuSubmenu, useMenuContext } from "./ContextMenu";
-
-const PreviewImage: Component<{ src: string }> = (props) => {
-    const [loaded, setLoaded] = createSignal(false);
-    const [failed, setFailed] = createSignal(false);
-    return (
-        <Show when={!failed()} fallback={<FileTextSVG class="max-h-full p-4 opacity-50" />}>
-            <div class="relative flex items-center justify-center w-full h-full">
-                <Show when={!loaded()}>
-                    <FileTextSVG class="max-h-full p-4 opacity-50" />
-                </Show>
-                <img
-                    src={props.src}
-                    loading="lazy"
-                    class="absolute inset-0 m-auto max-h-full max-w-full p-2"
-                    onLoad={() => setLoaded(true)}
-                    onError={() => setFailed(true)}
-                />
-            </div>
-        </Show>
-    );
-};
-
-const FilePreview: Component<{ file: FileData }> = (props) => {
-    const ctx = useContext(AppContext)!;
-    const [isVisible, setIsVisible] = createSignal<boolean>(ctx.loadedFiles?.()?.has(props.file.file_directory) || false);
-    let containerRef: HTMLDivElement | undefined;
-    let observer: IntersectionObserver | undefined;
-
-    // Find the nearest scrollable ancestor to use as the IntersectionObserver root
-    const getScrollParent = (node: HTMLElement | null): HTMLElement | null => {
-        let el: HTMLElement | null = node?.parentElement || null;
-        while (el) {
-            const style = getComputedStyle(el);
-            const overflowY = style.overflowY;
-            const overflow = style.overflow;
-            const isScrollable = [overflowY, overflow].some((v) => v === "auto" || v === "scroll" || v === "overlay");
-            if (isScrollable) return el;
-            el = el.parentElement;
-        }
-        return null;
-    };
-
-    const isInView = (el: HTMLElement, rootEl: HTMLElement | null): boolean => {
-        const rootRect = rootEl ? rootEl.getBoundingClientRect() : document.documentElement.getBoundingClientRect();
-        const rect = el.getBoundingClientRect();
-        return (
-            rect.bottom > rootRect.top &&
-            rect.top < rootRect.bottom &&
-            rect.right > rootRect.left &&
-            rect.left < rootRect.right
-        );
-    };
-
-    const setRef = (el: HTMLDivElement) => {
-        containerRef = el;
-        if (!containerRef) return;
-
-        const rootEl = getScrollParent(containerRef);
-
-        // Create observer with the correct root (scroll container or viewport)
-        observer = new IntersectionObserver(
-            (entries) => {
-                const entry = entries[0];
-                if (entry.isIntersecting) {
-                    setIsVisible(true);
-                    // Persist that this file was loaded for the session
-                    try {
-                        ctx.setLoadedFiles?.((prev) => {
-                            const next = new Set(prev || new Set());
-                            next.add(props.file.file_directory);
-                            return next;
-                        });
-                    } catch (e) {
-                        // ignore if context not available
-                    }
-                    observer?.unobserve(entry.target as Element);
-                }
-            },
-            { root: rootEl, threshold: 0.01 }
-        );
-
-        // Defer observe to the next frame to avoid Chromium initial layout race
-        requestAnimationFrame(() => {
-            if (!containerRef) return;
-            observer?.observe(containerRef);
-        });
-
-        // Fallback manual check (Chromium sometimes doesn't fire until scroll in nested scrollers)
-        requestAnimationFrame(() => {
-            if (!isVisible() && containerRef && isInView(containerRef, rootEl)) {
-                setIsVisible(true);
-                try {
-                    ctx.setLoadedFiles?.((prev) => {
-                        const next = new Set(prev || new Set());
-                        next.add(props.file.file_directory);
-                        return next;
-                    });
-                } catch (e) { }
-                observer?.unobserve(containerRef);
-            }
-        });
-    };
-
-    onCleanup(() => {
-        if (containerRef) {
-            observer?.unobserve(containerRef);
-        }
-        observer?.disconnect();
-        observer = undefined;
-    });
-
-    const PreviewContent: Component = () => {
-        const ext = props.file.original_file_name.split('.').pop()?.toLowerCase();
-        const preview_size_limit = 40 * 1024 * 1024; // 40 MB
-
-        const isImage = ["jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff", "heic", "heif"].includes(ext || "");
-        const isSvg = ext === "svg";
-        const isVideo = ["mp4", "mkv", "avi", "mov", "wmv", "flv", "webm"].includes(ext || "");
-        const isAudio = ["mp3", "wav", "aac", "flac", "ogg", "wma", "m4a"].includes(ext || "");
-        const isPdf = ext === "pdf";
-
-        // Non-SVG images always show their preview
-        if (isImage) {
-            return <PreviewImage src={assetsUrl(`/preview-image/${props.file.file_directory}`)} />;
-        }
-
-        // SVGs only preview when under the size limit
-        if (isSvg && props.file.file_size <= preview_size_limit) {
-            return <PreviewImage src={assetsUrl(`/preview-image/${props.file.file_directory}`)} />;
-        }
-
-        if (isVideo) {
-            return <PreviewImage src={assetsUrl(`/preview-video/${props.file.file_directory}.gif`)} />;
-        }
-        if (isAudio && props.file.file_size <= preview_size_limit) {
-            return <audio src={assetsUrl(`/i/${props.file.file_directory}`)} controls class="w-full" />;
-        }
-        if (isPdf) {
-            return <PreviewImage src={assetsUrl(`/preview/${props.file.file_directory}.jpg`)} />;
-        }
-        return <FileTextSVG class="max-h-full p-4 opacity-50" />;
-    };
-
-    return (
-        <div ref={setRef} class="flex justify-center items-center w-full h-full opacity-70">
-            <Show when={isVisible()} fallback={<FileTextSVG class="max-h-full p-4 opacity-50" />}>
-                <PreviewContent />
-            </Show>
-        </div>
-    );
-};
-
-const ConvertButton: Component<{ file: FileData; onConvert?: () => void }> = (props) => {
-    const { socket: getSocket } = useWebSocket();
-    const menu = useMenuContext();
-    const handleConvert = async () => {
-        const convertRequest = {
-            type: "convert_video",
-            data: {
-                file_directory: props.file.file_directory,
-                auth: {
-                    token: localStorage.getItem("token") || "",
-                    email: localStorage.getItem("email") || "",
-                    password: localStorage.getItem("password") || ""
-                }
-            }
-        }
-        if (getSocket()?.readyState !== WebSocket.OPEN) {
-            toast.error("WebSocket is not available");
-            return;
-        }
-        getSocket()?.send(JSON.stringify(convertRequest));
-        props.onConvert?.();
-        menu?.close();
-        toast.success("Conversion started for " + props.file.original_file_name)
-    };
-
-    return (
-        ["mkv", "avi", "mov", "wmv", "flv", "webm"].includes(props.file.original_file_name.split('.').pop()?.toLowerCase() || '') ?
-            <button class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-neutral-100 hover:bg-neutral-700" onClick={handleConvert}>
-                <RotateCcw class="h-4 w-4 text-neutral-100" />
-                <span>Convert to MP4</span>
-            </button>
-            : <div />
-    );
-}
-
-const ConvertImageButton: Component<{ file: FileData; target: "png" | "jpg"; label?: string; onConvert?: () => void }> = (props) => {
-    const { socket: getSocket } = useWebSocket();
-    const handleConvert = async () => {
-        const convertRequest = {
-            type: "convert_image",
-            data: {
-                file_directory: props.file.file_directory,
-                target_format: props.target,
-                auth: {
-                    token: localStorage.getItem("token") || "",
-                    email: localStorage.getItem("email") || "",
-                    password: localStorage.getItem("password") || ""
-                }
-            }
-        }
-        if (getSocket()?.readyState !== WebSocket.OPEN) {
-            toast.error("WebSocket is not available");
-            return;
-        }
-        getSocket()?.send(JSON.stringify(convertRequest));
-        props.onConvert?.();
-        toast.success("Conversion started for " + props.file.original_file_name)
-    };
-
-    return (
-        <button class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-neutral-100 hover:bg-neutral-700" onClick={handleConvert}>
-            <Image class="h-4 w-4 text-neutral-100" />
-            <span>{props.label || `Convert to ${props.target.toUpperCase()}`}</span>
-        </button>
-    );
-}
-
-const DeleteButton: Component<{ file: FileData }> = (props) => {
-    const { socket: getSocket } = useWebSocket();
-    const [open, setOpen] = createSignal(false);
-    const handleDelete = async () => {
-        const deleteRequest = {
-            type: "delete_file",
-            data: {
-                file_directory: props.file.file_directory,
-                auth: {
-                    token: localStorage.getItem("token") || "",
-                    email: localStorage.getItem("email") || "",
-                    password: localStorage.getItem("password") || ""
-                }
-            }
-        }
-        if (getSocket()?.readyState !== WebSocket.OPEN) {
-            toast.error("WebSocket is not available");
-            return;
-        }
-        getSocket()?.send(JSON.stringify(deleteRequest));
-        setOpen(false);
-    }
-    const handleTriggerClick = (e: MouseEvent) => {
-        if (e.shiftKey) {
-            e.preventDefault();
-            e.stopPropagation();
-            handleDelete();
-        }
-    }
-    return (
-        <Dialog open={open()} onOpenChange={setOpen}>
-            <Tooltip placement="bottom" openDelay={0} closeDelay={0}>
-                <Tooltip.Trigger
-                    as={Dialog.Trigger}
-                    class="flex items-center justify-center p-2 text-red-700 bg-red-800/30 hover:bg-red-900/20 rounded-xl"
-                    onClick={handleTriggerClick}
-                    aria-label="Delete file"
-                >
-                    <BinSVG />
-                </Tooltip.Trigger>
-                <Tooltip.Content class="bg-neutral-900 text-white px-2 py-1 rounded">Delete&nbsp;File</Tooltip.Content>
-            </Tooltip>
-            <Dialog.Portal>
-                <Dialog.Overlay class="fixed inset-0 bg-black/50 z-40" />
-                <Dialog.Content class="flex z-50 justify-center flex-col fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-neutral-800 p-6 rounded-md shadow-lg text-white w-[clamp(300px,50vw,500px)]">
-                    <Dialog.Label class="text-xl font-semibold mb-2 text-center">
-                        Delete {props.file.original_file_name.length > 17
-                            ? `${props.file.original_file_name.slice(0, 17)}...`
-                            : props.file.original_file_name}?
-                    </Dialog.Label>
-                    <p class="mb-4 text-sm text-neutral-400 text-center">
-                        Once a file is deleted, it may not be recoverable again. Are you sure you want to permanently delete this file?
-                    </p>
-                    <div class="flex justify-between space-x-3 mt-6">
-                        <Dialog.Close class="bg-neutral-600 hover:bg-neutral-700 text-white font-semibold py-2 px-4 rounded transition-colors duration-200">
-                            Cancel
-                        </Dialog.Close>
-                        <button
-                            class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded transition-colors duration-200"
-                            onClick={handleDelete}
-                        >
-                            Delete
-                        </button>
-                    </div>
-                </Dialog.Content>
-            </Dialog.Portal>
-        </Dialog>
-    )
-}
-
-const RemoveFromCollectionButton: Component<{ file: FileData }> = (props) => {
-    const { socket: getSocket } = useWebSocket();
-    const ctx = useContext(AppContext)!;
-    const location = useLocation();
-    // Get the current collection ID from the path (last segment)
-    const pathIds = createMemo(() => getCollectionPathIds(location.pathname));
-    const collectionId = () => pathIds()[pathIds().length - 1] || "";
-    const canRemove = () => {
-        const id = collectionId();
-        return location.pathname.startsWith("/collection") && !!id && (ctx.knownCollections()[id]?.isOwned || false);
-    };
-    const handleRemove = async () => {
-        const removeRequest = {
-            type: "remove_file_from_collection",
-            data: {
-                file_directory: props.file.file_directory,
-                collection_id: collectionId(),
-                auth: {
-                    token: localStorage.getItem("token") || "",
-                    email: localStorage.getItem("email") || "",
-                    password: localStorage.getItem("password") || ""
-                }
-            }
-        }
-        if (getSocket()?.readyState !== WebSocket.OPEN) {
-            toast.error("WebSocket is not available");
-            return;
-        }
-        getSocket()?.send(JSON.stringify(removeRequest));
-        toast.success("Removed from collection", {
-            duration: 2000,
-            position: "bottom-right",
-            style: {
-                background: "#1f1f1f",
-                color: "#ffffff"
-            }
-        });
-    }
-    return (
-        <Show when={canRemove()}>
-            <Tooltip placement="bottom" openDelay={0} closeDelay={0}>
-                <Tooltip.Trigger
-                    class="flex items-center justify-center p-2 text-red-700 bg-red-800/30 hover:bg-red-900/20 rounded-xl"
-                    onClick={handleRemove}
-                    aria-label="Remove from collection"
-                >
-                    <CrossSVG />
-                </Tooltip.Trigger>
-                <Tooltip.Content class="bg-neutral-900 text-white px-2 py-1 rounded">
-                    Remove&nbsp;From&nbsp;Collection
-                </Tooltip.Content>
-            </Tooltip>
-        </Show>
-    )
-}
+import { ContextMenu, ContextMenuItem, ContextMenuSubmenu } from "./ContextMenu";
+import FilePreview from "./FilePreview";
+import { ConvertButton, ConvertImageButton, DeleteButton, RemoveFromCollectionButton, VIDEO_EXTENSIONS, IMAGE_CONVERT_EXTENSIONS, getExtension } from "./FileActions";
 
 const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: string) => void; isSelected?: boolean }> = (props) => {
     const DownloadLink = createMemo(() => assetsUrl(`/download/${props.File.file_directory}`));
@@ -518,10 +174,10 @@ const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: stri
                                     >
                                         Duplicate File
                                     </ContextMenuItem>
-                                    <Show when={["mkv", "avi", "mov", "wmv", "flv", "webm"].includes(props.File.original_file_name.split('.').pop()?.toLowerCase() || '')}>
+                                    <Show when={VIDEO_EXTENSIONS.includes(getExtension(props.File.original_file_name))}>
                                         <ConvertButton file={props.File} />
                                     </Show>
-                                    <Show when={["jpeg", "gif", "bmp", "webp", "tiff", "heic", "heif"].includes(props.File.original_file_name.split('.').pop()?.toLowerCase() || '')}>
+                                    <Show when={IMAGE_CONVERT_EXTENSIONS.includes(getExtension(props.File.original_file_name))}>
                                         <ContextMenuSubmenu
                                             icon={<Image class="h-4 w-4 text-neutral-100" />}
                                             label="Convert&nbsp;Image&nbsp;to..."
@@ -530,10 +186,10 @@ const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: stri
                                             <ConvertImageButton file={props.File} target="jpg" label="JPG" />
                                         </ContextMenuSubmenu>
                                     </Show>
-                                    <Show when={["jpg", "jpeg"].includes(props.File.original_file_name.split('.').pop()?.toLowerCase() || '')}>
+                                    <Show when={["jpg", "jpeg"].includes(getExtension(props.File.original_file_name))}>
                                         <ConvertImageButton file={props.File} target="png" label="Convert to PNG" />
                                     </Show>
-                                    <Show when={["png"].includes(props.File.original_file_name.split('.').pop()?.toLowerCase() || '')}>
+                                    <Show when={["png"].includes(getExtension(props.File.original_file_name))}>
                                         <ConvertImageButton file={props.File} target="jpg" label="Convert to JPG" />
                                     </Show>
                                 </ContextMenu>

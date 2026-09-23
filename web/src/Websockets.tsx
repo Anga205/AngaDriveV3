@@ -43,7 +43,6 @@ const WebSocketProvider: ParentComponent = (props) => {
     const ws = new WebSocket(wsUrl);
     ws.onopen = () => {
       setStatus("connected");
-      console.log("Websockets.tsx: WebSocket connected");
       if (reconnectTimeoutId) { // Clear any pending reconnect if we successfully connected
         clearTimeout(reconnectTimeoutId);
         reconnectTimeoutId = undefined;
@@ -90,10 +89,7 @@ const WebSocketProvider: ParentComponent = (props) => {
       // Only attempt to reconnect if this instance was the one we intended to be active
       if (webSocketInstance() === ws || !webSocketInstance()) { // also reconnect if webSocketInstance was cleared
         setStatus("reconnecting");
-        console.log("Websockets.tsx: WebSocket disconnected. Attempting to reconnect...");
         reconnectTimeoutId = setTimeout(createAndConnectSocket, RECONNECT_DELAY);
-      } else {
-        console.log("An old WebSocket instance closed.");
       }
     };
     

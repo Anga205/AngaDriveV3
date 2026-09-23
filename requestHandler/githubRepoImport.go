@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -20,23 +19,6 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/net/context"
 )
-
-func normalizeToJSON(data map[string]interface{}) string {
-	// Convert map to JSON with 4-space indentation
-	jsonBytes, err := json.MarshalIndent(data, "", "    ")
-	if err != nil {
-		log.Fatalf("JSON marshaling failed: %v", err)
-	}
-	return string(jsonBytes)
-}
-
-func convertToInterfaceMap(collectionMap map[string]database.Collection) map[string]interface{} {
-	result := make(map[string]interface{})
-	for k, v := range collectionMap {
-		result[k] = v
-	}
-	return result
-}
 
 func FileSHA256(filePath string) string {
 	file, _ := os.Open(filePath)
@@ -132,7 +114,6 @@ func GithubImportHandler(req ImportGithubRepoRequest) (string, error) {
 				if len(strings.Split(path, string(os.PathSeparator))) <= 3 {
 					return nil // Skip the root directory and any directories that are not part of the cloned repo
 				}
-				fmt.Println("\n\n\n\nWalking through:\n", normalizeToJSON(convertToInterfaceMap(collectionMap)))
 				dirStructure := strings.Split(path, string(os.PathSeparator))[2:]
 				parentDir := collectionMap[strings.Join(dirStructure[:len(dirStructure)-1], string(os.PathListSeparator))]
 				if !d.IsDir() {

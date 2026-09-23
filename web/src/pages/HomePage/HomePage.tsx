@@ -85,7 +85,6 @@ const HomePage: Component = () => {
 
     const openHandler = (updatedSocket: WebSocket) => {
         if (updatedSocket.readyState === WebSocket.OPEN) {
-            console.log("HomePage.tsx: Socket open, enabling updates.");
             updatedSocket.send(JSON.stringify({ type: 'enable_homepage_updates', data: true }));
         }
     };
@@ -110,15 +109,12 @@ const HomePage: Component = () => {
 
             currentSocket = newSocket; // Update the current socket
             onCleanup(() => {
-                console.log("HomePage.tsx: Cleaning up socket listeners.");
-
                 // Remove listeners from the *old* socket (if there was one)
                 if (currentSocket) {
                     currentSocket.removeEventListener('message', messageHandler);
                     currentSocket.removeEventListener('open', socketOpenHandler);
 
                     if (currentSocket.readyState === WebSocket.OPEN) {
-                        console.log("HomePage.tsx: Disabling updates for old/unmounting socket.");
                         currentSocket.send(JSON.stringify({ type: 'enable_homepage_updates', data: false }));
                     }
                 }
