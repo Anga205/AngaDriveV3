@@ -13,27 +13,27 @@ func BeginningOfToday() int64 {
 	return startOfDay.Unix()
 }
 
-func PastXDays() [X]string {
+func PastXDays() [DaysTracked]string {
 	timeZone := "Asia/Kolkata"
 	loc, _ := time.LoadLocation(timeZone)
 	now := time.Now().In(loc)
-	var days [X]string
-	for i := 0; i < X; i++ {
+	var days [DaysTracked]string
+	for i := 0; i < DaysTracked; i++ {
 		days[i] = now.AddDate(0, 0, -i).Format("Jan 2")
 	}
 	return days
 }
 
-func GetSpaceUsedGraph() ([X]string, [X]int64, error) {
+func GetSpaceUsedGraph() ([DaysTracked]string, [DaysTracked]int64, error) {
 	startOfToday := BeginningOfToday()
 
 	days := PastXDays()
 	fileInfo, _ := database.GetAllFileSizesAndTimes()
 
 	// this is the per day file sizes array that this function will eventually return. Last element is today, first element is $x days ago
-	var fileSizes [X]int64
+	var fileSizes [DaysTracked]int64
 
-	var dailyIncrease [X + 1]int64
+	var dailyIncrease [DaysTracked + 1]int64
 	const daySeconds = 60 * 60 * 24
 
 	for _, file := range fileInfo {
@@ -43,7 +43,7 @@ func GetSpaceUsedGraph() ([X]string, [X]int64, error) {
 		}
 
 		found := false
-		for i := 1; i <= X-1; i++ {
+		for i := 1; i <= DaysTracked-1; i++ {
 			if file.Time >= startOfToday-int64(i)*daySeconds {
 				dailyIncrease[i] += file.Size
 				found = true
@@ -52,7 +52,7 @@ func GetSpaceUsedGraph() ([X]string, [X]int64, error) {
 		}
 		if !found {
 			// Older than $x days ago
-			dailyIncrease[X] += file.Size
+			dailyIncrease[DaysTracked] += file.Size
 		}
 	}
 
@@ -63,12 +63,12 @@ func GetSpaceUsedGraph() ([X]string, [X]int64, error) {
 	for _, size := range dailyIncrease {
 		cumulativeSize += size
 	}
-	fileSizes[X-1] = cumulativeSize
+	fileSizes[DaysTracked-1] = cumulativeSize
 
 	// Calculate totals for previous days by subtracting the daily increases.
-	for i := 0; i < X-1; i++ {
+	for i := 0; i < DaysTracked-1; i++ {
 		cumulativeSize -= dailyIncrease[i]
-		fileSizes[X-2-i] = cumulativeSize
+		fileSizes[DaysTracked-2-i] = cumulativeSize
 	}
 	for i, j := 0, len(days)-1; i < j; i, j = i+1, j-1 {
 		days[i], days[j] = days[j], days[i]

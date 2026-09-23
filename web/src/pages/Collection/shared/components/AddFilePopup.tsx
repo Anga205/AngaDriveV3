@@ -1,4 +1,4 @@
-import { Component, For, useContext, createSignal, createEffect, Show, onMount, onCleanup } from "solid-js";
+import { Component, useContext, createSignal, createEffect, Show, onMount, onCleanup } from "solid-js";
 import Dialog from "@corvu/dialog";
 import Dropdown from "@/components/Dropdown";
 import { AppContext } from "@/Context";
@@ -6,8 +6,8 @@ import { useWebSocket } from "@/Websockets";
 import { generateUUID } from "@/library/functions";
 import toast from "solid-toast";
 import { uploadFileInChunks } from "@/pages/MyDrive/shared/components/UploadPopUp";
-import FileUploadPreview from "@/pages/MyDrive/shared/components/FileUploadPreview";
 import type { SelectableFile, FileUploadProgressData } from "@/pages/MyDrive/shared/types";
+import UploadNewFileSection from "./UploadNewFileSection";
 
 const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (props) => {
     const ctx = useContext(AppContext)!;
@@ -362,9 +362,13 @@ const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (pro
                 {(modifying() === "new" || modifying() === null) && (
                     <>
                         <p class="text-white text-lg font-bold mb-2 text-center">Upload New File</p>
-                        <label
-                            for="collection-file-upload"
-                            class={`rounded-md min-h-[15vh] flex justify-center items-center cursor-pointer my-[1vh] ${selectedUploadFiles().length === 0 ? `border-2 ${isDragOver() ? 'border-blue-400' : 'border-dotted border-blue-800'}` : ''}${flashPaste() ? ' ring-2 ring-blue-500 animate-pulse' : ''}`}
+                        <UploadNewFileSection
+                            files={selectedUploadFiles()}
+                            isDragOver={isDragOver()}
+                            flashPaste={flashPaste()}
+                            getUploadInfo={(uniqueId) => uploadProgressMap()[uniqueId]}
+                            onDelete={handleFileDelete}
+                            canDelete={() => isPaused()}
                             onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
                             onDragEnter={(e) => { e.preventDefault(); setIsDragOver(true); }}
                             onDragLeave={() => setIsDragOver(false)}
@@ -375,25 +379,8 @@ const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (pro
                                     addDroppedFiles(e.dataTransfer.files);
                                 }
                             }}
-                        >
-                            {selectedUploadFiles().length === 0 ? (
-                                <p class="text-center p-4 text-white">Drag and drop files here or click to select files</p>
-                            ) : (
-                                <div class="flex flex-col w-full space-y-2 max-h-[30vh] overflow-y-auto custom-scrollbar p-1">
-                                    <For each={selectedUploadFiles()}>
-                                        {(sf) => (
-                                            <FileUploadPreview
-                                                selectableFile={sf}
-                                                uploadInfo={() => uploadProgressMap()[sf.uniqueId]}
-                                                onDelete={handleFileDelete}
-                                                canDelete={() => isPaused()}
-                                            />
-                                        )}
-                                    </For>
-                                </div>
-                            )}
-                            <input id="collection-file-upload" type="file" multiple class="hidden" onChange={handleFileChange} />
-                        </label>
+                            onFileChange={handleFileChange}
+                        />
                     </>
                 )}
 

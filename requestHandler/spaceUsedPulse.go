@@ -8,23 +8,23 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-const X = info.X
+const DaysTracked = info.DaysTracked
 
 var (
-	LastXDays    [X]string
-	SpaceUsedArr [X]int64
+	LastXDays    [DaysTracked]string
+	SpaceUsedArr [DaysTracked]int64
 )
 
 func SpaceUsedPulse() {
-	new_LastXDays, new_SpaceUsedArr, err := info.GetSpaceUsedGraph()
+	newLastXDays, newSpaceUsedArr, err := info.GetSpaceUsedGraph()
 	if err != nil {
 		return
 	}
-	if LastXDays == new_LastXDays && SpaceUsedArr == new_SpaceUsedArr {
+	if LastXDays == newLastXDays && SpaceUsedArr == newSpaceUsedArr {
 		return
 	}
-	LastXDays = new_LastXDays
-	SpaceUsedArr = new_SpaceUsedArr
+	LastXDays = newLastXDays
+	SpaceUsedArr = newSpaceUsedArr
 	var connectionsToUpdate []globals.WebsocketInfo
 	ActiveWebsocketsMutex.RLock()
 	for conn, connData := range ActiveWebsockets {

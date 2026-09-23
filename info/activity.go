@@ -8,13 +8,13 @@ import (
 
 func GetLastXDaysCounts() ([]string, []int64) {
 	timestamps := database.TimeStamps
-	dates := make([]string, 0, X)
-	counts := make([]int64, 0, X)
+	dates := make([]string, 0, DaysTracked)
+	counts := make([]int64, 0, DaysTracked)
 	loc, _ := time.LoadLocation("Asia/Kolkata")
 	now := time.Now().In(loc)
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 
-	for i := -X + 1; i <= 0; i++ {
+	for i := -DaysTracked + 1; i <= 0; i++ {
 		day := today.AddDate(0, 0, i)
 		dayStr := day.Format("Jan 2")
 		dates = append(dates, dayStr)
@@ -25,7 +25,7 @@ func GetLastXDaysCounts() ([]string, []int64) {
 		return dates, counts
 	}
 
-	for i := -X + 1; i <= 0; i++ {
+	for i := -DaysTracked + 1; i <= 0; i++ {
 		day := today.AddDate(0, 0, i)
 		startOfDay := day.Unix()
 		endOfDay := day.Add(24 * time.Hour).Unix()
@@ -38,7 +38,7 @@ func GetLastXDaysCounts() ([]string, []int64) {
 			return timestamps[j] >= endOfDay
 		})
 
-		counts[i+X-1] = int64(endIdx - startIdx)
+		counts[i+DaysTracked-1] = int64(endIdx - startIdx)
 	}
 	return dates, counts
 }

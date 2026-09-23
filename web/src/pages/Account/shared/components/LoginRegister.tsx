@@ -66,7 +66,7 @@ const LoginCard: Component<{ onSignUpClick: () => void; onLoginSuccess: () => vo
                         localStorage.removeItem("token");
                         props.onLoginSuccess(); // Call the callback on successful login
                         // TODO: Setup user migration
-                        // for now, just remove the previous token
+                        // For now, just remove the previous token
                     } else {
                         toast.error(
                             response.data.error === "record not found"

@@ -85,7 +85,6 @@ const UniversalMessageHandler = (message: MessageEvent, ctx: AppContextType) => 
       });
   } else if (data.type === "collection_update") {
       if (data.data.toggle === true) {
-          console.log("Collection added:", data.data.collection);
           ctx.setKnownCollectionCards(prev => ({
             ...prev,
             [data.data.collection.id]: data.data.collection

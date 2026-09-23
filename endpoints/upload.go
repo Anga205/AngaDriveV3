@@ -213,10 +213,10 @@ func finalizeUpload(c *gin.Context) {
 		fmt.Printf("Warning: Failed to remove chunk directory %s: %v\n", uploadPath, err)
 	}
 
-	var FileUpdate requestHandler.FileUpdate
-	FileUpdate.File = fileData
-	FileUpdate.Toggle = true
-	go requestHandler.UserFilesPulse(FileUpdate)
+	var fileUpdate requestHandler.FileUpdate
+	fileUpdate.File = fileData
+	fileUpdate.Toggle = true
+	go requestHandler.UserFilesPulse(fileUpdate)
 	go requestHandler.UpdateUserCount()
 
 	c.JSON(200, gin.H{
