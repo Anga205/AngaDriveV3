@@ -1,5 +1,6 @@
 import { Component, createMemo } from "solid-js";
 import Dialog from '@corvu/dialog';
+import Tooltip from "@corvu/tooltip";
 import { BinSVG } from "@/assets/SvgFiles";
 
 interface BulkDeleteDialogProps {
@@ -17,10 +18,18 @@ const BulkDeleteDialog: Component<BulkDeleteDialogProps> = (props) => {
 
     return (
         <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-            <Dialog.Trigger class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors duration-150">
-                <BinSVG />
-                {props.triggerLabel || `Delete ${props.selectedCount} File${props.selectedCount === 1 ? "" : "s"}`}
-            </Dialog.Trigger>
+            <Tooltip placement="bottom" openDelay={0} closeDelay={0}>
+                <Tooltip.Trigger
+                    as={Dialog.Trigger}
+                    class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-neutral-900 hover:bg-neutral-950 text-white text-sm font-medium transition-colors duration-150"
+                    aria-label="Delete selected files"
+                >
+                    <BinSVG color="red"/>
+                </Tooltip.Trigger>
+                <Tooltip.Content class="bg-neutral-900 text-white px-2 py-1 rounded">
+                    Delete&nbsp;Selected
+                </Tooltip.Content>
+            </Tooltip>
             <Dialog.Portal>
                 <Dialog.Overlay class="fixed inset-0 bg-black/50 z-40" />
                 <Dialog.Content class="flex z-50 justify-center flex-col fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-neutral-800 p-6 rounded-md shadow-lg text-white w-[clamp(300px,50vw,500px)]">

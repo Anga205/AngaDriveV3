@@ -113,13 +113,13 @@ const LoginCard: Component<{ onSignUpClick: () => void; onLoginSuccess: () => vo
     };
 
     return (
-        <div class="flex flex-col items-center p-6 border-2 border-gray-500 rounded-lg w-[90vw] max-w-87.5 bg-gray-900 shadow-lg overflow-hidden">
+        <div class="flex flex-col items-center p-6 border-2 border-neutral-500 rounded-lg w-[90vw] max-w-87.5 bg-neutral-900 shadow-lg overflow-hidden">
             <p class="font-bold text-[3.5vh] mb-6">Login</p>
             <div class="w-full mb-4">
                 <p class="text-[1.8vh] mb-1">Enter Email ID:</p>
                 <input
                     type="email"
-                    class="w-full p-3 rounded bg-gray-800 text-[1.5vh] placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    class="w-full p-3 rounded bg-neutral-800 text-[1.5vh] placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-400"
                     placeholder="john.doe@example.com"
                     value={email()}
                     onInput={e => setEmail(e.currentTarget.value)}
@@ -129,21 +129,21 @@ const LoginCard: Component<{ onSignUpClick: () => void; onLoginSuccess: () => vo
                 <p class="text-[1.8vh] mb-1">Enter Password:</p>
                 <input
                     type="password"
-                    class="w-full p-3 rounded bg-gray-800 text-[1.5vh] placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    class="w-full p-3 rounded bg-neutral-800 text-[1.5vh] placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-400"
                     placeholder="Password"
                     value={password()}
                     onInput={e => setPassword(e.currentTarget.value)}
                 />
             </div>
             <button
-                class={`w-full py-3 mb-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600 ${isFormValid()?'':'cursor-not-allowed opacity-50'}`}
+                class={`w-full py-3 mb-4 bg-blue-900 text-white rounded-lg hover:bg-blue-950 ${isFormValid()?'':'cursor-not-allowed opacity-50'}`}
                 onClick={handleLogin}
                 disabled={status() === "connecting" || status() === "reconnecting"}
             >
                 Login
             </button>
             <div class="w-full text-center">
-                <span class="text-gray-400 text-[1.5vh]">
+                <span class="text-neutral-400 text-[1.5vh]">
                     New to AngaDrive?{" "}
                     <a
                         href="#"
@@ -288,13 +288,13 @@ const RegisterCard: Component<{ onLoginClick: () => void; onRegisterSuccess: () 
         );
     };
     return (
-        <div class="flex flex-col items-center p-6 border-2 border-gray-500 rounded-lg w-[90vw] max-w-87.5 bg-gray-900 shadow-lg overflow-hidden">
+        <div class="flex flex-col items-center p-6 border-2 border-neutral-500 rounded-lg w-[90vw] max-w-87.5 bg-neutral-900 shadow-lg overflow-hidden">
             <p class="font-bold text-[3.5vh] mb-6">Register</p>
             <div class="w-full mb-4">
                 <p class="text-[1.8vh] mb-1">Display Name:</p>
                 <input
                     type="text"
-                    class="w-full p-3 rounded bg-gray-800 text-[1.5vh] placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    class="w-full p-3 rounded bg-neutral-800 text-[1.5vh] placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-400"
                     placeholder="John Doe"
                     value={displayName()}
                     onInput={e => setDisplayName(e.currentTarget.value)}
@@ -304,7 +304,7 @@ const RegisterCard: Component<{ onLoginClick: () => void; onRegisterSuccess: () 
                 <p class="text-[1.8vh] mb-1">Email ID:</p>
                 <input
                     type="email"
-                    class="w-full p-3 rounded bg-gray-800 text-[1.5vh] placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    class="w-full p-3 rounded bg-neutral-800 text-[1.5vh] placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-400"
                     placeholder="john.doe@example.com"
                     value={email()}
                     onInput={e => setEmail(e.currentTarget.value)}
@@ -314,7 +314,7 @@ const RegisterCard: Component<{ onLoginClick: () => void; onRegisterSuccess: () 
                 <p class="text-[1.8vh] mb-1">Password:</p>
                 <input
                     type="password"
-                    class="w-full p-3 rounded bg-gray-800 text-[1.5vh] placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    class="w-full p-3 rounded bg-neutral-800 text-[1.5vh] placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-400"
                     placeholder="Password"
                     value={password()}
                     onInput={e => setPassword(e.currentTarget.value)}
@@ -324,21 +324,21 @@ const RegisterCard: Component<{ onLoginClick: () => void; onRegisterSuccess: () 
                 <p class="text-[1.8vh] mb-1">Confirm Password:</p>
                 <input
                     type="password"
-                    class="w-full p-3 rounded bg-gray-800 text-[1.5vh] placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    class="w-full p-3 rounded bg-neutral-800 text-[1.5vh] placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-400"
                     placeholder="Confirm Password"
                     value={confirmPassword()}
                     onInput={e => setConfirmPassword(e.currentTarget.value)}
                 />
             </div>
             <button
-                class={`w-full py-3 mb-4 bg-green-500 text-white rounded-lg hover:bg-green-600 ${isFormValid()?'':'cursor-not-allowed opacity-50'}`}
+                class={`w-full py-3 mb-4 bg-green-900 text-white rounded-lg hover:bg-green-950 ${isFormValid()?'':'cursor-not-allowed opacity-50'}`}
                 onClick={handleRegister}
                 disabled={status() === "connecting" || status() === "reconnecting"}
             >
                 Register
             </button>
             <div class="w-full text-center">
-                <span class="text-gray-400 text-[1.5vh]">
+                <span class="text-neutral-400 text-[1.5vh]">
                     Already have an account?{" "}
                     <a
                         href="#"

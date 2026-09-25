@@ -11,6 +11,7 @@ import FileCard from "@/components/FileCard";
 import { useWebSocket } from "@/Websockets";
 import { toast } from "solid-toast";
 import BulkDeleteDialog from "../shared/components/BulkDeleteDialog";
+import Tooltip from "@corvu/tooltip";
 import { CrossSVG } from "@/assets/SvgFiles";
 
 const DesktopDrive: Component<{ Files: Accessor<Array<FileData>>; sortOptions: SelectOption[]; selectedSort: Accessor<string[]>; setSelectedSort: (value: string[]) => void; sortedFiles: Accessor<Array<FileData>>; searchQuery?: Accessor<string>; setSearch?: (v: string) => void }> = (props) => {
@@ -96,20 +97,29 @@ const DesktopDrive: Component<{ Files: Accessor<Array<FileData>>; sortOptions: S
                 <div class="flex width-full justify-between gap-3 h-12">
                     <Show when={selectedCount() > 0} fallback={<div />}>
                         <div class="flex gap-3">
+                        <Tooltip placement="bottom" openDelay={0} closeDelay={0}>
+                            <Tooltip.Trigger
+                                class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-neutral-900 hover:bg-neutral-950 text-neutral-200 text-sm font-medium transition-colors duration-150"
+                                onClick={handleUnselectAll}
+                                aria-label="Clear selection"
+                            >
+                                <CrossSVG />
+                            </Tooltip.Trigger>
+                            <Tooltip.Content class="bg-neutral-900 text-white px-2 py-1 rounded">
+                                Clear&nbsp;Selection
+                            </Tooltip.Content>
+                        </Tooltip>
                         <BulkDeleteDialog
                             open={deleteOpen()}
                             onOpenChange={setDeleteOpen}
                             onDelete={handleBulkDelete}
                             selectedCount={selectedCount()}
-                            triggerLabel={`Delete ${selectedCount()} File${selectedCount() === 1 ? "" : "s"}`}
                         />
-                        <button
-                            class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-sm font-medium transition-colors duration-150"
-                            onClick={handleUnselectAll}
-                        >
-                            <CrossSVG />
-                            Unselect {selectedCount()} File{selectedCount() === 1 ? "" : "s"}
-                        </button>
+                        </div>
+                    </Show>
+                    <Show when={selectedCount() > 0} fallback={<div />}>
+                        <div class="flex h-full items-center justify-center text-center">
+                            <p class="text-neutral-500"> {selectedCount()} file{selectedCount() === 1 ? "" : "s"} selected</p>
                         </div>
                     </Show>
                     <div class="flex gap-3">
