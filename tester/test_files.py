@@ -311,6 +311,41 @@ async def test_duplicate_file():
     await ws.close()
 
 
+async def test_bulk_duplicate_files():
+    """Upload two files and duplicate them both in a single bulk request."""
+    print("\n[test] bulk duplicate files")
+    email, password = await register_and_login()
+    ws = await open_ws()
+
+    up1 = await upload_file(email=email, password=password, filename="d1.txt", content=b"one")
+    up2 = await upload_file(email=email, password=password, filename="d2.txt", content=b"two")
+    check("bulk duplicate setup uploads", up1 is not None and up2 is not None)
+    if not (up1 and up2):
+        await ws.close()
+        return
+
+    resp = await send_and_wait(ws, "bulk_duplicate_files",
+                              {"file_directories": [up1["fileDirectory"], up2["fileDirectory"]],
+                               "auth": {"email": email, "password": password}},
+                              "bulk_duplicate_files_response")
+    check("bulk duplicate responds", resp is not None)
+    if resp:
+        check("bulk duplicate count", len(resp["data"].get("duplicated", [])) == 2)
+        check("bulk duplicate no errors", resp["data"].get("errors", []) == [])
+
+    files = await send_and_wait(ws, "get_user_files",
+                                {"email": email, "password": password},
+                                "get_user_files_response")
+    entries = (files or {}).get("data", [])
+    duplicates = [
+        file for file in entries
+        if file.get("original_file_name") in ["Copy of d1.txt", "Copy of d2.txt"]
+    ]
+    check("bulk duplicate creates both copies", len(duplicates) == 2)
+
+    await ws.close()
+
+
 async def test_bulk_delete_files():
     """Upload two files and delete them both in a single bulk request."""
     print("\n[test] bulk delete files")

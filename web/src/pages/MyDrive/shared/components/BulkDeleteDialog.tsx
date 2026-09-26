@@ -26,7 +26,7 @@ const BulkDeleteDialog: Component<BulkDeleteDialogProps> = (props) => {
                 >
                     <BinSVG color="red"/>
                 </Tooltip.Trigger>
-                <Tooltip.Content class="bg-neutral-900 text-white px-2 py-1 rounded">
+                <Tooltip.Content class="bg-neutral-900 text-white px-2 py-1 rounded z-50">
                     Delete&nbsp;Selected
                 </Tooltip.Content>
             </Tooltip>
