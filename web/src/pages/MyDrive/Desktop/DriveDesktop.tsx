@@ -11,6 +11,7 @@ import FileCard from "@/components/FileCard";
 import { useWebSocket } from "@/Websockets";
 import { toast } from "solid-toast";
 import BulkDeleteDialog from "../shared/components/BulkDeleteDialog";
+import BulkDuplicateDialog from "../shared/components/BulkDuplicateDialog";
 import Tooltip from "@corvu/tooltip";
 import { CrossSVG } from "@/assets/SvgFiles";
 
@@ -23,8 +24,32 @@ const DesktopDrive: Component<{ Files: Accessor<Array<FileData>>; sortOptions: S
     const ctx = useContext(AppContext)!;
     const { socket: getSocket } = useWebSocket();
     const [deleteOpen, setDeleteOpen] = createSignal(false);
+    const [duplicateOpen, setDuplicateOpen] = createSignal(false);
 
     const selectedCount = createMemo(() => ctx.selectedFiles?.()?.size || 0);
+
+    const handleBulkDuplicate = () => {
+        const selected = Array.from(ctx.selectedFiles?.() || new Set<string>());
+        if (selected.length === 0) return;
+        const duplicateRequest = {
+            type: "bulk_duplicate_files",
+            data: {
+                file_directories: selected,
+                auth: {
+                    token: localStorage.getItem("token") || "",
+                    email: localStorage.getItem("email") || "",
+                    password: localStorage.getItem("password") || ""
+                }
+            }
+        };
+        if (getSocket()?.readyState !== WebSocket.OPEN) {
+            toast.error("WebSocket is not available");
+            return;
+        }
+        getSocket()?.send(JSON.stringify(duplicateRequest));
+        ctx.setSelectedFiles?.(new Set());
+        setDuplicateOpen(false);
+    };
 
     const handleBulkDelete = () => {
         const selected = Array.from(ctx.selectedFiles?.() || new Set<string>());
@@ -105,10 +130,16 @@ const DesktopDrive: Component<{ Files: Accessor<Array<FileData>>; sortOptions: S
                             >
                                 <CrossSVG />
                             </Tooltip.Trigger>
-                            <Tooltip.Content class="bg-neutral-900 text-white px-2 py-1 rounded">
+                            <Tooltip.Content class="bg-neutral-900 text-white px-2 py-1 rounded z-50">
                                 Clear&nbsp;Selection
                             </Tooltip.Content>
                         </Tooltip>
+                        <BulkDuplicateDialog
+                            open={duplicateOpen()}
+                            onOpenChange={setDuplicateOpen}
+                            onDuplicate={handleBulkDuplicate}
+                            selectedCount={selectedCount()}
+                        />
                         <BulkDeleteDialog
                             open={deleteOpen()}
                             onOpenChange={setDeleteOpen}

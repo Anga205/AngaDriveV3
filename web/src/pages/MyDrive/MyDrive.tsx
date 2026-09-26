@@ -55,6 +55,19 @@ const MyDrive: Component = () => {
             } else {
                 toast.success(`File duplicated successfully: ${data.data.success}`);
             }
+        } else if (data.type === "bulk_duplicate_files_response") {
+            if (data.data.error) {
+                toast.error(`Error duplicating files: ${data.data.error}`);
+            } else {
+                const duplicatedCount = (data.data.duplicated || []).length;
+                const errorCount = (data.data.errors || []).length;
+                if (duplicatedCount > 0) {
+                    toast.success(`Duplicated ${duplicatedCount} file${duplicatedCount === 1 ? "" : "s"} successfully`);
+                }
+                if (errorCount > 0) {
+                    toast.error(`${errorCount} file${errorCount === 1 ? "" : "s"} could not be duplicated`);
+                }
+            }
         } else if (data.type === "bulk_delete_files_response") {
             if (data.data.error) {
                 toast.error(`Error deleting files: ${data.data.error}`);

@@ -10,6 +10,7 @@ import FileCard from "@/components/FileCard";
 import { useWebSocket } from "@/Websockets";
 import { toast } from "solid-toast";
 import BulkDeleteDialog from "../shared/components/BulkDeleteDialog";
+import BulkDuplicateDialog from "../shared/components/BulkDuplicateDialog";
 import { CrossSVG } from "@/assets/SvgFiles";
 
 const MobileDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: SelectOption[]; selectedSort: Accessor<string[]>; setSelectedSort: (value: string[]) => void; sortedFiles: () => Array<FileData>; searchQuery?: Accessor<string>; setSearch?: (v: string) => void}> = (props) => {
@@ -22,8 +23,32 @@ const MobileDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: Sel
     const ctx = useContext(AppContext)!;
     const { socket: getSocket } = useWebSocket();
     const [deleteOpen, setDeleteOpen] = createSignal(false);
+    const [duplicateOpen, setDuplicateOpen] = createSignal(false);
 
     const selectedCount = createMemo(() => ctx.selectedFiles?.()?.size || 0);
+
+    const handleBulkDuplicate = () => {
+        const selected = Array.from(ctx.selectedFiles?.() || new Set<string>());
+        if (selected.length === 0) return;
+        const duplicateRequest = {
+            type: "bulk_duplicate_files",
+            data: {
+                file_directories: selected,
+                auth: {
+                    token: localStorage.getItem("token") || "",
+                    email: localStorage.getItem("email") || "",
+                    password: localStorage.getItem("password") || ""
+                }
+            }
+        };
+        if (getSocket()?.readyState !== WebSocket.OPEN) {
+            toast.error("WebSocket is not available");
+            return;
+        }
+        getSocket()?.send(JSON.stringify(duplicateRequest));
+        ctx.setSelectedFiles?.(new Set());
+        setDuplicateOpen(false);
+    };
 
     const handleBulkDelete = () => {
         const selected = Array.from(ctx.selectedFiles?.() || new Set<string>());
@@ -132,6 +157,12 @@ const MobileDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: Sel
                         <CrossSVG />
                         Unselect
                     </button>
+                    <BulkDuplicateDialog
+                        open={duplicateOpen()}
+                        onOpenChange={setDuplicateOpen}
+                        onDuplicate={handleBulkDuplicate}
+                        selectedCount={selectedCount()}
+                    />
                     <BulkDeleteDialog
                         open={deleteOpen()}
                         onOpenChange={setDeleteOpen}
