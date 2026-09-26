@@ -10,10 +10,7 @@ import FilesError from "../shared/components/FilesError";
 import FileCard from "@/components/FileCard";
 import { useWebSocket } from "@/Websockets";
 import { toast } from "solid-toast";
-import BulkDeleteDialog from "../shared/components/BulkDeleteDialog";
-import BulkDuplicateDialog from "../shared/components/BulkDuplicateDialog";
-import Tooltip from "@corvu/tooltip";
-import { CrossSVG } from "@/assets/SvgFiles";
+import BulkActionsMenu from "../shared/components/BulkActionsMenu";
 
 const DesktopDrive: Component<{ Files: Accessor<Array<FileData>>; sortOptions: SelectOption[]; selectedSort: Accessor<string[]>; setSelectedSort: (value: string[]) => void; sortedFiles: Accessor<Array<FileData>>; searchQuery?: Accessor<string>; setSearch?: (v: string) => void }> = (props) => {
     // Lazy load files using IntersectionObserver
@@ -23,8 +20,6 @@ const DesktopDrive: Component<{ Files: Accessor<Array<FileData>>; sortOptions: S
     let desktopObserver: IntersectionObserver | undefined;
     const ctx = useContext(AppContext)!;
     const { socket: getSocket } = useWebSocket();
-    const [deleteOpen, setDeleteOpen] = createSignal(false);
-    const [duplicateOpen, setDuplicateOpen] = createSignal(false);
 
     const selectedCount = createMemo(() => ctx.selectedFiles?.()?.size || 0);
 
@@ -48,7 +43,6 @@ const DesktopDrive: Component<{ Files: Accessor<Array<FileData>>; sortOptions: S
         }
         getSocket()?.send(JSON.stringify(duplicateRequest));
         ctx.setSelectedFiles?.(new Set());
-        setDuplicateOpen(false);
     };
 
     const handleBulkDelete = () => {
@@ -71,7 +65,6 @@ const DesktopDrive: Component<{ Files: Accessor<Array<FileData>>; sortOptions: S
         }
         getSocket()?.send(JSON.stringify(deleteRequest));
         ctx.setSelectedFiles?.(new Set());
-        setDeleteOpen(false);
     };
 
     const handleUnselectAll = () => {
@@ -120,34 +113,12 @@ const DesktopDrive: Component<{ Files: Accessor<Array<FileData>>; sortOptions: S
                     <p class="text-white font-black text-[4vh]">My Files</p>
                 </div>
                 <div class="flex width-full justify-between gap-3 h-12">
-                    <Show when={selectedCount() > 0} fallback={<div />}>
-                        <div class="flex gap-3">
-                        <Tooltip placement="bottom" openDelay={0} closeDelay={0}>
-                            <Tooltip.Trigger
-                                class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-neutral-900 hover:bg-neutral-950 text-neutral-200 text-sm font-medium transition-colors duration-150"
-                                onClick={handleUnselectAll}
-                                aria-label="Clear selection"
-                            >
-                                <CrossSVG />
-                            </Tooltip.Trigger>
-                            <Tooltip.Content class="bg-neutral-900 text-white px-2 py-1 rounded z-50">
-                                Clear&nbsp;Selection
-                            </Tooltip.Content>
-                        </Tooltip>
-                        <BulkDuplicateDialog
-                            open={duplicateOpen()}
-                            onOpenChange={setDuplicateOpen}
-                            onDuplicate={handleBulkDuplicate}
-                            selectedCount={selectedCount()}
-                        />
-                        <BulkDeleteDialog
-                            open={deleteOpen()}
-                            onOpenChange={setDeleteOpen}
-                            onDelete={handleBulkDelete}
-                            selectedCount={selectedCount()}
-                        />
-                        </div>
-                    </Show>
+                    <BulkActionsMenu
+                        selectedCount={selectedCount()}
+                        onUnselectAll={handleUnselectAll}
+                        onDelete={handleBulkDelete}
+                        onDuplicate={handleBulkDuplicate}
+                    />
                     <Show when={selectedCount() > 0} fallback={<div />}>
                         <div class="flex h-full items-center justify-center text-center">
                             <p class="text-neutral-500"> {selectedCount()} file{selectedCount() === 1 ? "" : "s"} selected</p>

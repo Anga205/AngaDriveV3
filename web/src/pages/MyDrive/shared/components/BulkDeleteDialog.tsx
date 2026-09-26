@@ -21,7 +21,7 @@ const BulkDeleteDialog: Component<BulkDeleteDialogProps> = (props) => {
             <Tooltip placement="bottom" openDelay={0} closeDelay={0}>
                 <Tooltip.Trigger
                     as={Dialog.Trigger}
-                    class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-neutral-900 hover:bg-neutral-950 text-white text-sm font-medium transition-colors duration-150"
+                    class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-neutral-800 md:bg-neutral-900 hover:bg-neutral-950 text-white text-sm font-medium transition-colors duration-150"
                     aria-label="Delete selected files"
                 >
                     <BinSVG color="red"/>

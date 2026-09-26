@@ -9,9 +9,7 @@ import FilesError from "../shared/components/FilesError";
 import FileCard from "@/components/FileCard";
 import { useWebSocket } from "@/Websockets";
 import { toast } from "solid-toast";
-import BulkDeleteDialog from "../shared/components/BulkDeleteDialog";
-import BulkDuplicateDialog from "../shared/components/BulkDuplicateDialog";
-import { CrossSVG } from "@/assets/SvgFiles";
+import BulkActionsMenu from "../shared/components/BulkActionsMenu";
 
 const MobileDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: SelectOption[]; selectedSort: Accessor<string[]>; setSelectedSort: (value: string[]) => void; sortedFiles: () => Array<FileData>; searchQuery?: Accessor<string>; setSearch?: (v: string) => void}> = (props) => {
     // Lazy load for mobile as well
@@ -22,8 +20,6 @@ const MobileDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: Sel
 
     const ctx = useContext(AppContext)!;
     const { socket: getSocket } = useWebSocket();
-    const [deleteOpen, setDeleteOpen] = createSignal(false);
-    const [duplicateOpen, setDuplicateOpen] = createSignal(false);
 
     const selectedCount = createMemo(() => ctx.selectedFiles?.()?.size || 0);
 
@@ -47,7 +43,6 @@ const MobileDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: Sel
         }
         getSocket()?.send(JSON.stringify(duplicateRequest));
         ctx.setSelectedFiles?.(new Set());
-        setDuplicateOpen(false);
     };
 
     const handleBulkDelete = () => {
@@ -70,7 +65,6 @@ const MobileDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: Sel
         }
         getSocket()?.send(JSON.stringify(deleteRequest));
         ctx.setSelectedFiles?.(new Set());
-        setDeleteOpen(false);
     };
 
     const handleUnselectAll = () => {
@@ -150,25 +144,11 @@ const MobileDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: Sel
                 <div class="w-full flex items-center gap-2 px-3 py-2 bg-neutral-900 border border-neutral-800 rounded-lg">
                     <p class="text-neutral-300 text-sm font-semibold">{selectedCount()} selected</p>
                     <div class="flex-1" />
-                    <button
-                        class="flex items-center gap-1 px-2 py-1 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-medium transition-colors duration-150"
-                        onClick={handleUnselectAll}
-                    >
-                        <CrossSVG />
-                        Unselect
-                    </button>
-                    <BulkDuplicateDialog
-                        open={duplicateOpen()}
-                        onOpenChange={setDuplicateOpen}
-                        onDuplicate={handleBulkDuplicate}
+                    <BulkActionsMenu
                         selectedCount={selectedCount()}
-                    />
-                    <BulkDeleteDialog
-                        open={deleteOpen()}
-                        onOpenChange={setDeleteOpen}
+                        onUnselectAll={handleUnselectAll}
                         onDelete={handleBulkDelete}
-                        selectedCount={selectedCount()}
-                        triggerLabel="Delete"
+                        onDuplicate={handleBulkDuplicate}
                     />
                 </div>
             </Show>
