@@ -81,6 +81,19 @@ const MyDrive: Component = () => {
                     toast.error(`${errorCount} file${errorCount === 1 ? "" : "s"} could not be deleted`);
                 }
             }
+        } else if (data.type === "bulk_add_files_to_collection_response") {
+            if (data.data.error) {
+                toast.error(`Error adding files to collection: ${data.data.error}`);
+            } else {
+                const addedCount = (data.data.added || []).length;
+                const errorCount = (data.data.errors || []).length;
+                if (addedCount > 0) {
+                    toast.success(`Added ${addedCount} file${addedCount === 1 ? "" : "s"} to the collection`);
+                }
+                if (errorCount > 0) {
+                    toast.error(`${errorCount} file${errorCount === 1 ? "" : "s"} could not be added to the collection`);
+                }
+            }
         }
     }
 

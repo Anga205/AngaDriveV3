@@ -67,6 +67,30 @@ const MobileDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: Sel
         ctx.setSelectedFiles?.(new Set());
     };
 
+    const handleBulkAddToCollection = (collectionId: string, collectionName: string) => {
+        const selected = Array.from(ctx.selectedFiles?.() || new Set<string>());
+        if (selected.length === 0) return;
+        const addRequest = {
+            type: "bulk_add_files_to_collection",
+            data: {
+                file_directories: selected,
+                collection_id: collectionId,
+                collection_name: collectionName,
+                auth: {
+                    token: localStorage.getItem("token") || "",
+                    email: localStorage.getItem("email") || "",
+                    password: localStorage.getItem("password") || ""
+                }
+            }
+        };
+        if (getSocket()?.readyState !== WebSocket.OPEN) {
+            toast.error("WebSocket is not available");
+            return;
+        }
+        getSocket()?.send(JSON.stringify(addRequest));
+        ctx.setSelectedFiles?.(new Set());
+    };
+
     const handleUnselectAll = () => {
         ctx.setSelectedFiles?.(new Set());
     };
@@ -149,6 +173,7 @@ const MobileDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: Sel
                         onUnselectAll={handleUnselectAll}
                         onDelete={handleBulkDelete}
                         onDuplicate={handleBulkDuplicate}
+                        onAddToCollection={handleBulkAddToCollection}
                     />
                 </div>
             </Show>

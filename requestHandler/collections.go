@@ -230,6 +230,70 @@ func AddFileToCollection(req AddFileToCollectionRequest) (GetCollectionResponse,
 	return updateCollectionFiles(req.CollectionID, req.FileDirectory, req.Auth, true)
 }
 
+func BulkAddFilesToCollection(req BulkAddFilesToCollectionRequest) (BulkAddFilesToCollectionResponse, error) {
+	userToken, err := req.Auth.GetToken()
+	if err != nil {
+		return BulkAddFilesToCollectionResponse{}, fmt.Errorf("authentication failed: %v", err)
+	}
+
+	collectionID := req.CollectionID
+	createdNewCollection := false
+	if collectionID == "" && req.CollectionName != "" {
+		collection := database.Collection{
+			Name:      req.CollectionName,
+			Editors:   userToken,
+			Size:      0,
+			Dependant: "",
+		}
+		collection, err = database.InsertNewCollection(collection)
+		if err != nil {
+			return BulkAddFilesToCollectionResponse{}, fmt.Errorf("failed to create collection: %v", err)
+		}
+		collectionID = collection.ID
+		createdNewCollection = true
+	}
+	if collectionID == "" {
+		return BulkAddFilesToCollectionResponse{}, fmt.Errorf("collection id or collection name is required")
+	}
+
+	collection, err := database.GetCollection(collectionID)
+	if err != nil {
+		return BulkAddFilesToCollectionResponse{}, fmt.Errorf("failed to get collection: %v", err)
+	}
+	if !collection.IsEditor(userToken) {
+		return BulkAddFilesToCollectionResponse{}, fmt.Errorf("user is not an editor of the collection")
+	}
+
+	added := []string{}
+	errors := []FileDeleteError{}
+	for _, fileDirectory := range req.FileDirectories {
+		file, err := database.GetFile(fileDirectory)
+		if err != nil {
+			errors = append(errors, FileDeleteError{FileDirectory: fileDirectory, Error: "file not found"})
+			continue
+		}
+		if file.AccountToken != userToken {
+			errors = append(errors, FileDeleteError{FileDirectory: fileDirectory, Error: "unauthorized add attempt"})
+			continue
+		}
+		if err := collection.AddFile(fileDirectory); err != nil {
+			errors = append(errors, FileDeleteError{FileDirectory: fileDirectory, Error: err.Error()})
+			continue
+		}
+		added = append(added, fileDirectory)
+	}
+
+	// Always emit the collection pulse only after the collection + file state has been
+	// fully updated. If we created a new collection, do not fire the "created" update
+	// until after all files have been added; otherwise clients can receive a stale card
+	// with the wrong file count/size before the additions land.
+	if createdNewCollection {
+		go CollectionPulse(true, collection)
+	}
+	go PulseCollectionSubscribers(collection)
+	return BulkAddFilesToCollectionResponse{CollectionID: collectionID, Added: added, Errors: errors}, nil
+}
+
 func RemoveFileFromCollection(req RemoveFileFromCollectionRequest) (GetCollectionResponse, error) {
 	return updateCollectionFiles(req.CollectionID, req.FileDirectory, req.Auth, false)
 }

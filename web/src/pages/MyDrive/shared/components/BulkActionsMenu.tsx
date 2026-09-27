@@ -3,17 +3,20 @@ import Tooltip from "@corvu/tooltip";
 import { CrossSVG } from "@/assets/SvgFiles";
 import BulkDeleteDialog from "./BulkDeleteDialog";
 import BulkDuplicateDialog from "./BulkDuplicateDialog";
+import BulkAddToCollectionDialog from "./BulkAddToCollectionDialog";
 
 interface BulkActionsMenuProps {
     selectedCount: number;
     onUnselectAll: () => void;
     onDelete: () => void;
     onDuplicate: () => void;
+    onAddToCollection: (collectionId: string, collectionName: string) => void;
 }
 
 const BulkActionsMenu: Component<BulkActionsMenuProps> = (props) => {
     const [deleteOpen, setDeleteOpen] = createSignal(false);
     const [duplicateOpen, setDuplicateOpen] = createSignal(false);
+    const [addToCollectionOpen, setAddToCollectionOpen] = createSignal(false);
 
     return (
         <Show when={props.selectedCount > 0}>
@@ -30,6 +33,12 @@ const BulkActionsMenu: Component<BulkActionsMenuProps> = (props) => {
                         Clear&nbsp;Selection
                     </Tooltip.Content>
                 </Tooltip>
+                <BulkAddToCollectionDialog
+                    open={addToCollectionOpen()}
+                    onOpenChange={setAddToCollectionOpen}
+                    onAddToCollection={props.onAddToCollection}
+                    selectedCount={props.selectedCount}
+                />
                 <BulkDuplicateDialog
                     open={duplicateOpen()}
                     onOpenChange={setDuplicateOpen}
