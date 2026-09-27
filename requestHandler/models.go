@@ -97,6 +97,13 @@ type BulkDuplicateRequest struct {
 	Auth            AuthInfo `json:"auth"`
 }
 
+type BulkAddFilesToCollectionRequest struct {
+	FileDirectories []string `json:"file_directories"`
+	CollectionID    string   `json:"collection_id"`
+	CollectionName  string   `json:"collection_name"`
+	Auth            AuthInfo `json:"auth"`
+}
+
 type FileDeleteError struct {
 	FileDirectory string `json:"file_directory"`
 	Error         string `json:"error"`
@@ -110,6 +117,12 @@ type BulkDeleteResponse struct {
 type BulkDuplicateResponse struct {
 	Duplicated []string          `json:"duplicated"`
 	Errors     []FileDeleteError `json:"errors"`
+}
+
+type BulkAddFilesToCollectionResponse struct {
+	CollectionID string            `json:"collection_id"`
+	Added        []string          `json:"added"`
+	Errors       []FileDeleteError `json:"errors"`
 }
 
 type CreateCollectionRequest struct {

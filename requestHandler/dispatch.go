@@ -112,6 +112,8 @@ func dispatchMessage(conn *websocket.Conn, messageType string, data json.RawMess
 		processRequest(conn, data, BulkDuplicateFile, "bulk_duplicate_files_response")
 	case "bulk_delete_files":
 		processRequest(conn, data, BulkDeleteFile, "bulk_delete_files_response")
+	case "bulk_add_files_to_collection":
+		processRequest(conn, data, BulkAddFilesToCollection, "bulk_add_files_to_collection_response")
 	case "new_collection":
 		processRequest(conn, data, CreateNewCollection, "new_collection_response")
 	case "delete_collection":

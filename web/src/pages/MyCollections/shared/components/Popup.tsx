@@ -1,4 +1,4 @@
-import { Accessor, createEffect, createSignal } from 'solid-js';
+import { Accessor, createEffect, createSignal, Show } from 'solid-js';
 import Dialog from '@corvu/dialog';
 import { useWebSocket } from '@/Websockets';
 import toast from 'solid-toast';
@@ -78,13 +78,13 @@ const Popup = () => {
                     {(modifying() === "New" || modifying() === null) && (
                         <input type="text" placeholder="Collection Name" onInput={(e) => setNewCollectionName(e.target.value)} class="w-full p-2 rounded-lg bg-neutral-700 text-white focus:outline-none focus:ring-2 focus:ring-green-500"/>
                     )}
-                    {modifying() === null && (
+                    <Show when={modifying() === null}>
                         <div class="flex w-full items-center justify-center">
                             <hr class="w-full border-neutral-600"/>
                             <p class="mx-2 text-gray-500">OR</p>
                             <hr class="w-full border-neutral-600"/>
                         </div>
-                    )}
+                    </Show>
                     {(modifying() === null || modifying() === "Github") && (
                         <input type="text" placeholder="Import a GitHub Repository" onInput={(e) => setGithubURL(e.target.value)} class="w-full p-2 rounded-lg bg-neutral-700 text-white focus:outline-none focus:ring-2 focus:ring-green-500"/>
                     )}

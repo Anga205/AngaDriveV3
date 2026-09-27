@@ -156,3 +156,66 @@ async def test_collection_folder_and_file_ops():
         check("remove file from collection responds", resp6 is not None)
 
     await ws.close()
+
+
+async def test_bulk_add_files_to_collection():
+    """Bulk-add multiple uploaded files to an existing collection or create one."""
+    print("\n[test] bulk add files to collection")
+    email, password = await register_and_login()
+    ws = await open_ws()
+
+    resp = await send_and_wait(ws, "new_collection",
+                               {"collection_name": "Bulk Target",
+                                "auth": {"email": email, "password": password}},
+                               "new_collection_response")
+    check("bulk create target collection responds", resp is not None)
+    target_id = resp["data"] if resp else None
+
+    up1 = await upload_file(email=email, password=password, filename="bulk_one.txt", content=b"bulk one")
+    up2 = await upload_file(email=email, password=password, filename="bulk_two.txt", content=b"bulk two")
+    check("upload first bulk file", up1 is not None)
+    check("upload second bulk file", up2 is not None)
+    if not (up1 and up2):
+        await ws.close()
+        return
+
+    file_dir_1 = up1["fileDirectory"]
+    file_dir_2 = up2["fileDirectory"]
+
+    resp2 = await send_and_wait(ws, "bulk_add_files_to_collection",
+                                {"file_directories": [file_dir_1, file_dir_2],
+                                 "collection_id": target_id,
+                                 "auth": {"email": email, "password": password}},
+                                "bulk_add_files_to_collection_response")
+    check("bulk add existing collection responds", resp2 is not None)
+    if resp2:
+        added = resp2["data"].get("added", [])
+        errors = resp2["data"].get("errors", [])
+        check("bulk add existing collection added both files", set(added) == {file_dir_1, file_dir_2})
+        check("bulk add existing collection no errors", errors == [])
+
+        collection_update = await recv_until(ws, lambda m: m.get("type") == "get_collection_response", timeout=1.0)
+        if collection_update:
+            files = collection_update["data"].get("files", [])
+            check("existing collection update includes both files", len(files) == 2)
+            check("existing collection update size matches file count", len(files) == 2)
+
+    resp3 = await send_and_wait(ws, "bulk_add_files_to_collection",
+                                {"file_directories": [file_dir_1, file_dir_2],
+                                 "collection_name": "Bulk New Collection",
+                                 "auth": {"email": email, "password": password}},
+                                "bulk_add_files_to_collection_response")
+    check("bulk create and add responds", resp3 is not None)
+    if resp3:
+        added = resp3["data"].get("added", [])
+        errors = resp3["data"].get("errors", [])
+        check("bulk create and add added both files", set(added) == {file_dir_1, file_dir_2})
+        check("bulk create and add no errors", errors == [])
+
+        card_update = await recv_until(ws, lambda m: m.get("type") == "collection_card_update", timeout=1.0)
+        if card_update:
+            payload = card_update["data"]
+            check("new collection card reflects 2 files", payload.get("file_count") == 2)
+            check("new collection card size is positive", payload.get("size", 0) > 0)
+
+    await ws.close()
