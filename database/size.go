@@ -24,22 +24,7 @@ import (
 // cyclic collection graphs: once a collection/file has been visited it is
 // skipped on subsequent visits. This is what makes cyclic graphs terminate.
 func unsafeCalculateCollectionSize(collection Collection, excludeCollections map[string]bool, excludeFiles map[string]bool) int {
-	if CollectionFilesMutex.TryLock() {
-		defer CollectionFilesMutex.Unlock()
-		panic("please Lock CollectionFilesMutex before calling unsafeCalculateCollectionSize")
-	}
-	if CollectionFoldersMutex.TryLock() {
-		defer CollectionFoldersMutex.Unlock()
-		panic("please Lock CollectionFoldersMutex before calling unsafeCalculateCollectionSize")
-	}
-	if FileCacheLock.TryLock() {
-		defer FileCacheLock.Unlock()
-		panic("please Read-Lock FileCacheLock before calling unsafeCalculateCollectionSize")
-	}
-	if CollectionCacheLock.TryLock() {
-		defer CollectionCacheLock.Unlock()
-		panic("please Lock CollectionCacheLock before calling unsafeCalculateCollectionSize")
-	}
+	guaranteeLocks(&CollectionFilesMutex, &CollectionFoldersMutex, &FileCacheLock, &CollectionCacheLock)
 	excludeCollections[collection.ID] = true
 	files := unsafeGetCollectionFiles(collection.ID)
 	output := 0
@@ -79,10 +64,7 @@ func unsafeCalculateCollectionSize(collection Collection, excludeCollections map
 // collectionsAlreadyUpdated prevents revisiting a collection that appears via
 // multiple parent branches (and guards against cycles).
 func unsafeUpdateParentCollectionSizes(collectionID string, collectionsAlreadyUpdated *map[string]bool) {
-	if CollectionCacheLock.TryLock() {
-		defer CollectionCacheLock.Unlock()
-		panic("Please Lock CollectionCacheLock before calling unsafeUpdateParentCollectionSizes")
-	}
+	guaranteeLocks(&CollectionCacheLock)
 	db := GetDB()
 	var mappings []CollectionChild
 	db.Where("child_collection_id = ?", collectionID).Find(&mappings)

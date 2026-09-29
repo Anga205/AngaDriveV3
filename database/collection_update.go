@@ -4,22 +4,7 @@ import "fmt"
 
 func (collection *Collection) unsafeAddFolder(folder string) error {
 	var err error
-	if CollectionFilesMutex.TryLock() {
-		defer CollectionFilesMutex.Unlock()
-		return fmt.Errorf("please Read-Lock CollectionFilesMutex before calling unsafeAddFolder")
-	}
-	if CollectionFoldersMutex.TryLock() {
-		defer CollectionFoldersMutex.Unlock()
-		return fmt.Errorf("please Lock CollectionFoldersMutex before calling unsafeAddFolder")
-	}
-	if FileCacheLock.TryLock() {
-		defer FileCacheLock.Unlock()
-		return fmt.Errorf("please Read-Lock FileCacheLock before calling unsafeAddFolder")
-	}
-	if CollectionCacheLock.TryLock() {
-		defer CollectionCacheLock.Unlock()
-		return fmt.Errorf("please Lock CollectionCacheLock before calling unsafeAddFolder")
-	}
+	guaranteeLocks(&CollectionFilesMutex, &CollectionFoldersMutex, &FileCacheLock, &CollectionCacheLock)
 	if folder == collection.ID {
 		return fmt.Errorf("a collection cannot be its own child")
 	}
@@ -65,22 +50,7 @@ func (collection *Collection) AddFolder(folder string) error {
 }
 
 func (collection *Collection) unsafeRemoveFolder(folder string) error {
-	if CollectionFilesMutex.TryLock() {
-		defer CollectionFilesMutex.Unlock()
-		return fmt.Errorf("please Read-Lock CollectionFilesMutex before calling unsafeRemoveFolder")
-	}
-	if CollectionFoldersMutex.TryLock() {
-		defer CollectionFoldersMutex.Unlock()
-		return fmt.Errorf("please Lock CollectionFoldersMutex before calling unsafeRemoveFolder")
-	}
-	if FileCacheLock.TryLock() {
-		defer FileCacheLock.Unlock()
-		return fmt.Errorf("please Read-Lock FileCacheLock before calling unsafeRemoveFolder")
-	}
-	if CollectionCacheLock.TryLock() {
-		defer CollectionCacheLock.Unlock()
-		return fmt.Errorf("please Lock CollectionCacheLock before calling unsafeRemoveFolder")
-	}
+	guaranteeLocks(&CollectionFilesMutex, &CollectionFoldersMutex, &FileCacheLock, &CollectionCacheLock)
 	var err error
 	*collection, _, err = unsafeGetCollection(collection.ID) // CollectionCacheLock is already locked
 	if err != nil {
@@ -117,22 +87,7 @@ func (collection *Collection) RemoveFolder(folder string) error {
 }
 
 func (collection *Collection) unsafeAddFile(fileDirectory string) error {
-	if CollectionFilesMutex.TryLock() {
-		defer CollectionFilesMutex.Unlock()
-		return fmt.Errorf("please Lock CollectionFilesMutex before calling unsafeAddFile")
-	}
-	if CollectionFoldersMutex.TryLock() {
-		defer CollectionFoldersMutex.Unlock()
-		return fmt.Errorf("please Read-Lock CollectionFoldersMutex before calling unsafeAddFile")
-	}
-	if FileCacheLock.TryLock() {
-		defer FileCacheLock.Unlock()
-		return fmt.Errorf("please Read-Lock FileCacheLock before calling unsafeAddFile")
-	}
-	if CollectionCacheLock.TryLock() {
-		defer CollectionCacheLock.Unlock()
-		return fmt.Errorf("please Lock CollectionCacheLock before calling unsafeAddFile")
-	}
+	guaranteeLocks(&CollectionFilesMutex, &CollectionFoldersMutex, &FileCacheLock, &CollectionCacheLock)
 	var err error
 	*collection, _, err = unsafeGetCollection(collection.ID) // CollectionCacheLock is already locked
 	if err != nil {
@@ -174,22 +129,7 @@ func (collection *Collection) AddFile(fileDirectory string) error {
 }
 
 func (collection *Collection) unsafeRemoveFile(fileDirectory string) error {
-	if CollectionFilesMutex.TryLock() {
-		defer CollectionFilesMutex.Unlock()
-		return fmt.Errorf("please Lock CollectionFilesMutex before calling unsafeRemoveFile")
-	}
-	if CollectionFoldersMutex.TryLock() {
-		defer CollectionFoldersMutex.Unlock()
-		return fmt.Errorf("please Read-Lock CollectionFoldersMutex before calling unsafeRemoveFile")
-	}
-	if FileCacheLock.TryLock() {
-		defer FileCacheLock.Unlock()
-		return fmt.Errorf("please Read-Lock FileCacheLock before calling unsafeRemoveFile")
-	}
-	if CollectionCacheLock.TryLock() {
-		defer CollectionCacheLock.Unlock()
-		return fmt.Errorf("please Lock CollectionCacheLock before calling unsafeRemoveFile")
-	}
+	guaranteeLocks(&CollectionFilesMutex, &CollectionFoldersMutex, &FileCacheLock, &CollectionCacheLock)
 	var err error
 	*collection, _, err = unsafeGetCollection(collection.ID) // CollectionCacheLock is already locked
 	if err != nil {

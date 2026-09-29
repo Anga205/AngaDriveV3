@@ -136,6 +136,14 @@ func (s *CollectionSet) Keys() []string {
 	return keys
 }
 
+func guaranteeLocks(locks ...*sync.RWMutex) {
+	for _, lock := range locks {
+		if lock.TryLock() {
+			panic("An unsafe function was invoked without acquiring the necessary lock.")
+		}
+	}
+}
+
 var (
 	UserFiles      = make(map[string]*FileSet)
 	UserFilesMutex sync.RWMutex
