@@ -27,7 +27,7 @@ const (
 	videoPreviewMaxColors = 128
 	// videoPreviewMaxDim is the maximum width/height (pixels) of a generated
 	// GIF preview. The aspect ratio of the source is preserved.
-	videoPreviewMaxDim = 512
+	videoPreviewMaxDim = 350
 )
 
 // VideoPreviewJob is a request to generate a GIF preview of a video file.
@@ -184,7 +184,7 @@ func getVideoDuration(inputPath string) (float64, error) {
 // running palettegen and paletteuse as two separate ffmpeg passes. The
 // resulting GIF is robust across browsers (no "corrupt or truncated" errors).
 //
-// The filter scales to fit within 512x512 (preserving aspect ratio), runs at
+// The filter scales to fit within 350x350 (preserving aspect ratio), runs at
 // 24fps, and speeds up the video by the given factor so the output is at most
 // 15 seconds.
 //
