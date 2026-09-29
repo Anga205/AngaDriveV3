@@ -861,7 +861,7 @@ async def test_corrupted_video_preview_marker():
 
     # Invalid "video" content (not a real mp4).
     up = await upload_file(email=email, password=password, filename="corrupt.mp4",
-                           content=b"this is not a real video file")
+        content=f"this is not a real video file {uuid.uuid4().hex}".encode())
     check("upload corrupted video succeeds", up is not None)
     if not up:
         return

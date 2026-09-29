@@ -5,26 +5,7 @@ import (
 )
 
 func (collection Collection) unsafeDelete() error {
-	if UserCollectionsMutex.TryLock() {
-		defer UserCollectionsMutex.Unlock()
-		return fmt.Errorf("please Lock UserCollectionsMutex before calling unsafeDelete")
-	}
-	if CollectionFilesMutex.TryLock() {
-		defer CollectionFilesMutex.Unlock()
-		return fmt.Errorf("please Lock CollectionFilesMutex before calling unsafeDelete")
-	}
-	if CollectionFoldersMutex.TryLock() {
-		defer CollectionFoldersMutex.Unlock()
-		return fmt.Errorf("please Lock CollectionFoldersMutex before calling unsafeDelete")
-	}
-	if FileCacheLock.TryLock() {
-		defer FileCacheLock.Unlock()
-		return fmt.Errorf("please Read-Lock FileCacheLock before calling unsafeDelete")
-	}
-	if CollectionCacheLock.TryLock() {
-		defer CollectionCacheLock.Unlock()
-		return fmt.Errorf("please Lock CollectionCacheLock before calling unsafeDelete")
-	}
+	guaranteeLocks(&UserCollectionsMutex, &CollectionFilesMutex, &CollectionFoldersMutex, &FileCacheLock, &CollectionCacheLock)
 	db := GetDB()
 
 	// Capture direct parents before removing edges so we can update their
@@ -98,26 +79,7 @@ func (collection Collection) Delete() error {
 }
 
 func unsafeDeleteFile(file FileData, collectionPulser func(collection Collection)) error {
-	if UserFilesMutex.TryLock() {
-		defer UserFilesMutex.Unlock()
-		return fmt.Errorf("please Read-Lock UserFilesMutex before calling unsafeDeleteFile")
-	}
-	if CollectionFilesMutex.TryLock() {
-		defer CollectionFilesMutex.Unlock()
-		return fmt.Errorf("please Read-Lock CollectionFilesMutex before calling unsafeDeleteFile")
-	}
-	if CollectionFoldersMutex.TryLock() {
-		defer CollectionFoldersMutex.Unlock()
-		return fmt.Errorf("please Read-Lock CollectionFoldersMutex before calling unsafeDeleteFile")
-	}
-	if FileCacheLock.TryLock() {
-		defer FileCacheLock.Unlock()
-		return fmt.Errorf("please Lock FileCacheLock before calling unsafeDeleteFile")
-	}
-	if CollectionCacheLock.TryLock() {
-		defer CollectionCacheLock.Unlock()
-		return fmt.Errorf("please Lock CollectionCacheLock before calling unsafeDeleteFile")
-	}
+	guaranteeLocks(&UserFilesMutex, &CollectionFilesMutex, &CollectionFoldersMutex, &FileCacheLock, &CollectionCacheLock)
 	db := GetDB()
 	result := db.Delete(&FileData{}, file)
 	if result.Error != nil {
