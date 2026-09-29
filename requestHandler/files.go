@@ -4,11 +4,33 @@ import (
 	"angadrive/accounts"
 	"angadrive/database"
 	"angadrive/globals"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 	"time"
 )
+
+func GetUserFiles(req AuthInfo) ([]database.FileData, error) {
+
+	if req.Token == "" && (req.Email == "" || req.Password == "") {
+		return nil, errors.New("missing authentication credentials")
+	}
+
+	if req.Token == "" {
+		if !accounts.Authenticate(req.Email, req.Password) {
+			return nil, errors.New("invalid email or password")
+		}
+		userInfo, _ := database.FindUserByEmail(req.Email)
+		req.Token = userInfo.Token
+	}
+	files, err := database.GetUserFiles(req.Token)
+	if err != nil {
+		return nil, errors.New("failed to retrieve files")
+	}
+	return files, nil
+
+}
 
 func getExtension(filename string) string {
 	for i := len(filename) - 1; i >= 0; i-- {
@@ -149,4 +171,86 @@ func deleteFileInternal(fileToDelete database.FileData) error {
 	}
 	go RemoveFileIfNoClonesExist(fileToDelete)
 	return nil
+}
+
+func DuplicateFile(req DuplicateFileRequest) (database.FileData, error) {
+	token, err := req.Auth.GetToken()
+	if err != nil {
+		return database.FileData{}, err
+	}
+
+	original, err := database.GetFile(req.FileDirectory)
+	if err != nil {
+		return database.FileData{}, fmt.Errorf("file not found")
+	}
+	if original.AccountToken != token {
+		return database.FileData{}, fmt.Errorf("unauthorized duplicate attempt")
+	}
+
+	duplicate := database.FileData{
+		OriginalFileName: "Copy of " + original.OriginalFileName,
+		FileDirectory:    database.GenerateUniqueFileName("Copy of " + original.OriginalFileName),
+		AccountToken:     original.AccountToken,
+		FileSize:         original.FileSize,
+		Timestamp:        time.Now().Unix(),
+		Sha256sum:        original.Sha256sum,
+	}
+	if err := duplicate.Insert(); err != nil {
+		return database.FileData{}, fmt.Errorf("failed to duplicate file: %v", err)
+	}
+	return duplicate, nil
+}
+
+func BulkDuplicateFile(req BulkDuplicateRequest) (BulkDuplicateResponse, error) {
+	if req.Auth.Token == "" {
+		if !accounts.Authenticate(req.Auth.Email, req.Auth.Password) {
+			now := time.Now()
+			timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
+			fmt.Printf("[%s] Authentication failed for bulk_file_duplicate request\n", timestamp)
+			return BulkDuplicateResponse{}, fmt.Errorf("authentication failed")
+		}
+		user, _ := database.FindUserByEmail(req.Auth.Email)
+		req.Auth.Token = user.Token
+	}
+
+	duplicated := []string{}
+	errors := []FileDeleteError{}
+	for _, fileDirectory := range req.FileDirectories {
+		original, err := database.GetFile(fileDirectory)
+		if err != nil {
+			now := time.Now()
+			timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
+			fmt.Printf("[%s] Error fetching file %s: %v\n", timestamp, fileDirectory, err)
+			errors = append(errors, FileDeleteError{FileDirectory: fileDirectory, Error: "file not found"})
+			continue
+		}
+		if original.AccountToken != req.Auth.Token {
+			now := time.Now()
+			timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
+			fmt.Printf("[%s] Unauthorized duplicate attempt by %s on file %s\n", timestamp, req.Auth.Email, fileDirectory)
+			errors = append(errors, FileDeleteError{FileDirectory: fileDirectory, Error: "unauthorized duplicate attempt"})
+			continue
+		}
+
+		duplicate := database.FileData{
+			OriginalFileName: "Copy of " + original.OriginalFileName,
+			FileDirectory:    database.GenerateUniqueFileName("Copy of " + original.OriginalFileName),
+			AccountToken:     original.AccountToken,
+			FileSize:         original.FileSize,
+			Timestamp:        time.Now().Unix(),
+			Sha256sum:        original.Sha256sum,
+		}
+		if err := duplicate.Insert(); err != nil {
+			errors = append(errors, FileDeleteError{FileDirectory: fileDirectory, Error: fmt.Sprintf("failed to duplicate file: %v", err)})
+			continue
+		}
+		duplicated = append(duplicated, fileDirectory)
+		go UserFilesPulse(FileUpdate{Toggle: true, File: duplicate})
+	}
+
+	if len(duplicated) > 0 {
+		go UpdateUserCount()
+	}
+
+	return BulkDuplicateResponse{Duplicated: duplicated, Errors: errors}, nil
 }

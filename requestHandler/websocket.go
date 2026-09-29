@@ -1,3 +1,7 @@
+// Package requestHandler implements the AngaDrive websocket request layer: it
+// upgrades and tracks connections, dispatches incoming messages to operations in
+// accounts/database/runners, and pushes realtime "pulse" updates back to
+// interested connections. HTTP endpoints live in package endpoints.
 package requestHandler
 
 import (

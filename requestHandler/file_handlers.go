@@ -29,27 +29,6 @@ func handleGetUserFiles(conn *websocket.Conn, data json.RawMessage) {
 	sendJSON(conn, globals.OutgoingResponse{Type: "get_user_files_response", Data: files})
 }
 
-func handleGetUserCollections(conn *websocket.Conn, data json.RawMessage) {
-	var req AuthInfo
-	if err := json.Unmarshal(data, &req); err != nil {
-		sendJSON(conn, globals.OutgoingResponse{
-			Type: "get_user_collections_response",
-			Data: map[string]interface{}{"error": "invalid request data"},
-		})
-		return
-	}
-	collections, err := GetUserCollections(req)
-	if err != nil {
-		sendJSON(conn, globals.OutgoingResponse{
-			Type: "get_user_collections_response",
-			Data: map[string]interface{}{"error": err.Error()},
-		})
-		return
-	}
-	updateConnAuth(conn, req)
-	sendJSON(conn, globals.OutgoingResponse{Type: "get_user_collections_response", Data: collections})
-}
-
 func handleDeleteFile(conn *websocket.Conn, data json.RawMessage) {
 	var req DeleteFileRequest
 	if err := json.Unmarshal(data, &req); err != nil {
