@@ -138,7 +138,7 @@ const FilePreview: Component<{ file: FileData }> = (props) => {
         }
 
         if (isVideo) {
-            return <PreviewImage src={assetsUrl(`/preview-video/${props.file.file_directory}.gif`)} />;
+            return <PreviewImage src={assetsUrl(`/preview-video/${props.file.file_directory}.webp`)} />;
         }
         if (isAudio && props.file.file_size <= PREVIEW_SIZE_LIMIT) {
             return <audio src={assetsUrl(`/i/${props.file.file_directory}`)} controls class="w-full" />;

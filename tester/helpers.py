@@ -206,7 +206,7 @@ async def fetch_preview_status(file_directory):
     """
     import aiohttp
     async with aiohttp.ClientSession() as session:
-        async with session.get(f"{config.HTTP_URL}/preview-video/{file_directory}.gif") as resp:
+        async with session.get(f"{config.HTTP_URL}/preview-video/{file_directory}.webp") as resp:
             return resp.status
 
 
@@ -214,11 +214,11 @@ async def fetch_preview(file_directory):
     """Request a video preview and return ``(status, body_bytes)``.
 
     Unlike :func:`fetch_preview_status`, this also returns the response body so
-    tests can inspect the served content (e.g. verify GIF magic bytes).
+    tests can inspect the served content (e.g. verify WebP magic bytes).
     """
     import aiohttp
     async with aiohttp.ClientSession() as session:
-        async with session.get(f"{config.HTTP_URL}/preview-video/{file_directory}.gif") as resp:
+        async with session.get(f"{config.HTTP_URL}/preview-video/{file_directory}.webp") as resp:
             body = await resp.read()
             return resp.status, body
 
