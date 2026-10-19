@@ -789,7 +789,7 @@ async def test_convert_image_to_jpg():
 
 
 async def test_video_preview_generation():
-    """Upload a video and verify its GIF preview is generated within 1 minute.
+    """Upload a video and verify its WebP preview is generated within 1 minute.
 
     Sequence:
       1. Generate a small MP4 with ffmpeg.
@@ -847,14 +847,15 @@ async def test_video_preview_generation():
 
 
 async def test_corrupted_video_preview_marker():
-    """Verify a corrupted video gets an empty GIF marker (not retried forever).
+    """Verify a corrupted video is marked unpreviewable and reported as such.
 
     Sequence:
       1. Upload a file with a .mp4 extension but invalid (non-video) content.
       2. Request the preview (expect 425 the first time).
-      3. The runner should fail to generate a real preview and instead write an
-         empty GIF marker, so subsequent requests return 200 (the marker is
-         served) and the runner never retries the corrupted file.
+      3. The runner should fail to generate a real preview and write an
+         "unpreviewable" marker, so subsequent requests return 415 (Unsupported
+         Media Type) instead of a blank image, and the runner never retries the
+         corrupted file.
     """
     print("\n[test] corrupted video preview marker")
     email, password = await register_and_login()
@@ -871,21 +872,27 @@ async def test_corrupted_video_preview_marker():
     first_status = await fetch_preview_status(file_dir)
     check("first corrupted preview request returns 425", first_status == 425, f"(got {first_status})")
 
-    # The runner should fail and write an empty GIF marker, so the endpoint
-    # eventually serves it (200) instead of retrying forever.
+    # The runner should fail and write the marker, so the endpoint eventually
+    # reports the preview as unavailable (415) instead of retrying forever.
     marker_ok = False
     try:
         async with asyncio.timeout(60):
             while True:
                 status = await fetch_preview_status(file_dir)
-                if status == 200:
+                if status == 415:
                     marker_ok = True
                     break
                 await asyncio.sleep(1)
     except asyncio.TimeoutError:
         marker_ok = False
 
-    check("corrupted video gets a preview marker (200)", marker_ok)
+    check("corrupted video is reported as unpreviewable (415)", marker_ok)
+
+    # The marker must be stable: a second request must not re-enqueue a job or
+    # flip back to 425.
+    second_status = await fetch_preview_status(file_dir)
+    check("corrupted video stays unpreviewable (415)", second_status == 415,
+          f"(got {second_status})")
 
 
 async def _upload_generated_video(email, password, filename="preview.mp4",
@@ -933,16 +940,16 @@ async def _wait_for_preview(file_dir, timeout=60):
         return False, None
 
 
-async def test_preview_serves_valid_gif():
-    """Verify a generated preview is a valid GIF with the expected magic bytes.
+async def test_preview_serves_valid_webp():
+    """Verify a generated preview is a valid WebP with the expected magic bytes.
 
     Sequence:
       1. Upload a generated video.
       2. Wait for the preview to be generated (200).
-      3. Assert the served body starts with the GIF89a magic bytes and is
+      3. Assert the served body starts with the RIFF/WEBP magic bytes and is
          non-trivial in size (a real preview, not the empty marker).
     """
-    print("\n[test] preview serves valid gif")
+    print("\n[test] preview serves valid webp")
     email, password = await register_and_login()
 
     file_dir = await _upload_generated_video(email, password)
@@ -956,10 +963,11 @@ async def test_preview_serves_valid_gif():
         return
 
     check("preview body is non-empty", len(body) > 0)
-    check("preview starts with GIF89a magic", body[:6] == b"GIF89a",
-          f"(got {body[:6]!r})")
-    # A real preview should be larger than the 33-byte empty marker.
-    check("preview is a real gif (not empty marker)", len(body) > 33,
+    check("preview starts with RIFF/WEBP magic",
+          body[:4] == b"RIFF" and body[8:12] == b"WEBP",
+          f"(got {body[:12]!r})")
+    # A real preview should be larger than the 34-byte empty marker.
+    check("preview is a real webp (not empty marker)", len(body) > 100,
           f"(got {len(body)} bytes)")
 
 
@@ -1001,7 +1009,7 @@ async def test_preview_dedup_no_duplicate_jobs():
     ok, body = await _wait_for_preview(file_dir)
     check("preview still generated after dedup requests", ok)
     if ok:
-        check("dedup preview is a real gif", len(body) > 33, f"(got {len(body)} bytes)")
+        check("dedup preview is a real webp", len(body) > 100, f"(got {len(body)} bytes)")
 
 
 async def test_preview_serves_cached_after_generation():
