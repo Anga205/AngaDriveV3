@@ -57,13 +57,11 @@ func RemoveFileIfNoClonesExist(fileToDelete database.FileData) {
 			}
 		}
 		// If the deleted file is a video and no other file shares its
-		// sha256sum, remove its generated WebP preview (or its "unpreviewable"
-		// marker) too.
+		// sha256sum, remove its generated GIF preview too.
 		videoExtensions := []string{"mp4", "mkv", "avi", "mov", "wmv", "flv", "webm"}
 		for _, vidExt := range videoExtensions {
 			if ext == vidExt {
-				os.Remove(globals.UPLOAD_DIR + string(os.PathSeparator) + "video_previews" + string(os.PathSeparator) + fileToDelete.Sha256sum + ".webp")
-				os.Remove(globals.UPLOAD_DIR + string(os.PathSeparator) + "video_previews" + string(os.PathSeparator) + fileToDelete.Sha256sum + ".invalid")
+				os.Remove(globals.UPLOAD_DIR + string(os.PathSeparator) + "video_previews" + string(os.PathSeparator) + fileToDelete.Sha256sum + ".gif")
 				break
 			}
 		}

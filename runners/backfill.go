@@ -24,20 +24,10 @@ func isVideoFile(filename string) bool {
 	return false
 }
 
-// previewExists reports whether a usable preview already exists for the given
-// source sha256. A file smaller than MinValidPreviewBytes is a legacy blank
-// placeholder (written by older versions for unpreviewable videos), so it is
-// treated as missing and regenerated once — which then writes a proper marker.
+// previewExists reports whether a preview (or an empty "cannot preview" marker)
+// already exists for the given source sha256.
 func previewExists(sha256sum string) bool {
-	path := filepath.Join(globals.UPLOAD_DIR, "video_previews", sha256sum+".webp")
-	info, err := os.Stat(path)
-	return err == nil && info.Size() >= MinValidPreviewBytes
-}
-
-// previewUnavailable reports whether the given source sha256 has been marked as
-// unpreviewable (e.g. a corrupted or non-video file).
-func previewUnavailable(sha256sum string) bool {
-	path := filepath.Join(globals.UPLOAD_DIR, "video_previews", sha256sum+InvalidMarkerSuffix)
+	path := filepath.Join(globals.UPLOAD_DIR, "video_previews", sha256sum+".gif")
 	_, err := os.Stat(path)
 	return err == nil
 }
@@ -86,7 +76,7 @@ func findNextVideoWithoutPreview() (VideoPreviewJob, bool) {
 		if !isVideoFile(file.OriginalFileName) {
 			continue
 		}
-		if previewExists(file.Sha256sum) || previewUnavailable(file.Sha256sum) {
+		if previewExists(file.Sha256sum) {
 			continue
 		}
 		return VideoPreviewJob{File: file}, true
