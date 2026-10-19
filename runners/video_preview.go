@@ -4,7 +4,10 @@ import (
 	"angadrive/database"
 	"angadrive/globals"
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -25,6 +28,20 @@ const (
 	// videoPreviewMaxDim is the maximum width/height (pixels) of a generated
 	// WebP preview. The aspect ratio of the source is preserved.
 	videoPreviewMaxDim = 350
+	// videoProbeTimeout bounds ffprobe. A malformed file must never hold a
+	// worker slot (and therefore the whole backfill loop) indefinitely.
+	videoProbeTimeout = 30 * time.Second
+	// videoEncodeTimeout bounds ffmpeg for the same reason.
+	videoEncodeTimeout = 5 * time.Minute
+	// InvalidMarkerSuffix is appended to the source sha256 to record that a
+	// video cannot be previewed. It is a sidecar file (not a placeholder image)
+	// so the endpoint can report the file as unavailable instead of serving a
+	// blank image the UI would happily display.
+	InvalidMarkerSuffix = ".invalid"
+	// MinValidPreviewBytes is the smallest output accepted as a real preview.
+	// ffmpeg can exit 0 while writing an empty file for a container with no
+	// decodable frames.
+	MinValidPreviewBytes = 100
 )
 
 // VideoPreviewJob is a request to generate a WebP preview of a video file.
@@ -66,36 +83,29 @@ func (r *VideoPreviewRunner) Run(job Job) error {
 // video_previews directory as <sha256>.webp.
 //
 // If the source video is corrupted or not actually a video, generation will
-// fail. In that case an empty WebP is written to the output path so the file is
-// marked as "cannot be previewed" and the runner will not attempt to generate
-// it again (the preview endpoint sees the file exists and serves it).
+// fail. In that case an "invalid" marker is written next to the preview path so
+// the file is marked as "cannot be previewed": the backfill loop stops picking
+// it up and the preview endpoint reports it as unavailable instead of serving a
+// blank image.
 func (r *VideoPreviewRunner) generatePreview(inputFile database.FileData) error {
 	inputFilePath := filepath.Join(globals.UPLOAD_DIR, "i", inputFile.Sha256sum)
 	previewsDir := filepath.Join(globals.UPLOAD_DIR, "video_previews")
 	outputFilePath := filepath.Join(previewsDir, inputFile.Sha256sum+".webp")
 
 	if _, err := os.Stat(inputFilePath); os.IsNotExist(err) {
-		r.notifier.NotifyUser(inputFile.AccountToken, map[string]interface{}{
-			"type": "error",
-			"data": map[string]interface{}{
-				"error": "input file not found: " + inputFile.OriginalFileName,
-			},
-		})
+		r.notifyError(inputFile, "input file not found: "+inputFile.OriginalFileName)
 		return fmt.Errorf("input file not found: %s", inputFile.OriginalFileName)
 	}
 
 	duration, err := getVideoDuration(inputFilePath)
 	if err != nil {
-		// Corrupted or non-video file: mark it with an empty WebP so we never
-		// try again, and notify the owner.
-		r.writeEmptyWebP(outputFilePath)
-		r.notifier.NotifyUser(inputFile.AccountToken, map[string]interface{}{
-			"type": "error",
-			"data": map[string]interface{}{
-				"error": "failed to read video duration: " + err.Error(),
-			},
-		})
-		return err
+		return r.markInvalid(inputFile, previewsDir, "failed to read video duration: "+err.Error())
+	}
+	// A container that parses but reports no usable duration cannot be
+	// previewed; treat it as invalid rather than handing it to ffmpeg.
+	if math.IsNaN(duration) || math.IsInf(duration, 0) || duration <= 0 {
+		return r.markInvalid(inputFile, previewsDir,
+			fmt.Sprintf("video has no usable duration (%v)", duration))
 	}
 
 	// If the source is longer than the max preview length, speed it up so the
@@ -116,16 +126,19 @@ func (r *VideoPreviewRunner) generatePreview(inputFile database.FileData) error 
 	defer os.Remove(tempPath)
 
 	if err := generateWebP(inputFilePath, tempPath, speed); err != nil {
-		// Generation failed (corrupted/unsupported source). Mark it with an
-		// empty WebP so we never try again, and notify the owner.
-		r.writeEmptyWebP(outputFilePath)
-		r.notifier.NotifyUser(inputFile.AccountToken, map[string]interface{}{
-			"type": "error",
-			"data": map[string]interface{}{
-				"error": "failed to generate video preview: " + err.Error(),
-			},
-		})
-		return err
+		return r.markInvalid(inputFile, previewsDir, "failed to generate video preview: "+err.Error())
+	}
+
+	// ffmpeg can exit successfully while producing an empty or truncated file
+	// (e.g. a container with no decodable frames). Never cache that as a valid
+	// preview.
+	info, err := os.Stat(tempPath)
+	if err != nil {
+		return r.markInvalid(inputFile, previewsDir, "failed to stat generated preview: "+err.Error())
+	}
+	if info.Size() < MinValidPreviewBytes {
+		return r.markInvalid(inputFile, previewsDir,
+			fmt.Sprintf("generated preview is too small (%d bytes)", info.Size()))
 	}
 
 	if err := os.Rename(tempPath, outputFilePath); err != nil {
@@ -134,28 +147,60 @@ func (r *VideoPreviewRunner) generatePreview(inputFile database.FileData) error 
 	return nil
 }
 
-// writeEmptyWebP writes a minimal valid 2x2 transparent WebP to the given path.
-// It is used to mark a video whose preview could not be generated (e.g. a
-// corrupted or non-video file), so the backfill loop and preview endpoint stop
-// trying to generate a preview for it.
-func (r *VideoPreviewRunner) writeEmptyWebP(path string) {
-	// A minimal 2x2 transparent lossless WebP.
-	emptyWebP := []byte{
-		0x52, 0x49, 0x46, 0x46, 0x1a, 0x00, 0x00, 0x00, // "RIFF" + size
-		0x57, 0x45, 0x42, 0x50, 0x56, 0x50, 0x38, 0x4c, // "WEBP" + "VP8L"
-		0x0d, 0x00, 0x00, 0x00, 0x2f, 0x01, 0x40, 0x00,
-		0x10, 0x07, 0x10, 0x11, 0x11, 0x88, 0x88, 0xfe,
-		0x07, 0x00,
+// markInvalid records that a video cannot be previewed and notifies its owner.
+// It returns an error so the caller can propagate the failure, but the marker
+// itself is what prevents the file from being retried forever.
+func (r *VideoPreviewRunner) markInvalid(inputFile database.FileData, previewsDir, reason string) error {
+	if err := writeInvalidMarker(previewsDir, inputFile.Sha256sum); err != nil {
+		// Without a marker the backfill loop would pick this file up again
+		// immediately, so surface the failure loudly.
+		r.notifyError(inputFile, "failed to record unpreviewable video: "+err.Error())
+		return fmt.Errorf("%s (and failed to write invalid marker: %w)", reason, err)
 	}
-	if err := os.MkdirAll(filepath.Dir(path), os.ModePerm); err != nil {
-		return
+	r.notifyError(inputFile, reason)
+	return errors.New(reason)
+}
+
+// notifyError sends an error message to the file's owner.
+func (r *VideoPreviewRunner) notifyError(inputFile database.FileData, message string) {
+	r.notifier.NotifyUser(inputFile.AccountToken, map[string]interface{}{
+		"type": "error",
+		"data": map[string]interface{}{
+			"error": message,
+		},
+	})
+}
+
+// invalidMarkerPath returns the path of the sidecar marker that records a
+// video as unpreviewable.
+func invalidMarkerPath(previewsDir, sha256sum string) string {
+	return filepath.Join(previewsDir, sha256sum+InvalidMarkerSuffix)
+}
+
+// writeInvalidMarker atomically writes the sidecar marker for a video whose
+// preview could not be generated.
+func writeInvalidMarker(previewsDir, sha256sum string) error {
+	if err := os.MkdirAll(previewsDir, os.ModePerm); err != nil {
+		return err
 	}
-	_ = os.WriteFile(path, emptyWebP, 0o644)
+	markerPath := invalidMarkerPath(previewsDir, sha256sum)
+	tempPath := filepath.Join(previewsDir, fmt.Sprintf(".invalid-%d.tmp", time.Now().UnixNano()))
+	if err := os.WriteFile(tempPath, []byte("unpreviewable\n"), 0o644); err != nil {
+		return err
+	}
+	if err := os.Rename(tempPath, markerPath); err != nil {
+		os.Remove(tempPath)
+		return err
+	}
+	return nil
 }
 
 // getVideoDuration returns the duration (seconds) of a video using ffprobe.
 func getVideoDuration(inputPath string) (float64, error) {
-	cmd := exec.Command("ffprobe",
+	ctx, cancel := context.WithTimeout(context.Background(), videoProbeTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "ffprobe",
 		"-v", "error",
 		"-show_entries", "format=duration",
 		"-of", "default=noprint_wrappers=1:nokey=1",
@@ -164,6 +209,9 @@ func getVideoDuration(inputPath string) (float64, error) {
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	if err := cmd.Run(); err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return 0, fmt.Errorf("ffprobe timed out after %s", videoProbeTimeout)
+		}
 		return 0, err
 	}
 	duration, err := strconv.ParseFloat(strings.TrimSpace(out.String()), 64)
@@ -188,7 +236,10 @@ func generateWebP(inputPath, outputPath string, speed float64) error {
 	)
 	maxDuration := strconv.FormatFloat(videoPreviewMaxDuration, 'f', -1, 64)
 
-	cmd := exec.Command("ffmpeg", "-y", "-v", "error",
+	ctx, cancel := context.WithTimeout(context.Background(), videoEncodeTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "ffmpeg", "-y", "-v", "error",
 		"-i", inputPath,
 		"-vf", filter,
 		"-t", maxDuration,
@@ -203,6 +254,9 @@ func generateWebP(inputPath, outputPath string, speed float64) error {
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return fmt.Errorf("webp generation timed out after %s", videoEncodeTimeout)
+		}
 		return fmt.Errorf("webp generation failed: %v: %s", err, stderr.String())
 	}
 	return nil

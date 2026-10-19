@@ -847,14 +847,15 @@ async def test_video_preview_generation():
 
 
 async def test_corrupted_video_preview_marker():
-    """Verify a corrupted video gets an empty WebP marker (not retried forever).
+    """Verify a corrupted video is marked unpreviewable and reported as such.
 
     Sequence:
       1. Upload a file with a .mp4 extension but invalid (non-video) content.
       2. Request the preview (expect 425 the first time).
-      3. The runner should fail to generate a real preview and instead write an
-         empty WebP marker, so subsequent requests return 200 (the marker is
-         served) and the runner never retries the corrupted file.
+      3. The runner should fail to generate a real preview and write an
+         "unpreviewable" marker, so subsequent requests return 415 (Unsupported
+         Media Type) instead of a blank image, and the runner never retries the
+         corrupted file.
     """
     print("\n[test] corrupted video preview marker")
     email, password = await register_and_login()
@@ -871,21 +872,27 @@ async def test_corrupted_video_preview_marker():
     first_status = await fetch_preview_status(file_dir)
     check("first corrupted preview request returns 425", first_status == 425, f"(got {first_status})")
 
-    # The runner should fail and write an empty WebP marker, so the endpoint
-    # eventually serves it (200) instead of retrying forever.
+    # The runner should fail and write the marker, so the endpoint eventually
+    # reports the preview as unavailable (415) instead of retrying forever.
     marker_ok = False
     try:
         async with asyncio.timeout(60):
             while True:
                 status = await fetch_preview_status(file_dir)
-                if status == 200:
+                if status == 415:
                     marker_ok = True
                     break
                 await asyncio.sleep(1)
     except asyncio.TimeoutError:
         marker_ok = False
 
-    check("corrupted video gets a preview marker (200)", marker_ok)
+    check("corrupted video is reported as unpreviewable (415)", marker_ok)
+
+    # The marker must be stable: a second request must not re-enqueue a job or
+    # flip back to 425.
+    second_status = await fetch_preview_status(file_dir)
+    check("corrupted video stays unpreviewable (415)", second_status == 415,
+          f"(got {second_status})")
 
 
 async def _upload_generated_video(email, password, filename="preview.mp4",
