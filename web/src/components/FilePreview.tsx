@@ -31,6 +31,66 @@ const PreviewImage: Component<{ src: string }> = (props) => {
     );
 };
 
+// Video previews are generated asynchronously, so the endpoint answers 425
+// (Too Early) until the WebP exists and 415 (Unsupported Media Type) when the
+// source turned out to be corrupted or not a video. An <img> tag cannot see
+// those statuses (it only fires onError), so fetch the preview explicitly and
+// retry while it is being generated.
+const VIDEO_PREVIEW_RETRY_MS = 2000;
+const VIDEO_PREVIEW_MAX_ATTEMPTS = 30;
+
+const VideoPreview: Component<{ src: string }> = (props) => {
+    const [objectUrl, setObjectUrl] = createSignal<string>();
+    const [unavailable, setUnavailable] = createSignal(false);
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const load = async (attempt: number) => {
+        try {
+            const resp = await fetch(props.src);
+            if (cancelled) return;
+
+            if (resp.status === 425 && attempt < VIDEO_PREVIEW_MAX_ATTEMPTS) {
+                timer = setTimeout(() => load(attempt + 1), VIDEO_PREVIEW_RETRY_MS);
+                return;
+            }
+            if (!resp.ok) {
+                setUnavailable(true);
+                return;
+            }
+
+            const blob = await resp.blob();
+            if (cancelled) return;
+            setObjectUrl(URL.createObjectURL(blob));
+        } catch {
+            if (!cancelled) setUnavailable(true);
+        }
+    };
+
+    load(0);
+
+    onCleanup(() => {
+        cancelled = true;
+        if (timer) clearTimeout(timer);
+        const url = objectUrl();
+        if (url) URL.revokeObjectURL(url);
+    });
+
+    return (
+        <Show when={!unavailable()} fallback={<FileTextSVG class="max-h-full p-4 opacity-50" />}>
+            <Show when={objectUrl()} fallback={<FileTextSVG class="max-h-full p-4 opacity-50" />}>
+                {(url) => (
+                    <img
+                        src={url()}
+                        class="max-h-full max-w-full p-2"
+                        onError={() => setUnavailable(true)}
+                    />
+                )}
+            </Show>
+        </Show>
+    );
+};
+
 const FilePreview: Component<{ file: FileData }> = (props) => {
     const ctx = useContext(AppContext)!;
     const [isVisible, setIsVisible] = createSignal<boolean>(ctx.loadedFiles?.()?.has(props.file.file_directory) || false);
@@ -138,7 +198,7 @@ const FilePreview: Component<{ file: FileData }> = (props) => {
         }
 
         if (isVideo) {
-            return <PreviewImage src={assetsUrl(`/preview-video/${props.file.file_directory}.webp`)} />;
+            return <VideoPreview src={assetsUrl(`/preview-video/${props.file.file_directory}.webp`)} />;
         }
         if (isAudio && props.file.file_size <= PREVIEW_SIZE_LIMIT) {
             return <audio src={assetsUrl(`/i/${props.file.file_directory}`)} controls class="w-full" />;
