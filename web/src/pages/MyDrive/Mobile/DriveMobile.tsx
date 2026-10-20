@@ -131,9 +131,8 @@ const MobileDrive: Component<{Files: Accessor<Array<FileData>>; sortOptions: Sel
     onCleanup(() => mobileObserver?.disconnect());
 
     return (
-        <div class="flex flex-col w-full max-h-screen h-screen bg-black">
+        <div class="flex flex-col w-full max-h-dvh h-dvh bg-black pb-16">
             <Navbar CurrentPage="Files" Type="mobile"/>
-            <div class="h-[6vh]"/>
             <p class="text-white font-black text-[4vh] px-3">My&nbsp;Files</p>
             <div class="flex flex-col justify-between items-center gap-3 px-3">
                 <Show when={props.Files().length >= 2}>

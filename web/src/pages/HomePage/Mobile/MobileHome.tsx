@@ -17,9 +17,8 @@ const MobileHome: Component<{ ramdata: RAMData; cpudata: CPUData; siteActivity: 
                     <Butterfly/>
                 </div>
             </div>
-            <div class="absolute top-0 left-0 w-full space-y-[1vh]">
-                <Navbar CurrentPage="Home" Type="mobile"/>
-                <div class="h-[5vh]"/>
+            <Navbar CurrentPage="Home" Type="mobile"/>
+            <div class="absolute top-0 left-0 w-full space-y-[1vh] pb-16">
                 <MobileHeader />
                 <MobileButtons />
                 <div class="w-full px-[1.5vh]">

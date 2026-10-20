@@ -29,9 +29,8 @@ const CollectionPageMobile: Component = () => {
     const hasFiles = () => (ctx.knownCollections()[collectionId()]?.files?.length || 0) > 0;
 
     return (
-        <div class="flex flex-col w-full max-h-screen h-screen bg-black">
+        <div class="flex flex-col w-full max-h-dvh h-dvh bg-black pb-16">
             <Navbar CurrentPage="Collections" Type="mobile"/>
-            <div class="h-[6vh]"/>
             <div class="px-3 space-y-2">
                 <CollectionNavigator />
                 <p class="text-white font-black text-[4vh]">{ctx.knownCollections()[collectionId()]?.name || "Unknown Collection"}</p>
