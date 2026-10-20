@@ -30,6 +30,7 @@ const ContactMe: Component = () => {
             const formDataWithTimeStamp = {
                 contact: email(),
                 message: message(),
+                app: "angadrive",
                 time: new Date().toLocaleString('en-IN', {
                     day: 'numeric',
                     month: 'short',
