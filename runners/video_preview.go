@@ -15,22 +15,26 @@ import (
 
 const (
 	// videoPreviewMaxDuration is the maximum length (seconds) of a generated
-	// GIF preview. Longer source videos are sped up so the preview is exactly
+	// WebP preview. Longer source videos are sped up so the preview is exactly
 	// this long (never more).
 	videoPreviewMaxDuration = 15.0
-	// videoPreviewFPS is the frame rate of generated GIF previews. Lower frame
-	// rates dramatically reduce GIF file size (fewer frames to encode); 12fps
-	// is a good balance between smoothness and size for a thumbnail preview.
+	// videoPreviewFPS is the frame rate of generated WebP previews. Lower frame
+	// rates reduce file size (fewer frames to encode); 24fps is a good balance
+	// between smoothness and size for a thumbnail preview.
 	videoPreviewFPS = 24
-	// videoPreviewMaxColors is the maximum number of colors in the GIF palette.
-	// Fewer colors reduce file size; 128 is a good balance for preview quality.
-	videoPreviewMaxColors = 128
 	// videoPreviewMaxDim is the maximum width/height (pixels) of a generated
-	// GIF preview. The aspect ratio of the source is preserved.
+	// WebP preview. The aspect ratio of the source is preserved.
 	videoPreviewMaxDim = 350
+	// videoPreviewQuality is the libwebp_anim quality (0-100). WebP is not
+	// limited to a 256-colour palette, so a high quality still produces a much
+	// smaller file than the equivalent GIF.
+	videoPreviewQuality = 80
+	// videoPreviewCompressionLevel is the libwebp_anim encoder effort (0-6).
+	// Higher values spend more CPU for a smaller output.
+	videoPreviewCompressionLevel = 6
 )
 
-// VideoPreviewJob is a request to generate a GIF preview of a video file.
+// VideoPreviewJob is a request to generate a WebP preview of a video file.
 type VideoPreviewJob struct {
 	File database.FileData
 }
@@ -42,7 +46,7 @@ func (j VideoPreviewJob) ID() string {
 	return j.File.Sha256sum
 }
 
-// VideoPreviewRunner generates GIF previews of video files using ffmpeg.
+// VideoPreviewRunner generates WebP previews of video files using ffmpeg.
 //
 // It is a concrete Runner built on the generic runners framework. Preview
 // generation is CPU-intensive, so it is queued and run with bounded
@@ -65,17 +69,17 @@ func (r *VideoPreviewRunner) Run(job Job) error {
 	return r.generatePreview(vj.File)
 }
 
-// generatePreview produces a GIF preview for a video file and writes it to the
-// video_previews directory as <sha256>.gif.
+// generatePreview produces a WebP preview for a video file and writes it to the
+// video_previews directory as <sha256>.webp.
 //
 // If the source video is corrupted or not actually a video, generation will
-// fail. In that case an empty GIF is written to the output path so the file is
+// fail. In that case an empty WebP is written to the output path so the file is
 // marked as "cannot be previewed" and the runner will not attempt to generate
 // it again (the preview endpoint sees the file exists and serves it).
 func (r *VideoPreviewRunner) generatePreview(inputFile database.FileData) error {
 	inputFilePath := filepath.Join(globals.UPLOAD_DIR, "i", inputFile.Sha256sum)
 	previewsDir := filepath.Join(globals.UPLOAD_DIR, "video_previews")
-	outputFilePath := filepath.Join(previewsDir, inputFile.Sha256sum+".gif")
+	outputFilePath := filepath.Join(previewsDir, inputFile.Sha256sum+".webp")
 
 	if _, err := os.Stat(inputFilePath); os.IsNotExist(err) {
 		r.notifier.NotifyUser(inputFile.AccountToken, map[string]interface{}{
@@ -89,9 +93,9 @@ func (r *VideoPreviewRunner) generatePreview(inputFile database.FileData) error 
 
 	duration, err := getVideoDuration(inputFilePath)
 	if err != nil {
-		// Corrupted or non-video file: mark it with an empty GIF so we never
+		// Corrupted or non-video file: mark it with an empty WebP so we never
 		// try again, and notify the owner.
-		r.writeEmptyGIF(outputFilePath)
+		r.writeEmptyWebP(outputFilePath)
 		r.notifier.NotifyUser(inputFile.AccountToken, map[string]interface{}{
 			"type": "error",
 			"data": map[string]interface{}{
@@ -102,7 +106,7 @@ func (r *VideoPreviewRunner) generatePreview(inputFile database.FileData) error 
 	}
 
 	// If the source is longer than the max preview length, speed it up so the
-	// gif is exactly the max length (never more).
+	// preview is exactly the max length (never more).
 	speed := 1.0
 	if duration > videoPreviewMaxDuration {
 		speed = duration / videoPreviewMaxDuration
@@ -113,15 +117,15 @@ func (r *VideoPreviewRunner) generatePreview(inputFile database.FileData) error 
 	}
 
 	// Write to a temp file so a partially-written preview is never served.
-	// The temp file keeps a .gif extension so ffmpeg can infer the output
-	// format (it cannot infer GIF from an extensionless filename).
-	tempPath := filepath.Join(previewsDir, fmt.Sprintf(".preview-%d.tmp.gif", time.Now().UnixNano()))
+	// The temp file keeps a .webp extension so ffmpeg can infer the output
+	// format (it cannot infer WebP from an extensionless filename).
+	tempPath := filepath.Join(previewsDir, fmt.Sprintf(".preview-%d.tmp.webp", time.Now().UnixNano()))
 	defer os.Remove(tempPath)
 
-	if err := generateGIF(inputFilePath, tempPath, speed); err != nil {
+	if err := generateWebP(inputFilePath, tempPath, speed); err != nil {
 		// Generation failed (corrupted/unsupported source). Mark it with an
-		// empty GIF so we never try again, and notify the owner.
-		r.writeEmptyGIF(outputFilePath)
+		// empty WebP so we never try again, and notify the owner.
+		r.writeEmptyWebP(outputFilePath)
 		r.notifier.NotifyUser(inputFile.AccountToken, map[string]interface{}{
 			"type": "error",
 			"data": map[string]interface{}{
@@ -137,25 +141,26 @@ func (r *VideoPreviewRunner) generatePreview(inputFile database.FileData) error 
 	return nil
 }
 
-// writeEmptyGIF writes a minimal valid 1x1 transparent GIF to the given path.
+// writeEmptyWebP writes a minimal valid 1x1 transparent WebP to the given path.
 // It is used to mark a video whose preview could not be generated (e.g. a
 // corrupted or non-video file), so the backfill loop and preview endpoint stop
 // trying to generate a preview for it.
-func (r *VideoPreviewRunner) writeEmptyGIF(path string) {
-	// A minimal 1x1 transparent GIF89a.
-	emptyGIF := []byte{
-		0x47, 0x49, 0x46, 0x38, 0x39, 0x61, // "GIF89a"
-		0x01, 0x00, 0x01, 0x00, // 1x1
-		0x80, 0x00, 0x00, // GCT flag, 1 color
-		0x00, 0x00, 0x00, 0x00, // transparent color
-		0x2c, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, // image descriptor
-		0x02, 0x02, 0x44, 0x01, 0x00, // image data
-		0x3b, // trailer
+func (r *VideoPreviewRunner) writeEmptyWebP(path string) {
+	// A minimal 1x1 transparent lossless WebP (34 bytes).
+	emptyWebP := []byte{
+		0x52, 0x49, 0x46, 0x46, // "RIFF"
+		0x1a, 0x00, 0x00, 0x00, // file size - 8
+		0x57, 0x45, 0x42, 0x50, // "WEBP"
+		0x56, 0x50, 0x38, 0x4c, // "VP8L"
+		0x0d, 0x00, 0x00, 0x00, // chunk size
+		0x2f, 0x00, 0x00, 0x00, // signature
+		0x10, 0x07, 0x10, 0x11, 0x11, 0x88, 0x88, 0xfe, 0x07, // image data
+		0x00, // padding
 	}
 	if err := os.MkdirAll(filepath.Dir(path), os.ModePerm); err != nil {
 		return
 	}
-	_ = os.WriteFile(path, emptyGIF, 0o644)
+	_ = os.WriteFile(path, emptyWebP, 0o644)
 }
 
 // getVideoDuration returns the duration (seconds) of a video using ffprobe.
@@ -178,44 +183,42 @@ func getVideoDuration(inputPath string) (float64, error) {
 	return duration, nil
 }
 
-// generateGIF produces a GIF from a video using a single-pass palette
-// approach. Both palette generation and mapping are done in one filter graph
-// via split, which avoids the timestamp/frame mismatches that can occur when
-// running palettegen and paletteuse as two separate ffmpeg passes. The
-// resulting GIF is robust across browsers (no "corrupt or truncated" errors).
+// generateWebP produces an animated WebP from a video using ffmpeg's
+// libwebp_anim encoder. Unlike GIF, WebP is not limited to a 256-colour
+// palette, so colours are far more accurate and the file compresses much
+// better.
 //
 // The filter scales to fit within 350x350 (preserving aspect ratio), runs at
 // 24fps, and speeds up the video by the given factor so the output is at most
 // 15 seconds.
 //
 // File size is minimized while preserving quality by:
-//   - Using a reduced 128-color palette (palettegen max_colors).
-//   - Using stats_mode=diff so the palette is built only from frames where
-//     pixels actually change, giving a more accurate color distribution.
-//   - Using ordered bayer dithering (bayer_scale=5). Unlike error-diffusion
-//     dithering, bayer produces a regular, periodic pattern that GIF's LZW
-//     compression encodes much more compactly, with minimal visual loss at
-//     preview size.
-func generateGIF(inputPath, outputPath string, speed float64) error {
+//   - Using -quality 80, which keeps high colour fidelity at a fraction of
+//     GIF's size.
+//   - Using -compression_level 6, the maximum encoder effort.
+//   - Looping forever (-loop 0), like a thumbnail should.
+func generateWebP(inputPath, outputPath string, speed float64) error {
 	filter := fmt.Sprintf(
-		"setpts=PTS/%v,fps=%d,scale=%d:%d:force_original_aspect_ratio=decrease:flags=lanczos,split[s0][s1];[s0]palettegen=stats_mode=diff:max_colors=%d[p];[s1][p]paletteuse=dither=bayer:bayer_scale=5",
-		speed, videoPreviewFPS, videoPreviewMaxDim, videoPreviewMaxDim, videoPreviewMaxColors,
+		"setpts=PTS/%v,fps=%d,scale=%d:%d:force_original_aspect_ratio=decrease:flags=lanczos",
+		speed, videoPreviewFPS, videoPreviewMaxDim, videoPreviewMaxDim,
 	)
 	maxDuration := strconv.FormatFloat(videoPreviewMaxDuration, 'f', -1, 64)
 
 	cmd := exec.Command("ffmpeg", "-y", "-v", "error",
 		"-i", inputPath,
-		"-filter_complex", filter,
+		"-vf", filter,
 		"-t", maxDuration,
+		"-c:v", "libwebp_anim",
+		"-quality", strconv.Itoa(videoPreviewQuality),
+		"-compression_level", strconv.Itoa(videoPreviewCompressionLevel),
 		"-loop", "0", // always loop for a thumbnail preview
-		"-gifflags", "+transdiff", // improve compression + compatibility
 		"-an", // discard any audio stream
 		outputPath,
 	)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("gif generation failed: %v: %s", err, stderr.String())
+		return fmt.Errorf("webp generation failed: %v: %s", err, stderr.String())
 	}
 	return nil
 }
