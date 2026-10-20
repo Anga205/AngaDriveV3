@@ -22,7 +22,7 @@ const MobileCollections = (props: { searchQuery: Accessor<string>; setSearch: (v
         return props.filterCollections ? props.filterCollections(sorted) : sorted;
     };
     return (
-        <div class="flex flex-col w-full max-h-dvh h-dvh bg-black pb-16">
+        <div class="flex flex-col w-full max-h-dvh h-dvh bg-black pt-4 pb-16">
             <Navbar CurrentPage="Collections" Type="mobile"/>
             <p class="text-white font-black text-[4vh] px-3">My&nbsp;Collections</p>
             <div class="flex flex-col gap-3 px-3">

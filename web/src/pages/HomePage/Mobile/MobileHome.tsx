@@ -18,7 +18,7 @@ const MobileHome: Component<{ ramdata: RAMData; cpudata: CPUData; siteActivity: 
                 </div>
             </div>
             <Navbar CurrentPage="Home" Type="mobile"/>
-            <div class="absolute top-0 left-0 w-full space-y-[1vh] pb-16">
+            <div class="absolute top-0 left-0 w-full space-y-[1vh] pt-4 pb-16">
                 <MobileHeader />
                 <MobileButtons />
                 <div class="w-full px-[1.5vh]">
