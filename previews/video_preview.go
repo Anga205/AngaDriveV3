@@ -12,11 +12,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// ReturnVideoPreview serves a GIF preview of a video file.
+// ReturnVideoPreview serves a WebP preview of a video file.
 //
 // The flow is:
 //  1. Look up the file in the database to get its sha256sum.
-//  2. Check the video_previews directory for a preview named <sha256>.gif.
+//  2. Check the video_previews directory for a preview named <sha256>.webp.
 //  3. If it exists, serve it.
 //  4. If it does not exist, return HTTP 425 (Too Early) indicating the preview
 //     is being generated, and enqueue a runner to generate it.
@@ -28,8 +28,8 @@ func ReturnVideoPreview(c *gin.Context) {
 	go requestHandler.SiteActivityPulse()
 
 	fileDirectory := c.Param("file_directory")
-	// The route is /preview-video/<file_directory>.gif; strip the extension.
-	fileDirectory = strings.TrimSuffix(fileDirectory, ".gif")
+	// The route is /preview-video/<file_directory>.webp; strip the extension.
+	fileDirectory = strings.TrimSuffix(fileDirectory, ".webp")
 
 	file, err := database.GetFile(fileDirectory)
 	if err != nil {
@@ -38,7 +38,7 @@ func ReturnVideoPreview(c *gin.Context) {
 	}
 
 	previewsDir := filepath.Join(globals.UPLOAD_DIR, "video_previews")
-	previewFile := filepath.Join(previewsDir, file.Sha256sum+".gif")
+	previewFile := filepath.Join(previewsDir, file.Sha256sum+".webp")
 
 	if _, err := os.Stat(previewFile); !os.IsNotExist(err) {
 		c.Header("Cache-Control", "private, max-age=900")

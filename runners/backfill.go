@@ -27,7 +27,7 @@ func isVideoFile(filename string) bool {
 // previewExists reports whether a preview (or an empty "cannot preview" marker)
 // already exists for the given source sha256.
 func previewExists(sha256sum string) bool {
-	path := filepath.Join(globals.UPLOAD_DIR, "video_previews", sha256sum+".gif")
+	path := filepath.Join(globals.UPLOAD_DIR, "video_previews", sha256sum+".webp")
 	_, err := os.Stat(path)
 	return err == nil
 }
