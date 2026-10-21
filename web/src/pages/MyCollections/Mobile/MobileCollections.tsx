@@ -1,5 +1,4 @@
 import { Accessor, For, useContext } from 'solid-js';
-import Navbar from '@/components/Navbar';
 import { AppContext } from '@/Context';
 import CollectionCard from '@/components/CollectionCard';
 import Popup from '../shared/components/Popup';
@@ -23,7 +22,6 @@ const MobileCollections = (props: { searchQuery: Accessor<string>; setSearch: (v
     };
     return (
         <div class="flex flex-col w-full max-h-dvh h-dvh bg-black pt-4 pb-16">
-            <Navbar CurrentPage="Collections" Type="mobile"/>
             <p class="text-white font-black text-[4vh] px-3">My&nbsp;Collections</p>
             <div class="flex flex-col gap-3 px-3">
                 <div class="relative w-full">

@@ -1,7 +1,8 @@
 import type { Component } from 'solid-js'
 import { For } from 'solid-js'
-import { useNavigate } from "@solidjs/router";
+import { useLocation, useNavigate } from "@solidjs/router";
 import { Anga, CollectionSVG, FileSVG, GitHubSVG, HomeSVG, UserSVG } from '../assets/SvgFiles'
+import { MOBILE_TABS, pageFromPath, pagerPosition } from '../library/tabs';
 import { Pages } from '../library/types';
 
 const DesktopNavbar: Component<{ CurrentPage: Pages }> = (props) => {
@@ -53,40 +54,67 @@ const DesktopNavbar: Component<{ CurrentPage: Pages }> = (props) => {
 }
 
 
-const MobileNavbar: Component<{ CurrentPage: Pages }> = (props) => {
+const MobileNavbar: Component = () => {
     const navigate = useNavigate();
+    const location = useLocation();
 
-    const items: Array<{ page: Pages; label: string; route: string; icon: Component }> = [
-        { page: "Home", label: "Home", route: "/", icon: HomeSVG },
-        { page: "Files", label: "Files", route: "/my_drive", icon: FileSVG },
-        { page: "Collections", label: "Collections", route: "/my_collections", icon: CollectionSVG },
-        { page: "Account", label: "Account", route: "/account", icon: UserSVG },
-    ];
+    // Settled page, derived from the URL. Used for accessibility only — the
+    // visual highlight follows the live swipe position instead.
+    const currentPage = () => pageFromPath(location.pathname);
+
+    const count = MOBILE_TABS.length;
+
+    // Live fractional position, clamped to the valid pane range.
+    const position = () => Math.max(0, Math.min(count - 1, pagerPosition()));
+
+    // 1 when the pager sits exactly on this tab, 0 when it is a full pane away.
+    // Halfway between two tabs gives 0.5 for both.
+    const intensity = (index: number) => Math.max(0, 1 - Math.abs(position() - index));
 
     return (
         <nav
             aria-label="Main"
             class="fixed bottom-0 left-0 right-0 z-30 h-16 bg-[#161717] flex items-stretch"
         >
-            <For each={items}>
-                {(item) => {
-                    const isActive = () => props.CurrentPage === item.page;
+            {/* Sliding highlight bar. Width is one tab; translateX moves it by
+                its own width, so `position * 100%` lands it exactly between
+                tabs mid-swipe. No CSS transition — scroll events drive it. */}
+            <div
+                class="pointer-events-none absolute top-0 left-0 z-10 h-0.5 bg-blue-500"
+                style={{
+                    width: `${100 / count}%`,
+                    transform: `translateX(${position() * 100}%)`,
+                }}
+            />
+            <For each={MOBILE_TABS}>
+                {(item, index) => {
+                    const isActive = () => currentPage() === item.page;
+                    const level = () => intensity(index());
                     return (
                         <button
                             type="button"
                             aria-label={item.label}
                             aria-current={isActive() ? "page" : undefined}
-                            class={`flex-1 flex flex-col items-center justify-center gap-1 border-t-2 transition-colors ${
-                                isActive()
-                                    ? "border-blue-500 bg-black text-white"
-                                    : "border-[#242424] text-neutral-500 hover:text-white"
-                            }`}
-                            onClick={() => { navigate(item.route); }}
+                            class="relative flex-1 flex flex-col items-center justify-center gap-1 border-t-2 border-[#242424] text-white"
+                            onClick={() => { navigate(item.route, { scroll: false }); }}
                         >
-                            <div class={`w-6 h-6 ${isActive() ? "opacity-100" : "opacity-60"}`}>
+                            {/* Background darkens as the tab becomes active. */}
+                            <div
+                                class="pointer-events-none absolute inset-0 bg-black"
+                                style={{ opacity: level() }}
+                            />
+                            <div
+                                class="relative w-6 h-6"
+                                style={{ opacity: 0.5 + 0.5 * level() }}
+                            >
                                 <item.icon />
                             </div>
-                            <span class="text-[11px] font-bold leading-none">{item.label}</span>
+                            <span
+                                class="relative text-[11px] font-bold leading-none"
+                                style={{ opacity: 0.5 + 0.5 * level() }}
+                            >
+                                {item.label}
+                            </span>
                         </button>
                     );
                 }}
@@ -95,14 +123,14 @@ const MobileNavbar: Component<{ CurrentPage: Pages }> = (props) => {
     );
 };
 
-const Navbar: Component<{ CurrentPage: Pages, Type: string }> = (props) => {
+const Navbar: Component<{ CurrentPage?: Pages, Type: string }> = (props) => {
     return (
         <>
             {
                 props.Type === "desktop" ? (
-                    <DesktopNavbar CurrentPage={props.CurrentPage} />
+                    <DesktopNavbar CurrentPage={props.CurrentPage ?? "Home"} />
                 ) : (
-                    <MobileNavbar CurrentPage={props.CurrentPage} />
+                    <MobileNavbar />
                 )
             }
         </>

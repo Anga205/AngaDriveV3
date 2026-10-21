@@ -3,7 +3,6 @@ import { toast } from "solid-toast";
 import { useWebSocket } from "@/Websockets";
 import bcrypt from "bcryptjs";
 import { DesktopTemplate } from "@/components/Template";
-import Navbar from "@/components/Navbar";
 import { isEmailValid, isPasswordValid } from "../validators";
 
 const LoginCard: Component<{ onSignUpClick: () => void; onLoginSuccess: () => void }> = (props) => {
@@ -373,7 +372,6 @@ const LoginScreen: Component<{ onLoginSuccess: () => void, isMobile: boolean }> 
         <>
             {props.isMobile ? (
                 <div class="w-full h-dvh bg-black flex flex-col pb-16">
-                    <Navbar CurrentPage="Account" Type="mobile" />
                     <div class="grow flex items-center justify-center">
                         <Content />
                     </div>

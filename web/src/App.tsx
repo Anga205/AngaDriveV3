@@ -7,9 +7,13 @@ import { useWebSocket, WebSocketProvider } from "./Websockets";
 import MyCollections from "./pages/MyCollections/MyCollections";
 import Account from "./pages/Account/Account";
 import { AppContext, ContextProvider } from "./Context";
-import { createEffect, useContext, onMount, onCleanup } from "solid-js";
+import { createEffect, useContext, onMount, onCleanup, Show } from "solid-js";
 import { UniversalMessageHandler } from "./library/functions";
 import CollectionPage from "./pages/Collection/Collection";
+import MobileTabShell from "./components/MobileTabShell";
+import { useIsMobile } from "./library/useIsMobile";
+import { MOBILE_TABS, indexFromPath } from "./library/tabs";
+import { Toaster } from "solid-toast";
 import toast from "solid-toast";
 
 
@@ -108,10 +112,51 @@ const UncontextedApp = () => {
 }
 
 const RootLayout: Component<RouteSectionProps<unknown>> = (props) => {
+  const location = useLocation();
+  const isMobile = useIsMobile();
+
+  // On mobile the four tab pages live inside a persistent swipeable pager
+  // (`MobileTabShell`) instead of the router outlet, so that they can sit side
+  // by side and keep their scroll positions. The outlet is only used for
+  // desktop, and for mobile pages that are not tabs (collection detail pages),
+  // which are rendered as a full-screen overlay above the pager.
+  const isCollectionRoute = () => location.pathname.startsWith("/collection");
+
+  // All four tab pages are mounted at once on mobile, so their own <title>
+  // elements cannot decide the document title. Own it here instead.
+  createEffect(() => {
+    document.title = isCollectionRoute()
+      ? "Collection | DriveV3"
+      : MOBILE_TABS[indexFromPath(location.pathname)].title;
+  });
+
   return (
     <>
       <GlobalPasteHandler />
-      {props.children}
+      <Show when={isMobile()}>
+        <MobileTabShell />
+      </Show>
+      {/* Desktop: the router outlet renders the page normally. */}
+      <Show when={!isMobile()}>{props.children}</Show>
+      {/* Mobile non-tab pages (collection detail) overlay the pager, but stay
+          below the fixed navbar so the user can still switch tabs. */}
+      <Show when={isMobile() && isCollectionRoute()}>
+        <div class="fixed inset-0 z-20 bg-black">{props.children}</div>
+      </Show>
+      <Toaster
+        position="bottom-right"
+        gutter={8}
+        containerClassName=""
+        containerStyle={{}}
+        toastOptions={{
+          className: '',
+          duration: 2000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+        }}
+      />
     </>
   );
 }

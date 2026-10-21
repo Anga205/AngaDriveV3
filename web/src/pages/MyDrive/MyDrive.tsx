@@ -2,19 +2,14 @@ import type { Component } from "solid-js"
 import { createSignal, createMemo, onCleanup, createEffect, useContext } from "solid-js"
 import { useWebSocket } from "@/Websockets";
 import { FileData } from "@/library/types";
-import { Toaster, toast } from 'solid-toast';
+import { toast } from 'solid-toast';
 import { AppContext } from "@/Context";
+import { useIsMobile } from "@/library/useIsMobile";
 import DesktopDrive from "./Desktop/DriveDesktop";
 import MobileDrive from "./Mobile/DriveMobile";
 
 const MyDrive: Component = () => {
-    const [isMobile, setIsMobile] = createSignal(window.innerWidth <= 768);
-
-    const handleResize = () => {
-        setIsMobile(window.innerWidth <= 768);
-    };
-    window.addEventListener('resize', handleResize);
-    onCleanup(() => window.removeEventListener('resize', handleResize));
+    const isMobile = useIsMobile();
 
     const ctx = useContext(AppContext)!;
 
@@ -185,7 +180,6 @@ const MyDrive: Component = () => {
 
     return (
         <>
-            <title>My Files | DriveV3</title>
             {
                 isMobile() ?
                     <MobileDrive
@@ -207,20 +201,6 @@ const MyDrive: Component = () => {
                         setSearch={setSearchQuery}
                     />
             }
-            <Toaster
-                position="bottom-right"
-                gutter={8}
-                containerClassName=""
-                containerStyle={{}}
-                toastOptions={{
-                    className: '',
-                    duration: 2000,
-                    style: {
-                        background: '#363636',
-                        color: '#fff',
-                    },
-                }}
-            />
         </>
     )
 }

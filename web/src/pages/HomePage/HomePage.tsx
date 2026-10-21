@@ -1,18 +1,15 @@
-import { Component, onMount, onCleanup, createSignal, createEffect } from "solid-js";
-import { Toaster } from 'solid-toast';
+import { Component, onCleanup, createSignal, createEffect } from "solid-js";
 import { useWebSocket } from "@/Websockets";
 import type { GraphData, IncomingData, SysInfo } from "@/library/types";
+import { useIsMobile } from "@/library/useIsMobile";
 import DesktopHome from "./Desktop/DesktopHome";
 import MobileHome from "./Mobile/MobileHome";
 
 const HomePage: Component = () => {
-    const [isMobile, setIsMobile] = createSignal(window.innerWidth <= 640);
+    const isMobile = useIsMobile();
     const [userCount, setUserCount] = createSignal(0);
     const [filesHosted, setFilesHosted] = createSignal(0);
 
-    const handleResize = () => {
-        setIsMobile(window.innerWidth <= 640);
-    };
     const [systemInformation, setSystemInformation] = createSignal<SysInfo>({
         ram: {
             total_ram: 1,
@@ -49,10 +46,6 @@ const HomePage: Component = () => {
     })
 
     const { socket: getSocket } = useWebSocket();
-
-    onMount(() => {
-        window.addEventListener('resize', handleResize);
-    });
 
     let currentSocket: WebSocket | null = null; // Keep track of the current socket
 
@@ -122,13 +115,8 @@ const HomePage: Component = () => {
         }
     });
 
-    onCleanup(() => {
-        window.removeEventListener('resize', handleResize);
-    });
-
     return (
         <>
-            <title>HomePage | DriveV3</title>
             {
             isMobile() ? (
                 <MobileHome cpudata={systemInformation()!.cpu} ramdata={systemInformation()!.ram} siteActivity={siteActivity} spaceUsed={spaceUsed} userCount={userCount} filesHosted={filesHosted} />
@@ -136,20 +124,6 @@ const HomePage: Component = () => {
                 <DesktopHome cpudata={systemInformation()!.cpu} ramdata={systemInformation()!.ram} siteActivity={siteActivity} spaceUsed={spaceUsed} userCount={userCount} filesHosted={filesHosted} />
             )
             }
-            <Toaster
-            position="top-center"
-            gutter={8}
-            containerClassName=""
-            containerStyle={{}}
-            toastOptions={{
-                className: '',
-                duration: 2000,
-                style: {
-                background: '#363636',
-                color: '#fff',
-                },
-            }}
-            />
         </>
     );
 }

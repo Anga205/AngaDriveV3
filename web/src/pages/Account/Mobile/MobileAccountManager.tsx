@@ -1,5 +1,4 @@
 import { Component, createSignal, useContext } from "solid-js";
-import Navbar from "@/components/Navbar";
 import { AppContext } from "@/Context";
 import { formatFileSize } from "@/library/functions";
 import { GitHubSVG } from "@/assets/SvgFiles";
@@ -13,7 +12,6 @@ const MobileAccountManager: Component<{logout: () => void}> = (props) => {
 
     return (
         <div class="w-full h-dvh bg-black flex flex-col pb-16">
-            <Navbar CurrentPage="Account" Type="mobile" />
             <div class="overflow-y-auto p-4 space-y-4 items-center justify-center h-full">
                 <AccountDetails email={email} setEmail={setEmail} displayName={displayName} setDisplayName={setDisplayName} />
                 <div class="grid grid-cols-2 gap-4">

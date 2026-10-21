@@ -4,7 +4,6 @@ import { AppContext } from "@/Context";
 import { useWebSocket } from "@/Websockets";
 import FileCard from "@/components/FileCard";
 import CollectionCard from "@/components/CollectionCard";
-import Navbar from "@/components/Navbar";
 import { getCollection, getCollectionPathIds } from "@/library/functions";
 import CollectionNavigator from "../shared/components/CollectionNavigator";
 import AddFilePopup from "../shared/components/AddFilePopup";
@@ -30,7 +29,6 @@ const CollectionPageMobile: Component = () => {
 
     return (
         <div class="flex flex-col w-full max-h-dvh h-dvh bg-black pt-4 pb-16">
-            <Navbar CurrentPage="Collections" Type="mobile"/>
             <div class="px-3 space-y-2">
                 <CollectionNavigator />
                 <p class="text-white font-black text-[4vh]">{ctx.knownCollections()[collectionId()]?.name || "Unknown Collection"}</p>

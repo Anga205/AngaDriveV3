@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
+/* Mobile tab pager: hide the horizontal scrollbar while keeping native
+   scroll-snap, momentum and rubber-band behaviour.
+   Note: `overscroll-behavior-x` is intentionally left at its default so that
+   iOS keeps its rubber-band bounce at the first/last page. */
+.mobile-tab-pager {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.mobile-tab-pager::-webkit-scrollbar {
+    display: none;
+}
+
 .custom-scrollbar {
     scrollbar-width: thin;
     scrollbar-color: rgb(0, 0, 255) black;
