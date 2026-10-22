@@ -31,6 +31,8 @@ func ChangeUserEmail(request ChangeEmailRequest) (database.Account, error) {
 func ChangeUserPassword(request ChangePasswordRequest) (database.Account, error) {
 	return updateUserWithAuth(request.Email, request.OldPassword, func(user *database.Account) {
 		user.HashedPassword = request.NewPasswordHashed
+		// The new hash is bcrypt(sha256(new password)).
+		user.PasswordVersion = 1
 	})
 }
 

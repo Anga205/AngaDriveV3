@@ -31,15 +31,24 @@ def make_msg(msg_type, data):
     return json.dumps({"type": msg_type, "data": data})
 
 
-def bcrypt_hash(password):
-    """Return a bcrypt hash of ``password`` (matches Go's bcrypt usage).
+def sha256_hex(password):
+    """Return the lowercase hex SHA-256 digest of ``password``.
 
-    The Go server stores a bcrypt hash at registration and compares it against
-    the plaintext password at login, so tests must send a hash when registering
-    and the plaintext when logging in.
+    The frontend sends this digest instead of the plaintext password, so tests
+    must do the same for login and for every authenticated request.
+    """
+    import hashlib
+    return hashlib.sha256(password.encode()).hexdigest()
+
+
+def bcrypt_hash(password):
+    """Return bcrypt(sha256(password)) (matches the Go server's storage).
+
+    The Go server stores bcrypt of the hex SHA-256 digest at registration, so
+    tests must send that value in ``hashed_password``.
     """
     import bcrypt
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    return bcrypt.hashpw(sha256_hex(password).encode(), bcrypt.gensalt()).decode()
 
 
 def random_email():
@@ -110,7 +119,9 @@ async def upload_file(email=None, password=None, token=None, collection_id="",
     either ``token`` OR ``email`` + ``password``.
 
     Args:
-        email/password/token: authentication credentials.
+        email/password/token: authentication credentials. ``password`` must be
+                              the SHA-256 digest (see :func:`sha256_hex`), which
+                              is what the frontend sends.
         collection_id:        optional collection to add the file to.
         filename:             the original file name.
         content:              the raw file bytes.

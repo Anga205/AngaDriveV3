@@ -1,10 +1,17 @@
 package database
 
 type Account struct {
-	Token          string `gorm:"primaryKey" json:"token"`
-	DisplayName    string `json:"display_name"`
-	Email          string `json:"email"`
+	Token       string `gorm:"primaryKey" json:"token"`
+	DisplayName string `json:"display_name"`
+	Email       string `json:"email"`
+	// HashedPassword is bcrypt(secret), where secret depends on PasswordVersion:
+	//   PasswordVersion 0 (legacy): secret is the plaintext password.
+	//   PasswordVersion 1:          secret is the hex SHA-256 digest of the password.
 	HashedPassword string `json:"-"`
+	// PasswordVersion records which pre-hash scheme HashedPassword uses.
+	// Existing rows are backfilled to 0 by AutoMigrate and upgraded to 1 the
+	// first time the account authenticates or migrates.
+	PasswordVersion int `json:"-"`
 }
 
 type Activity struct {

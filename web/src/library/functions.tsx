@@ -1,6 +1,7 @@
 import toast from 'solid-toast';
 import type { AppContextType, CollectionCardData, FileData, SocketStatus } from './types';
 import { Accessor } from 'solid-js';
+import { clearStoredCredentials } from './password';
 
 const formatFileSize = (size: number) => {
     if (size < 1024) return `${size} B`;
@@ -220,9 +221,7 @@ const getCollectionPathIds = (pathname: string): string[] => {
 };
 
 const handleLogout = (setIsLoggedIn: (value: boolean) => void, ctx: AppContextType) => {
-    localStorage.removeItem("email");
-    localStorage.removeItem("password");
-    localStorage.removeItem("display_name");
+    clearStoredCredentials();
     localStorage.setItem("token", generateClientToken());
     ctx.setFiles([]);
     ctx.setUserCollections(new Set());

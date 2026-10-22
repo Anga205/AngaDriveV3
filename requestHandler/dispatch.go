@@ -26,11 +26,11 @@ func processRequest[T any, R any](conn *websocket.Conn, data json.RawMessage, ha
 		now := time.Now()
 		timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
 		fmt.Printf("[%s] Error handling %s: %v\n", timestamp, responseType, err)
-		// Login errors are sent back with the login response type so the client
-		// can surface them in the login form.
+		// Login and migration errors are sent back with their own response type
+		// so the client can surface them in the corresponding form/flow.
 		errorType := "error"
-		if responseType == "login_response" {
-			errorType = "login_response"
+		if responseType == "login_response" || responseType == "migrate_password_response" {
+			errorType = responseType
 		}
 		sendJSON(conn, globals.OutgoingResponse{
 			Type: errorType,
@@ -88,6 +88,8 @@ func dispatchMessage(conn *websocket.Conn, messageType string, data json.RawMess
 		go UpdateUserCount()
 	case "login":
 		processRequest(conn, data, accounts.LoginUser, "login_response")
+	case "migrate_password":
+		processRequest(conn, data, accounts.MigratePassword, "migrate_password_response")
 	case "change_password":
 		processRequest(conn, data, accounts.ChangeUserPassword, "change_password_response")
 	case "change_email":
