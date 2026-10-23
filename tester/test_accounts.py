@@ -17,7 +17,7 @@ account).
 
 from . import config
 from .harness import check, check_eq, check_in
-from .helpers import (bcrypt_hash, open_ws, random_email, recv_until,
+from .helpers import (bcrypt_hash, make_msg, open_ws, random_email, recv_until,
                       send_and_wait, sha256_hex)
 
 
@@ -280,4 +280,41 @@ async def test_migrate_password_message():
                               "migrate_password_response")
     check("migrate_password rejects wrong plaintext",
           bad is not None and "invalid" in str(bad["data"]))
+    await ws.close()
+
+
+async def test_stale_client_gets_refresh_prompt():
+    """A plaintext login without ``legacy`` is treated as a stale cached frontend.
+
+    The backend must reply with ``stale_client`` and also push a ``notification``
+    toast telling the user to hard-refresh. This is what an old cached frontend
+    (which cannot perform the migration itself) triggers.
+    """
+    print("\n[test] stale client gets refresh prompt")
+    email = random_email()
+    plaintext = "stalepass789"
+    _insert_legacy_account(email, plaintext)
+
+    ws = await open_ws()
+    await ws.send(make_msg("login", {"email": email, "password": plaintext}))
+
+    # The notification arrives first, then the login_response.
+    notification = await recv_until(
+        ws, lambda m: m.get("type") == "notification", timeout=config.DEFAULT_TIMEOUT)
+    check("stale client receives notification", notification is not None)
+    if notification:
+        check_in("notification asks for hard refresh", "hard-refresh", notification["data"])
+
+    response = await recv_until(
+        ws, lambda m: m.get("type") == "login_response", timeout=config.DEFAULT_TIMEOUT)
+    check("stale client receives stale_client", response is not None)
+    if response:
+        check_eq("stale_client payload", response["data"], "stale_client")
+
+    # The account must not have been migrated by the rejected attempt.
+    login = await send_and_wait(ws, "login",
+                                {"email": email, "password": sha256_hex(plaintext)},
+                                "login_response")
+    check("account still legacy after stale attempt",
+          login is not None and login["data"] == "legacy_password")
     await ws.close()

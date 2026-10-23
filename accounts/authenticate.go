@@ -15,6 +15,31 @@ import (
 // SHA-256 digest. The client should retry with Legacy=true and the plaintext.
 var ErrLegacyPassword = errors.New("legacy_password")
 
+// ErrStaleClient is returned by LoginUser when the client sent a plaintext
+// password without Legacy=true. The current frontend always sends a SHA-256
+// digest, so this means the browser is running a cached pre-migration build
+// that has not picked up the new frontend yet. The user must hard-refresh.
+var ErrStaleClient = errors.New("stale_client")
+
+// StaleClientMessage is shown to users whose browser is running an outdated
+// cached frontend that still sends plaintext passwords.
+const StaleClientMessage = "Your browser is running an outdated version of AngaDrive. " +
+	"Please hard-refresh the page (Ctrl+Shift+R, or Cmd+Shift+R on macOS) to continue."
+
+// isSHA256Hex reports whether s looks like a lowercase hex SHA-256 digest.
+func isSHA256Hex(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+			return false
+		}
+	}
+	return true
+}
+
 // sha256Hex returns the lowercase hex SHA-256 digest of s. This is the value the
 // frontend sends in place of the plaintext password.
 func sha256Hex(s string) string {

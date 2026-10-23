@@ -79,7 +79,15 @@ const LoginCard: Component<{ onSignUpClick: () => void; onLoginSuccess: () => vo
                         );
                         return;
                     }
-                    if (response.data.token) {
+                    if (response.data === "stale_client") {
+                        // The backend saw a plaintext password, which only an
+                        // outdated cached frontend sends. The backend also sent
+                        // a notification toast with refresh instructions.
+                        toast.error(
+                            "Your browser is running an outdated version of AngaDrive. " +
+                            "Please hard-refresh (Ctrl+Shift+R) and try again."
+                        );
+                    } else if (response.data.token) {
                         toast.success("Login successful!");
                         localStorage.setItem("email", email());
                         storePasswordDigest(digest);

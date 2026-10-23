@@ -4,6 +4,7 @@ import (
 	"angadrive/accounts"
 	"angadrive/globals"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -26,6 +27,17 @@ func processRequest[T any, R any](conn *websocket.Conn, data json.RawMessage, ha
 		now := time.Now()
 		timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
 		fmt.Printf("[%s] Error handling %s: %v\n", timestamp, responseType, err)
+
+		// A stale cached frontend cannot handle the migration handshake. Send a
+		// plain notification (rendered by every frontend version) telling the
+		// user to hard-refresh, then the normal error response.
+		if errors.Is(err, accounts.ErrStaleClient) {
+			sendJSON(conn, globals.OutgoingResponse{
+				Type: "notification",
+				Data: accounts.StaleClientMessage,
+			})
+		}
+
 		// Login and migration errors are sent back with their own response type
 		// so the client can surface them in the corresponding form/flow.
 		errorType := "error"

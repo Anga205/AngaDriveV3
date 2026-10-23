@@ -74,9 +74,16 @@ const WebSocketProvider: ParentComponent = (props) => {
             "login_response",
           );
           if (!result.ok) {
-            console.error("Login failed:", result.data);
-            clearStoredCredentials();
-            localStorage.setItem("token", generateClientToken());
+            if (result.data === "stale_client") {
+              // The backend rejected a plaintext password, which means this
+              // bundle is an outdated cached frontend. Keep the credentials so
+              // the user can retry after a hard refresh.
+              console.error("Stale frontend detected; a hard refresh is required.");
+            } else {
+              console.error("Login failed:", result.data);
+              clearStoredCredentials();
+              localStorage.setItem("token", generateClientToken());
+            }
           } else {
             localStorage.removeItem("token");
           }

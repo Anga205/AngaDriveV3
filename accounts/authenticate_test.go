@@ -154,3 +154,48 @@ func TestLoginUserLegacyFlow(t *testing.T) {
 		t.Fatalf("digest LoginUser after migration: %v", err)
 	}
 }
+
+func TestLoginUserStaleClient(t *testing.T) {
+	setupTestDB(t)
+	const email = "stale@example.com"
+	const plaintext = "stale-pass"
+	insertLegacyAccount(t, email, plaintext)
+
+	// A plaintext password without Legacy=true can only come from a cached
+	// pre-migration frontend, so the backend must ask for a hard refresh.
+	if _, err := LoginUser(LoginRequest{Email: email, Password: plaintext}); err != ErrStaleClient {
+		t.Fatalf("LoginUser error = %v, want ErrStaleClient", err)
+	}
+
+	// The same applies to an already-migrated account.
+	insertLegacyAccount(t, "stale2@example.com", "other-pass")
+	if _, err := LoginUser(LoginRequest{Email: "stale2@example.com", Password: "other-pass", Legacy: true}); err != nil {
+		t.Fatalf("legacy LoginUser: %v", err)
+	}
+	if _, err := LoginUser(LoginRequest{Email: "stale2@example.com", Password: "other-pass"}); err != ErrStaleClient {
+		t.Fatalf("LoginUser error = %v, want ErrStaleClient for migrated account", err)
+	}
+}
+
+func TestIsSHA256Hex(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want bool
+	}{
+		{"valid digest", sha256Hex("password"), true},
+		{"uppercase hex", "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789", false},
+		{"too short", "abc123", false},
+		{"too long", sha256Hex("password") + "0", false},
+		{"non-hex chars", "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz", false},
+		{"plaintext", "hunter2", false},
+		{"empty", "", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isSHA256Hex(tt.in); got != tt.want {
+				t.Fatalf("isSHA256Hex(%q) = %v, want %v", tt.in, got, tt.want)
+			}
+		})
+	}
+}

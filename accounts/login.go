@@ -12,6 +12,13 @@ func LoginUser(request LoginRequest) (database.Account, error) {
 		return database.Account{}, fmt.Errorf("invalid credentials")
 	}
 
+	if !request.Legacy && !isSHA256Hex(request.Password) {
+		// The current frontend always sends a SHA-256 digest. A plaintext
+		// password without Legacy=true means the browser is running a cached
+		// pre-migration build, which cannot perform the migration itself.
+		return database.Account{}, ErrStaleClient
+	}
+
 	if request.Legacy {
 		// The client still holds the plaintext password for a pre-migration
 		// account. Verify it and upgrade the stored hash in place.
