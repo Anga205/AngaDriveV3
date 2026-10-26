@@ -1,21 +1,20 @@
 package info
 
 import (
+	"angadrive/config"
 	"angadrive/database"
 	"time"
 )
 
 func BeginningOfToday() int64 {
-	timeZone := "Asia/Kolkata"
-	loc, _ := time.LoadLocation(timeZone)
+	loc := config.Location()
 	now := time.Now().In(loc)
 	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 	return startOfDay.Unix()
 }
 
 func PastXDays() [DaysTracked]string {
-	timeZone := "Asia/Kolkata"
-	loc, _ := time.LoadLocation(timeZone)
+	loc := config.Location()
 	now := time.Now().In(loc)
 	var days [DaysTracked]string
 	for i := 0; i < DaysTracked; i++ {

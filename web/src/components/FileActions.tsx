@@ -11,34 +11,21 @@ import Tooltip from "@corvu/tooltip";
 import RotateCcw from "lucide-solid/icons/rotate-ccw";
 import Image from "lucide-solid/icons/image";
 import { useMenuContext } from "./ContextMenu";
+import { convertImage, convertVideo, deleteFile, removeFileFromCollection } from "../api/endpoints";
 
 const VIDEO_EXTENSIONS = ["mkv", "avi", "mov", "wmv", "flv", "webm"];
 const IMAGE_CONVERT_EXTENSIONS = ["gif", "bmp", "webp", "tiff", "heic", "heif"];
 
 const getExtension = (fileName: string): string => fileName.split('.').pop()?.toLowerCase() || '';
 
-const getAuth = () => ({
-    token: localStorage.getItem("token") || "",
-    email: localStorage.getItem("email") || "",
-    password: localStorage.getItem("password") || ""
-});
-
 const ConvertButton: Component<{ file: FileData; onConvert?: () => void }> = (props) => {
     const { socket: getSocket } = useWebSocket();
     const menu = useMenuContext();
     const handleConvert = async () => {
-        const convertRequest = {
-            type: "convert_video",
-            data: {
-                file_directory: props.file.file_directory,
-                auth: getAuth()
-            }
-        }
-        if (getSocket()?.readyState !== WebSocket.OPEN) {
+        if (!convertVideo(getSocket(), props.file.file_directory)) {
             toast.error("WebSocket is not available");
             return;
         }
-        getSocket()?.send(JSON.stringify(convertRequest));
         props.onConvert?.();
         menu?.close();
         toast.success("Conversion started for " + props.file.original_file_name)
@@ -57,19 +44,10 @@ const ConvertButton: Component<{ file: FileData; onConvert?: () => void }> = (pr
 const ConvertImageButton: Component<{ file: FileData; target: "png" | "jpg"; label?: string; onConvert?: () => void }> = (props) => {
     const { socket: getSocket } = useWebSocket();
     const handleConvert = async () => {
-        const convertRequest = {
-            type: "convert_image",
-            data: {
-                file_directory: props.file.file_directory,
-                target_format: props.target,
-                auth: getAuth()
-            }
-        }
-        if (getSocket()?.readyState !== WebSocket.OPEN) {
+        if (!convertImage(getSocket(), props.file.file_directory, props.target)) {
             toast.error("WebSocket is not available");
             return;
         }
-        getSocket()?.send(JSON.stringify(convertRequest));
         props.onConvert?.();
         toast.success("Conversion started for " + props.file.original_file_name)
     };
@@ -86,18 +64,10 @@ const DeleteButton: Component<{ file: FileData }> = (props) => {
     const { socket: getSocket } = useWebSocket();
     const [open, setOpen] = createSignal(false);
     const handleDelete = async () => {
-        const deleteRequest = {
-            type: "delete_file",
-            data: {
-                file_directory: props.file.file_directory,
-                auth: getAuth()
-            }
-        }
-        if (getSocket()?.readyState !== WebSocket.OPEN) {
+        if (!deleteFile(getSocket(), props.file.file_directory)) {
             toast.error("WebSocket is not available");
             return;
         }
-        getSocket()?.send(JSON.stringify(deleteRequest));
         setOpen(false);
     }
     const handleTriggerClick = (e: MouseEvent) => {
@@ -160,19 +130,10 @@ const RemoveFromCollectionButton: Component<{ file: FileData }> = (props) => {
         return location.pathname.startsWith("/collection") && !!id && (ctx.knownCollections()[id]?.isOwned || false);
     };
     const handleRemove = async () => {
-        const removeRequest = {
-            type: "remove_file_from_collection",
-            data: {
-                file_directory: props.file.file_directory,
-                collection_id: collectionId(),
-                auth: getAuth()
-            }
-        }
-        if (getSocket()?.readyState !== WebSocket.OPEN) {
+        if (!removeFileFromCollection(getSocket(), props.file.file_directory, collectionId())) {
             toast.error("WebSocket is not available");
             return;
         }
-        getSocket()?.send(JSON.stringify(removeRequest));
         toast.success("Removed from collection", {
             duration: 2000,
             position: "bottom-right",

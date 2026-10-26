@@ -1,4 +1,5 @@
 import type { Component } from "solid-js";
+import { createMemo } from "solid-js";
 import quotes from "../assets/quotes.json";
 
 const Header: Component = () => {
@@ -62,7 +63,8 @@ const MobileHeader: Component = () => {
     }
 
     const typedQuotes: Quote[] = quotes as Quote[];
-    const randomQuote = typedQuotes[Math.floor(Math.random() * typedQuotes.length)];
+    // Pick the quote once per mount so it does not change on every re-render.
+    const randomQuote = createMemo(() => typedQuotes[Math.floor(Math.random() * typedQuotes.length)]);
 
     return (
         <div>
@@ -72,7 +74,7 @@ const MobileHeader: Component = () => {
                 <span style={{ color: colors[2] }}>V3</span>
             </p>
             <p class="text-white text-center text-[3vw] mt-2 w-full px-2">
-                &OpenCurlyDoubleQuote;<em>{randomQuote.text}</em>&CloseCurlyDoubleQuote;<br/> — {randomQuote.author}
+                &OpenCurlyDoubleQuote;<em>{randomQuote().text}</em>&CloseCurlyDoubleQuote;<br/> — {randomQuote().author}
             </p>
         </div>
     );

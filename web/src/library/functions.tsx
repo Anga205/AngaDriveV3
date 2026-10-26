@@ -2,6 +2,8 @@ import toast from 'solid-toast';
 import type { AppContextType, CollectionCardData, FileData, SocketStatus } from './types';
 import { Accessor } from 'solid-js';
 import { clearStoredCredentials } from './password';
+import { hasCredentials, setToken } from '../api/auth';
+import { getUserCollections, getUserFiles, getCollection as requestCollection } from '../api/endpoints';
 
 const formatFileSize = (size: number) => {
     if (size < 1024) return `${size} B`;
@@ -174,44 +176,22 @@ function generateClientToken(): string {
 }
 
 const fetchFilesAndCollections = (ws: WebSocket) => {
-  if (!localStorage.getItem("token") && !localStorage.getItem("email") && !localStorage.getItem("password")) {
-    localStorage.setItem("token", generateClientToken());
+  if (!hasCredentials()) {
+    setToken(generateClientToken());
   }
-  ws.send(JSON.stringify({
-    type: "get_user_files",
-    data: {
-      token: localStorage.getItem("token") || "",
-      email: localStorage.getItem("email") || "",
-      password: localStorage.getItem("password") || ""
-    }
-  }));
-  ws.send(JSON.stringify({
-    type: "get_user_collections",
-    data: {
-      token: localStorage.getItem("token") || "",
-      email: localStorage.getItem("email") || "",
-      password: localStorage.getItem("password") || ""
-    }
-  }));
+  getUserFiles(ws);
+  getUserCollections(ws);
 }
 
 const getCollection = (id: string, status: Accessor<SocketStatus>, socket: Accessor<WebSocket | undefined>, ctx: AppContextType) => {
     if (ctx.knownCollections()[id]) return;
     if (status() !== "connected") {
-        setTimeout(() => getCollection(id, status, socket, ctx), 10);
-    } else {
-        socket()?.send(JSON.stringify({
-            type: "get_collection",
-            data: {
-                id: id,
-                auth: {
-                    token: localStorage.getItem("token") || "",
-                    email: localStorage.getItem("email") || "",
-                    password: localStorage.getItem("password") || ""
-                }
-            }
-        }));
+        // Retry until connected, but stop once the collection is known or the
+        // component unmounts (callers pass a live accessor).
+        const timer = setTimeout(() => getCollection(id, status, socket, ctx), 100);
+        return () => clearTimeout(timer);
     }
+    requestCollection(socket(), id);
 }
 
 const getCollectionPathIds = (pathname: string): string[] => {
@@ -226,6 +206,9 @@ const handleLogout = (setIsLoggedIn: (value: boolean) => void, ctx: AppContextTy
     ctx.setFiles([]);
     ctx.setUserCollections(new Set());
     setIsLoggedIn(false);
+    // Notify other components (e.g. Account) that auth state changed. The
+    // native `storage` event does not fire in the tab that made the change.
+    window.dispatchEvent(new Event("auth-changed"));
     toast('Logged out successfully!', {
         icon: '↩️'
     })

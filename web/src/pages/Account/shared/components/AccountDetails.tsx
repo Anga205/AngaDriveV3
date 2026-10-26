@@ -4,6 +4,7 @@ import { toast } from "solid-toast";
 import { useWebSocket } from "@/Websockets";
 import { isEmailValid, isPasswordValid } from "../validators";
 import { hashPasswordForStorage, sha256Hex, storePasswordDigest } from "@/library/password";
+import { request } from "@/api/client";
 
 const AccountDetails: Component<{email: Accessor<string>; setEmail: (email: string) => void; displayName: Accessor<string>; setDisplayName: (name: string) => void; class?: string}> = (props) => {
     const [open, setOpen] = createSignal(false);
@@ -61,81 +62,26 @@ const AccountDetails: Component<{email: Accessor<string>; setEmail: (email: stri
         let anyChangeSucceeded = false;
         let allOperationsAttemptedAndSuccessful = true; // Assume success until a failure or skipped operation
 
-        const sendUpdateRequest = (
+        const sendUpdateRequest = async (
             requestType: string,
             payload: any,
             successMessage: string,
             successCallback?: (data: any) => void
         ): Promise<boolean> => {
-            return new Promise<boolean>((resolve) => {
-                if (!currentSocket || currentSocket.readyState !== WebSocket.OPEN) {
-                    toast.error(`WebSocket connection lost before sending ${requestType}.`);
-                    resolve(false);
-                    return;
-                }
-
-                let messageHandler: ((event: MessageEvent) => void) | null = null;
-                let errorHandler: ((event: Event) => void) | null = null;
-                let closeHandler: (() => void) | null = null;
-
-                const cleanupListeners = () => {
-                    if (messageHandler && currentSocket) currentSocket.removeEventListener('message', messageHandler);
-                    if (errorHandler && currentSocket) currentSocket.removeEventListener('error', errorHandler);
-                    if (closeHandler && currentSocket) currentSocket.removeEventListener('close', closeHandler);
-                    messageHandler = null;
-                    errorHandler = null;
-                    closeHandler = null;
-                };
-
-                messageHandler = (event: MessageEvent) => {
-                    try {
-                        const response = JSON.parse(event.data);
-                        if (response.type === `${requestType}_response`) {
-                            cleanupListeners();
-                            if (response.data.error) {
-                                toast.error(
-                                    response.data.error === "record not found" || response.data.error === "invalid credentials"
-                                        ? "Authentication failed. Check current password."
-                                        : response.data.error.charAt(0).toUpperCase() + response.data.error.slice(1)
-                                );
-                                resolve(false);
-                            } else {
-                                toast.success(successMessage);
-                                if (successCallback) successCallback(response.data);
-                                anyChangeSucceeded = true;
-                                resolve(true);
-                            }
-                        }
-                    } catch (err) {
-                        cleanupListeners();
-                        console.error(`Failed to parse ${requestType} response:`, err);
-                        toast.error("Received an invalid response from server.");
-                        resolve(false);
-                    }
-                };
-
-                errorHandler = (error: Event) => {
-                    cleanupListeners();
-                    console.error(`WebSocket error during ${requestType}:`, error);
-                    toast.error(`An error occurred while updating ${requestType.replace("_", " ")}.`);
-                    resolve(false);
-                };
-
-                closeHandler = () => {
-                    if (messageHandler) { // Only if not already cleaned up
-                        cleanupListeners();
-                        console.warn(`WebSocket connection closed during ${requestType} attempt.`);
-                        toast.error(`Update for ${requestType.replace("_", " ")} failed: Connection lost.`);
-                        resolve(false);
-                    }
-                };
-
-                currentSocket.addEventListener('message', messageHandler);
-                currentSocket.addEventListener('error', errorHandler);
-                currentSocket.addEventListener('close', closeHandler);
-
-                currentSocket.send(JSON.stringify({ type: requestType, data: payload }));
-            });
+            const result = await request(currentSocket, requestType, payload, `${requestType}_response`);
+            if (!result.ok) {
+                const error = typeof result.data === "string" ? result.data : result.data?.error;
+                toast.error(
+                    error === "record not found" || error === "invalid credentials"
+                        ? "Authentication failed. Check current password."
+                        : (error ? error.charAt(0).toUpperCase() + error.slice(1) : "Update failed.")
+                );
+                return false;
+            }
+            toast.success(successMessage);
+            if (successCallback) successCallback(result.data);
+            anyChangeSucceeded = true;
+            return true;
         };
 
         // --- Change Display Name ---

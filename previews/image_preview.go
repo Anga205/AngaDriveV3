@@ -2,8 +2,8 @@ package previews
 
 import (
 	"angadrive/database"
-	"angadrive/globals"
-	"angadrive/requestHandler"
+	"angadrive/hub"
+	"angadrive/storage"
 	"bytes"
 	"fmt"
 	"image"
@@ -32,7 +32,7 @@ const previewMaxDimension = 512
 const previewJPEGQuality = 80
 
 func ReturnImagePreview(c *gin.Context) {
-	go requestHandler.SiteActivityPulse()
+	go hub.PublishSiteActivity()
 
 	fileDirectory := c.Param("file_id")
 
@@ -48,10 +48,8 @@ func ReturnImagePreview(c *gin.Context) {
 		return
 	}
 
-	// this creates: /uploaded_files/image_previews
-	previewsDir := filepath.Join(globals.UPLOAD_DIR, "image_previews")
-	// this creates: /uploaded_files/image_previews/<file_directory>
-	previewFile := filepath.Join(previewsDir, file.Sha256sum)
+	previewsDir := storage.ImagePreviewsDir()
+	previewFile := storage.ImagePreviewPath(file.Sha256sum)
 
 	if _, err := os.Stat(previewFile); !os.IsNotExist(err) {
 		c.Header("Cache-Control", "private, max-age=900")
@@ -77,7 +75,7 @@ func generateImagePreview(fileDirectory string, previewsDir string, previewFileP
 		return fmt.Errorf("file not found: %w", err)
 	}
 
-	originalFilePath := filepath.Join(globals.UPLOAD_DIR, "i", fileInfo.Sha256sum)
+	originalFilePath := storage.FilePath(fileInfo.Sha256sum)
 	file, err := os.Open(originalFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to open original file: %w", err)
@@ -234,7 +232,7 @@ func serveRawSVG(c *gin.Context, fileDirectory string) {
 		return
 	}
 
-	originalFilePath := filepath.Join(globals.UPLOAD_DIR, "i", fileInfo.Sha256sum)
+	originalFilePath := storage.FilePath(fileInfo.Sha256sum)
 	c.File(originalFilePath)
 }
 

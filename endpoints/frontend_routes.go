@@ -1,8 +1,8 @@
 package endpoints
 
 import (
-	"angadrive/globals"
-	"angadrive/requestHandler"
+	"angadrive/config"
+	"angadrive/hub"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -16,7 +16,7 @@ import (
 // to the canonical path-based collection URL.
 func collectionHandler(indexFile CachedFile) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if c.Request.Host != globals.WebURL {
+		if c.Request.Host != config.WebURL {
 			c.AbortWithStatus(http.StatusNotFound)
 			return
 		}
@@ -38,7 +38,7 @@ func collectionHandler(indexFile CachedFile) gin.HandlerFunc {
 		}
 
 		// No legacy id (e.g. /collection or /collection/) -> serve the SPA.
-		go requestHandler.SiteActivityPulse()
+		go hub.PublishSiteActivity()
 		serveCachedFile(c, indexFile)
 	}
 }
@@ -61,17 +61,17 @@ func setupRoutes(r *gin.Engine, cache map[string]CachedFile) {
 	for _, route := range routes {
 		route := route
 		r.GET(route, func(c *gin.Context) {
-			if c.Request.Host == globals.WebURL {
-				go requestHandler.SiteActivityPulse()
+			if c.Request.Host == config.WebURL {
+				go hub.PublishSiteActivity()
 				serveCachedFile(c, indexFile)
-			} else if route == "/" && c.Request.Host == globals.AssetsURL {
+			} else if route == "/" && c.Request.Host == config.AssetsURL {
 				scheme := "http"
 				if c.Request.TLS != nil {
 					scheme = "https"
 				} else if proto := c.GetHeader("X-Forwarded-Proto"); proto != "" {
 					scheme = proto
 				}
-				c.Redirect(http.StatusTemporaryRedirect, fmt.Sprintf("%s://%s/", scheme, globals.WebURL))
+				c.Redirect(http.StatusTemporaryRedirect, fmt.Sprintf("%s://%s/", scheme, config.WebURL))
 			} else {
 				c.AbortWithStatus(http.StatusNotFound)
 			}
@@ -83,7 +83,7 @@ func setupRoutes(r *gin.Engine, cache map[string]CachedFile) {
 		cachedFile := cachedFile
 		if relPath != "/index.html" { // since index.html is handled separately, we dont want to register it again
 			r.GET(relPath, func(c *gin.Context) {
-				if c.Request.Host == globals.WebURL {
+				if c.Request.Host == config.WebURL {
 					serveCachedFile(c, cachedFile)
 				} else {
 					c.AbortWithStatus(http.StatusNotFound)

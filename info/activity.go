@@ -1,16 +1,17 @@
 package info
 
 import (
+	"angadrive/config"
 	"angadrive/database"
 	"sort"
 	"time"
 )
 
 func GetLastXDaysCounts() ([]string, []int64) {
-	timestamps := database.TimeStamps
+	timestamps := database.GetTimeStamps()
 	dates := make([]string, 0, DaysTracked)
 	counts := make([]int64, 0, DaysTracked)
-	loc, _ := time.LoadLocation("Asia/Kolkata")
+	loc := config.Location()
 	now := time.Now().In(loc)
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 

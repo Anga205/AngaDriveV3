@@ -28,10 +28,12 @@ const Account: Component = () => {
     onMount(() => {
         syncLoginState();
         window.addEventListener('storage', syncLoginState);
+        window.addEventListener('auth-changed', syncLoginState);
     });
 
     onCleanup(() => {
         window.removeEventListener('storage', syncLoginState);
+        window.removeEventListener('auth-changed', syncLoginState);
     });
 
     return (

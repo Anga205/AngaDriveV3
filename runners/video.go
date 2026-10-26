@@ -2,7 +2,7 @@ package runners
 
 import (
 	"angadrive/database"
-	"angadrive/globals"
+	"angadrive/storage"
 	"bytes"
 	"fmt"
 	"os"
@@ -46,8 +46,8 @@ func (r *VideoRunner) Run(job Job) error {
 // convert performs the actual ffmpeg transcode and notifies the user of the
 // result (or error) through the Notifier.
 func (r *VideoRunner) convert(inputFile database.FileData) error {
-	inputFilePath := globals.UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + inputFile.Sha256sum
-	outputFilePath := globals.UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + removeExtension(inputFile.Sha256sum) + ".mp4"
+	inputFilePath := storage.FilePath(inputFile.Sha256sum)
+	outputFilePath := storage.FilePath(removeExtension(inputFile.Sha256sum) + ".mp4")
 	if _, err := os.Stat(inputFilePath); os.IsNotExist(err) {
 		r.notifier.NotifyUser(inputFile.AccountToken, map[string]interface{}{
 			"type": "error",
@@ -111,7 +111,7 @@ func (r *VideoRunner) convert(inputFile database.FileData) error {
 		})
 		return err
 	}
-	err = os.Rename(outputFilePath, globals.UPLOAD_DIR+string(os.PathSeparator)+"i"+string(os.PathSeparator)+outputSha256sum+".mp4")
+	err = os.Rename(outputFilePath, storage.FilePath(outputSha256sum+".mp4"))
 	if err != nil {
 		r.notifier.NotifyUser(inputFile.AccountToken, map[string]interface{}{
 			"type": "error",

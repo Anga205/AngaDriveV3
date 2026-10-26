@@ -1,4 +1,8 @@
-package requestHandler
+// Package protocol defines the wire contract shared by the websocket and HTTP
+// transports, the broadcast hub, and the service layer. It contains only data
+// types and pure helpers so it can be imported by every layer without creating
+// cycles.
+package protocol
 
 import (
 	"angadrive/accounts"
@@ -6,6 +10,7 @@ import (
 	"fmt"
 )
 
+// GraphData is a generic chart payload sent to the homepage.
 type GraphData struct {
 	XAxis       []string `json:"x_axis"`
 	YAxis       []int64  `json:"y_axis"`
@@ -13,12 +18,15 @@ type GraphData struct {
 	BeginAtZero bool     `json:"begin_at_zero"`
 }
 
+// FileUpdate tells a client to add (Toggle=true) or remove (Toggle=false) a
+// file from its view. Replace indicates an in-place update.
 type FileUpdate struct {
-	Toggle  bool `json:"toggle"` // If this is true then it means "append a file to this page", false means the file already exists and we are removing it
+	Toggle  bool `json:"toggle"`
 	Replace bool `json:"replace"`
 	File    database.FileData
 }
 
+// CollectionCardData is the summary representation of a collection.
 type CollectionCardData struct {
 	CollectionID   string `json:"id"`
 	CollectionName string `json:"name"`
@@ -29,17 +37,21 @@ type CollectionCardData struct {
 	Timestamp      int64  `json:"timestamp"`
 }
 
+// CollectionCardUpdate tells a client to add/remove a collection card.
 type CollectionCardUpdate struct {
-	Toggle     bool               `json:"toggle"` // same functionality as FileUpdate
+	Toggle     bool               `json:"toggle"`
 	Collection CollectionCardData `json:"collection"`
 }
 
+// AuthInfo carries the credentials supplied with a request.
 type AuthInfo struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 	Token    string `json:"token"`
 }
 
+// GetToken resolves the request's credentials to an account token, verifying
+// the password when email/password are supplied.
 func (a AuthInfo) GetToken() (string, error) {
 	if (a.Email == "" || a.Password == "") && a.Token == "" {
 		return "", fmt.Errorf("no authentication information provided")
@@ -53,11 +65,11 @@ func (a AuthInfo) GetToken() (string, error) {
 			return "", fmt.Errorf("failed to find user by email: %v", err)
 		}
 		return account.Token, nil
-	} else if a.Token != "" {
-		return a.Token, nil
-	} else {
-		return "", fmt.Errorf("invalid authentication information provided")
 	}
+	if a.Token != "" {
+		return a.Token, nil
+	}
+	return "", fmt.Errorf("invalid authentication information provided")
 }
 
 type ConvertVideoRequest struct {
@@ -140,9 +152,7 @@ type GetCollectionRequest struct {
 	Auth         AuthInfo `json:"auth"`
 }
 
-func (r GetCollectionRequest) GetCollectionID() string {
-	return r.CollectionID
-}
+func (r GetCollectionRequest) GetCollectionID() string { return r.CollectionID }
 
 type GetCollectionResponse struct {
 	CollectionID   string               `json:"collection_id"`
@@ -152,46 +162,13 @@ type GetCollectionResponse struct {
 	Folders        []CollectionCardData `json:"folders"`
 }
 
-type Collection database.Collection
-
-func (collection Collection) getCollectionResponse(userToken string) GetCollectionResponse {
-	resp := GetCollectionResponse{
-		CollectionID:   collection.ID,
-		CollectionName: collection.Name,
-		IsOwner:        database.Collection(collection).IsEditor(userToken),
-		Files:          []database.FileData{},
-		Folders:        []CollectionCardData{},
-	}
-	fileList := database.Collection(collection).GetFiles()
-	for _, fileID := range fileList {
-		file, _ := database.GetFile(fileID)
-		resp.Files = append(resp.Files, file)
-	}
-	folderList := database.Collection(collection).GetCollections()
-	for _, folderID := range folderList {
-		folder, _ := database.GetCollection(folderID)
-		resp.Folders = append(resp.Folders, CollectionCardData{
-			CollectionID:   folder.ID,
-			CollectionName: folder.Name,
-			Size:           int64(folder.Size),
-			FileCount:      len(folder.GetFiles()),
-			FolderCount:    len(folder.GetCollections()),
-			EditorCount:    len(folder.GetEditors()),
-			Timestamp:      folder.Timestamp,
-		})
-	}
-	return resp
-}
-
 type AddFolderToCollectionRequest struct {
 	FolderID     string   `json:"folder_id"`
 	CollectionID string   `json:"collection_id"`
 	Auth         AuthInfo `json:"auth"`
 }
 
-func (r AddFolderToCollectionRequest) GetCollectionID() string {
-	return r.CollectionID
-}
+func (r AddFolderToCollectionRequest) GetCollectionID() string { return r.CollectionID }
 
 type RemoveFolderFromCollectionRequest AddFolderToCollectionRequest
 
@@ -201,9 +178,7 @@ type CreateFolderInCollectionRequest struct {
 	Auth         AuthInfo `json:"auth"`
 }
 
-func (r CreateFolderInCollectionRequest) GetCollectionID() string {
-	return r.CollectionID
-}
+func (r CreateFolderInCollectionRequest) GetCollectionID() string { return r.CollectionID }
 
 type AddFileToCollectionRequest struct {
 	FileDirectory string   `json:"file_directory"`
@@ -211,9 +186,7 @@ type AddFileToCollectionRequest struct {
 	Auth          AuthInfo `json:"auth"`
 }
 
-func (r AddFileToCollectionRequest) GetCollectionID() string {
-	return r.CollectionID
-}
+func (r AddFileToCollectionRequest) GetCollectionID() string { return r.CollectionID }
 
 type RemoveFileFromCollectionRequest AddFileToCollectionRequest
 
@@ -222,4 +195,44 @@ type ImportGithubRepoRequest struct {
 	Auth    AuthInfo `json:"auth"`
 }
 
-type removeAccRequest accounts.DeleteUserRequest
+type RemoveAccountRequest accounts.DeleteUserRequest
+
+// CollectionCard builds the summary card for a collection.
+func CollectionCard(collection database.Collection) CollectionCardData {
+	return CollectionCardData{
+		CollectionID:   collection.ID,
+		CollectionName: collection.Name,
+		Size:           int64(collection.Size),
+		FileCount:      len(collection.GetFiles()),
+		FolderCount:    len(collection.GetCollections()),
+		EditorCount:    len(collection.GetEditors()),
+		Timestamp:      collection.Timestamp,
+	}
+}
+
+// BuildCollectionResponse expands a collection into its full response payload
+// (files + child folders) for the given user token.
+func BuildCollectionResponse(collection database.Collection, userToken string) GetCollectionResponse {
+	resp := GetCollectionResponse{
+		CollectionID:   collection.ID,
+		CollectionName: collection.Name,
+		IsOwner:        collection.IsEditor(userToken),
+		Files:          []database.FileData{},
+		Folders:        []CollectionCardData{},
+	}
+	for _, fileID := range collection.GetFiles() {
+		file, err := database.GetFile(fileID)
+		if err != nil {
+			continue
+		}
+		resp.Files = append(resp.Files, file)
+	}
+	for _, folderID := range collection.GetCollections() {
+		folder, err := database.GetCollection(folderID)
+		if err != nil {
+			continue
+		}
+		resp.Folders = append(resp.Folders, CollectionCard(folder))
+	}
+	return resp
+}

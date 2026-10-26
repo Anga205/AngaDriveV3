@@ -2,11 +2,11 @@ package previews
 
 import (
 	"angadrive/database"
-	"angadrive/globals"
-	"angadrive/requestHandler"
+	"angadrive/hub"
+	"angadrive/service"
+	"angadrive/storage"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -25,7 +25,7 @@ import (
 // for the same video while a preview is pending will not enqueue duplicate
 // jobs.
 func ReturnVideoPreview(c *gin.Context) {
-	go requestHandler.SiteActivityPulse()
+	go hub.PublishSiteActivity()
 
 	fileDirectory := c.Param("file_directory")
 	// The route is /preview-video/<file_directory>.webp; strip the extension.
@@ -37,8 +37,7 @@ func ReturnVideoPreview(c *gin.Context) {
 		return
 	}
 
-	previewsDir := filepath.Join(globals.UPLOAD_DIR, "video_previews")
-	previewFile := filepath.Join(previewsDir, file.Sha256sum+".webp")
+	previewFile := storage.VideoPreviewPath(file.Sha256sum)
 
 	if _, err := os.Stat(previewFile); !os.IsNotExist(err) {
 		c.Header("Cache-Control", "private, max-age=900")
@@ -49,7 +48,7 @@ func ReturnVideoPreview(c *gin.Context) {
 	// Preview does not exist yet. Enqueue a runner to generate it. If a job is
 	// already queued/running for this source video, Submit returns an error
 	// (dedup by sha256), which is fine — the preview is already being made.
-	_ = requestHandler.SubmitVideoPreview(file)
+	_ = service.SubmitVideoPreview(file)
 
 	c.Status(http.StatusTooEarly) // 425
 	c.String(http.StatusTooEarly, "Preview is being generated")

@@ -94,9 +94,9 @@ const UncontextedApp = () => {
   createEffect(() => {
     const socket = getSocket();
     if (!socket) return;
-    socket.addEventListener("message", (event) => {
-      UniversalMessageHandler(event, ctx);
-    });
+    const handler = (event: MessageEvent) => UniversalMessageHandler(event, ctx);
+    socket.addEventListener("message", handler);
+    onCleanup(() => socket.removeEventListener("message", handler));
   })
   return (
     <Router>

@@ -78,17 +78,18 @@ func (collection Collection) Delete() error {
 	return collection.unsafeDelete()
 }
 
-func unsafeDeleteFile(file FileData, collectionPulser func(collection Collection)) error {
+func unsafeDeleteFile(file FileData) ([]Collection, error) {
 	guaranteeLocks(&UserFilesMutex, &CollectionFilesMutex, &CollectionFoldersMutex, &FileCacheLock, &CollectionCacheLock)
 	db := GetDB()
 	result := db.Delete(&FileData{}, file)
 	if result.Error != nil {
-		return result.Error
+		return nil, result.Error
 	}
 	var mappings []CollectionFile
 	db.Where("file_id = ?", file.FileDirectory).Find(&mappings)
 	// Remove the file from each collection's RAM set, then delete the edges.
 	updatedCollections := make(map[string]bool)
+	var affected []Collection
 	for _, m := range mappings {
 		if CollectionFiles[m.CollectionID] != nil {
 			CollectionFiles[m.CollectionID].Remove(file.FileDirectory)
@@ -100,15 +101,15 @@ func unsafeDeleteFile(file FileData, collectionPulser func(collection Collection
 		collection.Size = unsafeCalculateCollectionSize(collection, make(map[string]bool), make(map[string]bool))
 		updatedCollections[collection.ID] = true
 		if err := db.Model(&Collection{}).Where("id = ?", collection.ID).Update("size", collection.Size).Error; err != nil {
-			return fmt.Errorf("failed to update collection %s: %v", collection.Name, err)
+			return nil, fmt.Errorf("failed to update collection %s: %v", collection.Name, err)
 		}
 		CollectionCache[collection.ID] = collection
-		go collectionPulser(collection)
+		affected = append(affected, collection)
 		unsafeUpdateParentCollectionSizes(collection.ID, &updatedCollections)
 	}
 	// Delete all collection_files edges referring to this file.
 	if err := db.Where("file_id = ?", file.FileDirectory).Delete(&CollectionFile{}).Error; err != nil {
-		return err
+		return nil, err
 	}
 	for _, fileSet := range UserFiles {
 		if fileSet != nil {
@@ -116,10 +117,13 @@ func unsafeDeleteFile(file FileData, collectionPulser func(collection Collection
 		}
 	}
 	delete(FileCache, file.FileDirectory)
-	return nil
+	return affected, nil
 }
 
-func DeleteFile(file FileData, collectionPulser func(collection Collection)) error {
+// DeleteFile removes a file and returns the collections whose contents changed
+// so the caller can broadcast updates. The database layer performs no
+// notification itself.
+func DeleteFile(file FileData) ([]Collection, error) {
 	UserFilesMutex.RLock()
 	defer UserFilesMutex.RUnlock()
 	CollectionFilesMutex.RLock()
@@ -130,7 +134,7 @@ func DeleteFile(file FileData, collectionPulser func(collection Collection)) err
 	defer FileCacheLock.Unlock()
 	CollectionCacheLock.Lock()
 	defer CollectionCacheLock.Unlock()
-	return unsafeDeleteFile(file, collectionPulser)
+	return unsafeDeleteFile(file)
 }
 
 func (account Account) Delete() error {

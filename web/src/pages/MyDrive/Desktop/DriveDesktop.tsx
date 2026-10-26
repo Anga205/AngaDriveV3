@@ -8,9 +8,8 @@ import Search from "lucide-solid/icons/search";
 import { UploadPopup } from "../shared/components/UploadPopUp";
 import FilesError from "../shared/components/FilesError";
 import FileCard from "@/components/FileCard";
-import { useWebSocket } from "@/Websockets";
-import { toast } from "solid-toast";
 import BulkActionsMenu from "../shared/components/BulkActionsMenu";
+import { useBulkFileActions } from "../shared/useBulkFileActions";
 
 const DesktopDrive: Component<{ Files: Accessor<Array<FileData>>; sortOptions: SelectOption[]; selectedSort: Accessor<string[]>; setSelectedSort: (value: string[]) => void; sortedFiles: Accessor<Array<FileData>>; searchQuery?: Accessor<string>; setSearch?: (v: string) => void }> = (props) => {
     // Lazy load files using IntersectionObserver
@@ -19,81 +18,14 @@ const DesktopDrive: Component<{ Files: Accessor<Array<FileData>>; sortOptions: S
     let desktopSentinelRef: HTMLDivElement | undefined;
     let desktopObserver: IntersectionObserver | undefined;
     const ctx = useContext(AppContext)!;
-    const { socket: getSocket } = useWebSocket();
+    const bulk = useBulkFileActions();
 
     const selectedCount = createMemo(() => ctx.selectedFiles?.()?.size || 0);
 
-    const handleBulkDuplicate = () => {
-        const selected = Array.from(ctx.selectedFiles?.() || new Set<string>());
-        if (selected.length === 0) return;
-        const duplicateRequest = {
-            type: "bulk_duplicate_files",
-            data: {
-                file_directories: selected,
-                auth: {
-                    token: localStorage.getItem("token") || "",
-                    email: localStorage.getItem("email") || "",
-                    password: localStorage.getItem("password") || ""
-                }
-            }
-        };
-        if (getSocket()?.readyState !== WebSocket.OPEN) {
-            toast.error("WebSocket is not available");
-            return;
-        }
-        getSocket()?.send(JSON.stringify(duplicateRequest));
-        ctx.setSelectedFiles?.(new Set());
-    };
-
-    const handleBulkDelete = () => {
-        const selected = Array.from(ctx.selectedFiles?.() || new Set<string>());
-        if (selected.length === 0) return;
-        const deleteRequest = {
-            type: "bulk_delete_files",
-            data: {
-                file_directories: selected,
-                auth: {
-                    token: localStorage.getItem("token") || "",
-                    email: localStorage.getItem("email") || "",
-                    password: localStorage.getItem("password") || ""
-                }
-            }
-        }
-        if (getSocket()?.readyState !== WebSocket.OPEN) {
-            toast.error("WebSocket is not available");
-            return;
-        }
-        getSocket()?.send(JSON.stringify(deleteRequest));
-        ctx.setSelectedFiles?.(new Set());
-    };
-
-    const handleBulkAddToCollection = (collectionId: string, collectionName: string) => {
-        const selected = Array.from(ctx.selectedFiles?.() || new Set<string>());
-        if (selected.length === 0) return;
-        const addRequest = {
-            type: "bulk_add_files_to_collection",
-            data: {
-                file_directories: selected,
-                collection_id: collectionId,
-                collection_name: collectionName,
-                auth: {
-                    token: localStorage.getItem("token") || "",
-                    email: localStorage.getItem("email") || "",
-                    password: localStorage.getItem("password") || ""
-                }
-            }
-        };
-        if (getSocket()?.readyState !== WebSocket.OPEN) {
-            toast.error("WebSocket is not available");
-            return;
-        }
-        getSocket()?.send(JSON.stringify(addRequest));
-        ctx.setSelectedFiles?.(new Set());
-    };
-
-    const handleUnselectAll = () => {
-        ctx.setSelectedFiles?.(new Set());
-    };
+    const handleBulkDuplicate = bulk.duplicate;
+    const handleBulkDelete = bulk.remove;
+    const handleBulkAddToCollection = bulk.addToCollection;
+    const handleUnselectAll = bulk.clearSelection;
 
     const displayedFiles = createMemo(() => {
         const base = props.sortedFiles() || [];

@@ -1,6 +1,7 @@
 package database
 
 import (
+	"angadrive/storage"
 	"math/rand"
 	"strings"
 	"time"
@@ -70,39 +71,26 @@ func PushTimeStamp(timestamp int64) {
 	GetDB().Model(&Activity{}).Create(&Activity{Timestamps: timestamp})
 }
 
-const allowed_filename_characters = "qwertyuiopasdfghjklzxcvbnm1234567890"
+// GetTimeStamps returns a copy of the in-RAM activity timestamps. Callers must
+// use this instead of reading the TimeStamps global directly so the read is
+// synchronized with PushTimeStamp.
+func GetTimeStamps() []int64 {
+	TimeStampsMutex.RLock()
+	defer TimeStampsMutex.RUnlock()
+	out := make([]int64, len(TimeStamps))
+	copy(out, TimeStamps)
+	return out
+}
 
 func isFileNamePresent(filename string) bool {
-
 	file, _ := GetFile(filename)
-
 	return file.FileDirectory == filename
 }
 
+// GenerateUniqueFileName returns a random filename (preserving the original
+// extension) that does not collide with an existing file.
 func GenerateUniqueFileName(filename string) string {
-	var generated_name string
-	for {
-		generated_name = generateFileName(filename)
-		if !isFileNamePresent(generated_name) {
-			break
-		}
-	}
-	return generated_name
-}
-
-func generateFileName(filename string) string {
-	random := rand.New(rand.NewSource(time.Now().UnixNano()))
-	var sb strings.Builder
-	for range [12]int{} {
-		randomIndex := random.Intn(len(allowed_filename_characters))
-		sb.WriteString(string(allowed_filename_characters[randomIndex]))
-	}
-	generated_name := sb.String()
-
-	if len(strings.Split(filename, ".")) > 1 {
-		generated_name = generated_name + "." + strings.Split(filename, ".")[len(strings.Split(filename, "."))-1]
-	}
-	return generated_name
+	return storage.UniqueFileName(filename, isFileNamePresent)
 }
 
 func (file FileData) Insert() error {

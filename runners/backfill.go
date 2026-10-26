@@ -2,7 +2,7 @@ package runners
 
 import (
 	"angadrive/database"
-	"angadrive/globals"
+	"angadrive/storage"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,7 +27,7 @@ func isVideoFile(filename string) bool {
 // previewExists reports whether a preview (or an empty "cannot preview" marker)
 // already exists for the given source sha256.
 func previewExists(sha256sum string) bool {
-	path := filepath.Join(globals.UPLOAD_DIR, "video_previews", sha256sum+".webp")
+	path := storage.VideoPreviewPath(sha256sum)
 	_, err := os.Stat(path)
 	return err == nil
 }

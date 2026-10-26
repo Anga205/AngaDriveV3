@@ -6,6 +6,13 @@ import (
 	"gorm.io/gorm"
 )
 
+// IsDuplicateKeyError reports whether the error is a SQLite unique-constraint
+// violation (e.g. a duplicate primary key on a relationship table). GORM does
+// not expose this cleanly, so we match against the known SQLite error text.
+func IsDuplicateKeyError(err error) bool {
+	return isDuplicateKeyError(err)
+}
+
 // isDuplicateKeyError reports whether the error is a SQLite unique-constraint
 // violation (e.g. a duplicate primary key on a relationship table). GORM does
 // not expose this cleanly, so we match against the known SQLite error text.

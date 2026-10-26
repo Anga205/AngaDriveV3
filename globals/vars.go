@@ -1,23 +1,8 @@
 package globals
 
-import (
-	"os"
-)
-
-var WebURL string
-var AssetsURL string
-
+// Configuration values now live in package config. This alias is kept for
+// source compatibility with existing call sites and will be removed once all
+// references are migrated.
+//
+// Deprecated: use angadrive/config and angadrive/storage instead.
 const UPLOAD_DIR string = "uploaded_files"
-
-func init() {
-	WebURL = os.Getenv("WEB_URL")
-	AssetsURL = os.Getenv("ASSETS_URL")
-
-	if WebURL == "" {
-		WebURL = "localhost:8080"
-	}
-
-	if AssetsURL == "" {
-		AssetsURL = "localhost:8080"
-	}
-}

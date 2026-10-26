@@ -3,6 +3,7 @@ package accounts
 import (
 	"angadrive/database"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"errors"
 	"sync"
@@ -88,9 +89,10 @@ func Authenticate(email string, secret string) bool {
 }
 
 // verifySecret compares secret against the account's stored bcrypt hash,
-// memoizing the result in the LRU cache.
+// memoizing the result in the LRU cache. The cache key is a hash of the secret
+// so the plaintext/digest is never retained in memory as a map key.
 func verifySecret(user database.Account, secret string) bool {
-	cacheKey := user.HashedPassword + ":" + secret
+	cacheKey := user.HashedPassword + ":" + sha256Hex(secret)
 	if result, ok := getBcryptCache(cacheKey); ok {
 		return result
 	}
@@ -144,9 +146,6 @@ func AuthenticateHashed(email string, hashedPassword string) bool {
 	if err != nil {
 		return false
 	}
-
-	if email == user.Email && hashedPassword == user.HashedPassword {
-		return true
-	}
-	return false
+	// Constant-time comparison to avoid leaking the stored hash via timing.
+	return subtle.ConstantTimeCompare([]byte(hashedPassword), []byte(user.HashedPassword)) == 1
 }

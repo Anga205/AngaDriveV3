@@ -3,7 +3,7 @@ package database
 type Account struct {
 	Token       string `gorm:"primaryKey" json:"token"`
 	DisplayName string `json:"display_name"`
-	Email       string `json:"email"`
+	Email       string `gorm:"uniqueIndex" json:"email"`
 	// HashedPassword is bcrypt(secret), where secret depends on PasswordVersion:
 	//   PasswordVersion 0 (legacy): secret is the plaintext password.
 	//   PasswordVersion 1:          secret is the hex SHA-256 digest of the password.

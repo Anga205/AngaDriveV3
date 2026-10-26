@@ -3,6 +3,8 @@ import Dialog from '@corvu/dialog';
 import { toast } from "solid-toast";
 import { useWebSocket } from "@/Websockets";
 import { sha256Hex } from "@/library/password";
+import { getEmail } from "@/api/auth";
+import { send } from "@/api/client";
 
 const DeleteAccountDialog: Component = () => {
     const [open, setOpen] = createSignal(false);
@@ -19,18 +21,9 @@ const DeleteAccountDialog: Component = () => {
             toast.error("Please enter your password to confirm account deletion.");
             return;
         }
-        const currentSocket = getSocket();
         // Send the SHA-256 digest; the plaintext never leaves the browser.
         const digest = await sha256Hex(deletePassword());
-        currentSocket?.send(
-            JSON.stringify({
-                type: "delete_account",
-                data: {
-                    email: localStorage.getItem("email"),
-                    password: digest,
-                },
-            })
-        )
+        send(getSocket(), "delete_account", { email: getEmail(), password: digest });
     }
     return (
         <Dialog open={open()} onOpenChange={(newOpen) => {

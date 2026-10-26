@@ -1,4 +1,8 @@
 import bcrypt from "bcryptjs";
+import { request, WsResult } from "../api/client";
+
+/** Re-export the shared websocket request helper for existing callers. */
+const wsRequest = request;
 
 /**
  * Password handling for the SHA-256 pre-hash scheme.
@@ -57,88 +61,6 @@ function clearStoredCredentials(): void {
     localStorage.removeItem(PASSWORD_SCHEME_KEY);
 }
 
-interface WsResult {
-    ok: boolean;
-    data: any;
-}
-
-/**
- * Send a request over the websocket and resolve with the first response of
- * `responseType`. Error payloads (a string, or an object with `error`) resolve
- * with `ok: false`.
- */
-function wsRequest(
-    ws: WebSocket,
-    type: string,
-    data: unknown,
-    responseType: string,
-    timeoutMs = 15000,
-): Promise<WsResult> {
-    return new Promise<WsResult>((resolve) => {
-        let settled = false;
-        const finish = (result: WsResult) => {
-            if (settled) return;
-            settled = true;
-            clearTimeout(timer);
-            ws.removeEventListener("message", onMessage);
-            ws.removeEventListener("close", onClose);
-            resolve(result);
-        };
-        const onMessage = (event: MessageEvent) => {
-            let message: any;
-            try {
-                message = JSON.parse(event.data);
-            } catch {
-                return;
-            }
-            if (message.type !== responseType) return;
-            const payload = message.data;
-            const isError =
-                typeof payload === "string" ||
-                (payload && typeof payload === "object" && "error" in payload);
-            finish({ ok: !isError, data: payload });
-        };
-        const onClose = () => finish({ ok: false, data: "connection closed" });
-        const timer = setTimeout(() => finish({ ok: false, data: "timeout" }), timeoutMs);
-
-        ws.addEventListener("message", onMessage);
-        ws.addEventListener("close", onClose);
-        ws.send(JSON.stringify({ type, data }));
-    });
-}
-
-/**
- * Log in with a plaintext password.
- *
- * Sends the SHA-256 digest. If the account has not been migrated yet the
- * backend replies with `legacy_password`; we then retry once with the plaintext
- * and `legacy: true`, which upgrades the account server-side.
- *
- * On success the digest is cached in localStorage.
- */
-async function loginWithPassword(
-    ws: WebSocket,
-    email: string,
-    plaintext: string,
-): Promise<WsResult> {
-    const digest = await sha256Hex(plaintext);
-    let result = await wsRequest(ws, "login", { email, password: digest }, "login_response");
-
-    if (!result.ok && result.data === "legacy_password") {
-        result = await wsRequest(
-            ws,
-            "login",
-            { email, password: plaintext, legacy: true },
-            "login_response",
-        );
-    }
-
-    if (result.ok) {
-        storePasswordDigest(digest);
-    }
-    return result;
-}
-
 /**
  * Migrate a plaintext password cached by the pre-migration frontend.
  *
@@ -169,7 +91,6 @@ export {
     storePasswordDigest,
     clearStoredCredentials,
     wsRequest,
-    loginWithPassword,
     migrateCachedPassword,
 };
 export type { WsResult };

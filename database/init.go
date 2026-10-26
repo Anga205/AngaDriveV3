@@ -1,11 +1,8 @@
 package database
 
 import (
-	"angadrive/globals"
-	"crypto/sha256"
-	"encoding/hex"
+	"angadrive/storage"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,44 +11,16 @@ import (
 	"gorm.io/gorm"
 )
 
-func createUploadedFilesDir(dirName string) error {
-	if _, err := os.Stat(dirName); !os.IsNotExist(err) {
-		return nil
-	}
-
-	err := os.Mkdir(dirName, 0755)
-	if err != nil {
-		return fmt.Errorf("createUploadedFilesDir: %w", err)
-	}
-
-	subDir := dirName + string(os.PathSeparator) + "i"
-	err = os.Mkdir(subDir, 0755)
-	if err != nil {
-		return fmt.Errorf("createUploadedFilesDir: %w", err)
-	}
-	subDir = dirName + string(os.PathSeparator) + "tmp_chunks"
-	err = os.Mkdir(subDir, 0755)
-	if err != nil {
-		return fmt.Errorf("createUploadedFilesDir: %w", err)
-	}
-	subDir = dirName + string(os.PathSeparator) + "pdf_previews"
-	err = os.Mkdir(subDir, 0755)
-	if err != nil {
-		return fmt.Errorf("createUploadedFilesDir: %w", err)
-	}
-	return nil
-}
-
 var (
 	dbInstance *gorm.DB
 )
 
 func InitializeDatabase() error {
-	err := createUploadedFilesDir(globals.UPLOAD_DIR)
-	if err != nil {
+	if err := storage.EnsureLayout(); err != nil {
 		return fmt.Errorf("InitializeDatabase: %w", err)
 	}
-	dbPath := globals.UPLOAD_DIR + string(os.PathSeparator) + "angadrive.db"
+	dbPath := filepath.Join(storage.Root(), "angadrive.db")
+	var err error
 	dbInstance, err = gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
 	if err != nil {
 		return fmt.Errorf("InitializeDatabase: %w", err)
@@ -65,7 +34,7 @@ func InitializeDatabase() error {
 	// Migrate any pre-existing database that still uses the legacy MD5-based
 	// storage key. AutoMigrate adds the new `sha256sum` column but does not
 	// rename or backfill the old `md5sum` column, so we do that here.
-	if err := migrateMd5ToSha256(globals.UPLOAD_DIR); err != nil {
+	if err := migrateMd5ToSha256(storage.Root()); err != nil {
 		return fmt.Errorf("InitializeDatabase: md5->sha256 migration failed: %w", err)
 	}
 
@@ -159,7 +128,7 @@ func migrateMd5ToSha256(uploadedFilesDir string) error {
 			continue
 		}
 
-		hash, err := sha256OfFile(oldPath)
+		hash, err := storage.SHA256File(oldPath)
 		if err != nil {
 			return err
 		}
@@ -194,20 +163,7 @@ func migrateMd5ToSha256(uploadedFilesDir string) error {
 	return nil
 }
 
-// sha256OfFile computes the lowercase hex SHA-256 digest of a file's bytes.
-func sha256OfFile(path string) (string, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return "", err
-	}
-	defer file.Close()
-
-	hash := sha256.New()
-	if _, err := io.Copy(hash, file); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(hash.Sum(nil)), nil
-}
+// sha256OfFile was moved to package storage (storage.SHA256File).
 
 func GetDB() *gorm.DB {
 	if dbInstance == nil {

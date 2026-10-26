@@ -3,6 +3,7 @@ import Dialog from "@corvu/dialog";
 import Dropdown from "@/components/Dropdown";
 import { AppContext } from "@/Context";
 import { useWebSocket } from "@/Websockets";
+import { addFolderToCollection, createFolderInCollection } from "@/api/endpoints";
 import { CollectionCardData } from "@/library/types";
 
 const AddFolderPopup: Component<{collectionId: string, isMobile?: boolean}> = (props) => {
@@ -26,32 +27,10 @@ const AddFolderPopup: Component<{collectionId: string, isMobile?: boolean}> = (p
         if (socket()) {
             if (modifying() === "existing") {
                 for (const folderId of selectedFolders()) {
-                    socket()?.send(JSON.stringify({
-                        type: "add_folder_to_collection",
-                        data: {
-                            collection_id: props.collectionId,
-                            folder_id: folderId,
-                            auth: {
-                                token: localStorage.getItem("token") || "",
-                                email: localStorage.getItem("email") || "",
-                                password: localStorage.getItem("password") || ""
-                            }
-                        }
-                    }));
+                    addFolderToCollection(socket(), folderId, props.collectionId);
                 }
             } else if (modifying() === "new" && newFolderName().trim() !== "") {
-                socket()?.send(JSON.stringify({
-                    type: "create_folder_in_collection",
-                    data: {
-                        collection_id: props.collectionId,
-                        folder_name: newFolderName().trim(),
-                        auth: {
-                            token: localStorage.getItem("token") || "",
-                            email: localStorage.getItem("email") || "",
-                            password: localStorage.getItem("password") || ""
-                        }
-                    }
-                }));
+                createFolderInCollection(socket(), props.collectionId, newFolderName().trim());
             }
         }
         setSelectedFolders([]);

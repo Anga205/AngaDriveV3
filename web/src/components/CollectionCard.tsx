@@ -3,6 +3,7 @@ import { BinSVG, CopySVG, CrossSVG, EyeSVG } from "../assets/SvgFiles";
 import { CollectionCardData } from "../library/types";
 import { formatFileSize, getCollection, getCollectionPathIds } from "../library/functions";
 import { useWebSocket } from "../Websockets";
+import { deleteCollection, removeFolderFromCollection } from "../api/endpoints";
 import toast from "solid-toast";
 import { useNavigate, useLocation } from "@solidjs/router";
 import { AppContext } from "../Context";
@@ -19,19 +20,7 @@ const CollectionCard: Component<{ collection: CollectionCardData }> = (props) =>
             toast.error("Could not secure a connection to the server. Please try again later.");
             return;
         }
-        const ws = socket();
-        if (!ws) return;
-        ws.send(JSON.stringify({
-            type: "delete_collection",
-            data: {
-                collection_id: props.collection.id,
-                auth: {
-                    token: localStorage.getItem('token') || '',
-                    email: localStorage.getItem('email') || '',
-                    password: localStorage.getItem('password') || ''
-                }
-            }
-        }));
+        deleteCollection(socket(), props.collection.id);
     };
 
     // The ID of the currently displayed collection, parsed from the URL path.
@@ -45,21 +34,7 @@ const CollectionCard: Component<{ collection: CollectionCardData }> = (props) =>
             toast.error("Could not secure a connection to the server. Please try again later.");
             return;
         }
-        const ws = socket();
-        if (!ws) return;
-
-        ws.send(JSON.stringify({
-            type: "remove_folder_from_collection",
-            data: {
-            collection_id: currentCollectionId(),
-            folder_id: props.collection.id,
-            auth: {
-                token: localStorage.getItem('token') || '',
-                email: localStorage.getItem('email') || '',
-                password: localStorage.getItem('password') || ''
-            }
-            }
-        }));
+        removeFolderFromCollection(socket(), props.collection.id, currentCollectionId());
     };
 
     const viewCollection = () => {

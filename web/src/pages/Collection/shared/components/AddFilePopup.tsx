@@ -3,6 +3,7 @@ import Dialog from "@corvu/dialog";
 import Dropdown from "@/components/Dropdown";
 import { AppContext } from "@/Context";
 import { useWebSocket } from "@/Websockets";
+import { addFileToCollection } from "@/api/endpoints";
 import { generateUUID } from "@/library/functions";
 import toast from "solid-toast";
 import { uploadFileInChunks } from "@/pages/MyDrive/shared/components/UploadPopUp";
@@ -303,18 +304,7 @@ const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (pro
     const handleSubmit = (close: () => void) => {
         if (modifying() === "existing" && socket()) {
             for (const fileDirectory of selectedExistingFiles()) {
-                socket()?.send(JSON.stringify({
-                    type: "add_file_to_collection",
-                    data: {
-                        collection_id: props.collectionId,
-                        file_directory: fileDirectory,
-                        auth: {
-                            token: localStorage.getItem("token") || "",
-                            email: localStorage.getItem("email") || "",
-                            password: localStorage.getItem("password") || ""
-                        }
-                    }
-                }));
+                addFileToCollection(socket(), fileDirectory, props.collectionId);
             }
         } else if (modifying() === "new") {
             requestPump();

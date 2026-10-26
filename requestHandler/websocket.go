@@ -1,65 +1,35 @@
-// Package requestHandler implements the AngaDrive websocket request layer: it
-// upgrades and tracks connections, dispatches incoming messages to operations in
-// accounts/database/runners, and pushes realtime "pulse" updates back to
-// interested connections. HTTP endpoints live in package endpoints.
+// Package requestHandler implements the AngaDrive websocket transport: it
+// upgrades and tracks connections, decodes incoming messages, and delegates to
+// the service layer. Business logic lives in package service; broadcasting
+// lives in package hub.
 package requestHandler
 
 import (
-	"angadrive/accounts"
-	"angadrive/database"
+	"angadrive/config"
 	"angadrive/globals"
+	"angadrive/hub"
 	"angadrive/info"
+	"angadrive/runners"
+	"angadrive/service"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
 
-var (
-	ActiveWebsockets      = make(map[*websocket.Conn]globals.WebsocketData)
-	ActiveWebsocketsMutex sync.RWMutex
-)
-
-func genericUserPulse(token string, message map[string]interface{}) {
-	var connectionsToUpdate []globals.WebsocketInfo
-	ActiveWebsocketsMutex.RLock()
-	for conn, connData := range ActiveWebsockets {
-		connectionsToUpdate = append(connectionsToUpdate, globals.WebsocketInfo{Conn: conn, Data: &connData})
-	}
-	ActiveWebsocketsMutex.RUnlock()
-	for _, ci := range connectionsToUpdate {
-		go func(ci globals.WebsocketInfo, token string) {
-			if ci.Data.UserInfo.Token == token {
-				ci.Data.Mutex.Lock()
-				ci.Conn.WriteJSON(message)
-				ci.Data.Mutex.Unlock()
-			} else if ci.Data.UserInfo.Email != "" && ci.Data.UserInfo.HashedPassword != "" {
-				if accounts.AuthenticateHashed(ci.Data.UserInfo.Email, ci.Data.UserInfo.HashedPassword) {
-					user, _ := database.FindUserByEmail(ci.Data.UserInfo.Email)
-					if user.Token == token {
-						ci.Data.Mutex.Lock()
-						ci.Conn.WriteJSON(message)
-						ci.Data.Mutex.Unlock()
-					}
-				}
-			}
-		}(ci, token)
-	}
-}
-
+// SetupWebsocket registers the /ws route and starts the background broadcast
+// loops. It must be called once at startup.
 func SetupWebsocket(r *gin.Engine) {
-	initRunners()
+	runners.Init(runnerNotifier{})
 	info.InitializeSysInfo()
-	initializeUserCount()
-	initFileCount()
-	go initSpaceUsedPulser()
-	go sysinfoPulse()
+	hub.InitCounters()
+	hub.StartTickers()
+
 	r.GET("/ws", func(c *gin.Context) {
-		if c.Request.Host != globals.WebURL {
+		if c.Request.Host != config.WebURL {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Websocket connection not allowed from this host"})
 			return
 		}
@@ -70,20 +40,8 @@ func SetupWebsocket(r *gin.Engine) {
 		}
 		defer conn.Close()
 
-		ActiveWebsocketsMutex.Lock()
-		ActiveWebsockets[conn] = globals.WebsocketData{
-			Mutex:                 &sync.Mutex{},
-			HomePageUpdates:       false,
-			UserInfo:              globals.UserInfo{Email: "", Token: "", HashedPassword: ""},
-			SubscribedCollections: make(map[string]bool),
-		}
-		ActiveWebsocketsMutex.Unlock()
-
-		defer func() {
-			ActiveWebsocketsMutex.Lock()
-			delete(ActiveWebsockets, conn)
-			ActiveWebsocketsMutex.Unlock()
-		}()
+		hub.Register(conn)
+		defer hub.Unregister(conn)
 
 		done := make(chan bool)
 		go reader(conn, done)
@@ -92,11 +50,7 @@ func SetupWebsocket(r *gin.Engine) {
 }
 
 func upgradeToWebSocket(c *gin.Context) (*websocket.Conn, error) {
-	upgrader := websocket.Upgrader{
-		CheckOrigin: func(r *http.Request) bool {
-			return true
-		},
-	}
+	upgrader := websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
 	return upgrader.Upgrade(c.Writer, c.Request, nil)
 }
 
@@ -110,46 +64,35 @@ func reader(conn *websocket.Conn, done chan bool) {
 			}
 			break
 		}
-
-		if messageType == websocket.TextMessage {
-			var message globals.IncomingMessage
-			if err := json.Unmarshal(msg, &message); err != nil {
-				now := time.Now()
-				timestamp := now.Format("03:04:05 PM, 02 Jan 2006")
-				fmt.Printf("[%s] Error unmarshalling JSON: %v\n", timestamp, err)
-				continue
-			}
-
-			rawData, _ := json.Marshal(message.Data)
-			dispatchMessage(conn, message.Type, rawData)
+		if messageType != websocket.TextMessage {
+			continue
 		}
+		var message globals.IncomingMessage
+		if err := json.Unmarshal(msg, &message); err != nil {
+			fmt.Printf("[%s] Error unmarshalling JSON: %v\n", time.Now().Format("03:04:05 PM, 02 Jan 2006"), err)
+			continue
+		}
+		rawData, _ := json.Marshal(message.Data)
+		dispatchMessage(conn, message.Type, rawData)
 	}
 }
 
-func updateConnAuth(conn *websocket.Conn, req AuthInfo) {
-	ActiveWebsocketsMutex.RLock()
-	data, ok := ActiveWebsockets[conn]
-	ActiveWebsocketsMutex.RUnlock()
-	if !ok || data.Mutex == nil {
-		// Connection state no longer available; nothing to update
-		return
-	}
-	data.Mutex.Lock()
-	defer data.Mutex.Unlock()
-	if req.Email != "" && req.Password != "" && accounts.Authenticate(req.Email, req.Password) {
-		accountInfo, _ := database.FindUserByEmail(req.Email)
-		data.UserInfo.Token = ""
-		data.UserInfo.Email = accountInfo.Email
-		data.UserInfo.HashedPassword = accountInfo.HashedPassword
-	} else {
-		data.UserInfo.Token = req.Token
-		data.UserInfo.Email = ""
-		data.UserInfo.HashedPassword = ""
-	}
-	ActiveWebsocketsMutex.Lock()
-	// Double-check still present before writing back
-	if _, stillOK := ActiveWebsockets[conn]; stillOK {
-		ActiveWebsockets[conn] = data
-	}
-	ActiveWebsocketsMutex.Unlock()
+// updateConnAuth refreshes the session credentials for a connection after a
+// successful authenticated request.
+func updateConnAuth(conn *websocket.Conn, req authInfo) {
+	hub.Update(conn, func(d *globals.WebsocketData) {
+		if req.Email != "" && req.Password != "" {
+			account, err := service.AccountForCredentials(req.Email, req.Password)
+			if err != nil {
+				return
+			}
+			d.UserInfo.Token = ""
+			d.UserInfo.Email = account.Email
+			d.UserInfo.HashedPassword = account.HashedPassword
+			return
+		}
+		d.UserInfo.Token = req.Token
+		d.UserInfo.Email = ""
+		d.UserInfo.HashedPassword = ""
+	})
 }

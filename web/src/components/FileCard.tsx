@@ -17,6 +17,7 @@ import Image from "lucide-solid/icons/image";
 import { ContextMenu, ContextMenuItem, ContextMenuSubmenu } from "./ContextMenu";
 import FilePreview from "./FilePreview";
 import { ConvertButton, ConvertImageButton, DeleteButton, RemoveFromCollectionButton, VIDEO_EXTENSIONS, IMAGE_CONVERT_EXTENSIONS, getExtension } from "./FileActions";
+import { duplicateFile, renameFile } from "../api/endpoints";
 
 const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: string) => void; isSelected?: boolean }> = (props) => {
     const DownloadLink = createMemo(() => assetsUrl(`/download/${props.File.file_directory}`));
@@ -80,18 +81,7 @@ const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: stri
             toast.error("WebSocket is not available");
             return;
         }
-        getSocket()?.send(JSON.stringify({
-            type: "rename_file",
-            data: {
-                file_directory: props.File.file_directory,
-                new_file_name: draftName(),
-                auth: {
-                    token: localStorage.getItem("token") || "",
-                    email: localStorage.getItem("email") || "",
-                    password: localStorage.getItem("password") || ""
-                }
-            }
-        }));
+        renameFile(getSocket(), props.File.file_directory, draftName());
         setIsRenaming(false);
     };
 
@@ -159,17 +149,7 @@ const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: stri
                                                 toast.error("WebSocket is not available");
                                                 return;
                                             }
-                                            getSocket()?.send(JSON.stringify({
-                                                type: "duplicate_file",
-                                                data: {
-                                                    file_directory: props.File.file_directory,
-                                                    auth: {
-                                                        token: localStorage.getItem("token") || "",
-                                                        email: localStorage.getItem("email") || "",
-                                                        password: localStorage.getItem("password") || ""
-                                                    }
-                                                }
-                                            }));
+                                            duplicateFile(getSocket(), props.File.file_directory);
                                         }}
                                     >
                                         Duplicate File

@@ -1,6 +1,7 @@
 import { Accessor, createEffect, createSignal, Show } from 'solid-js';
 import Dialog from '@corvu/dialog';
 import { useWebSocket } from '@/Websockets';
+import { createCollection, importFromGithub } from '@/api/endpoints';
 import toast from 'solid-toast';
 
 const Popup = () => {
@@ -22,35 +23,14 @@ const Popup = () => {
             toast.error("Could not secure a connection to the server. Please try again later.");
             return;
         }
-        const socket = getSocket()!;
         if (modifying() === "New") {
-            let name = newCollectionName().trim();
+            const name = newCollectionName().trim();
             setNewCollectionName('');
-            socket.send(JSON.stringify({
-                type: "new_collection",
-                data: {
-                    collection_name: name,
-                    auth: {
-                        token: localStorage.getItem('token') || '',
-                        email: localStorage.getItem('email') || '',
-                        password: localStorage.getItem('password') || ''
-                    }
-                }
-            }))
+            createCollection(getSocket(), name);
         } else if (modifying() === "Github") {
-            let url = githubURL().trim();
+            const url = githubURL().trim();
             setGithubURL('');
-            socket.send(JSON.stringify({
-                type: "import_from_github",
-                data: {
-                    repo_url: url,
-                    auth: {
-                        token: localStorage.getItem('token') || '',
-                        email: localStorage.getItem('email') || '',
-                        password: localStorage.getItem('password') || ''
-                    }
-                }
-            }));
+            importFromGithub(getSocket(), url);
         }
     }
     const disableSubmitButton: Accessor<boolean> = () => {

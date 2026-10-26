@@ -15,6 +15,8 @@ const MyCollections = () => {
             collection.name.toLowerCase().includes(query) || collection.id.toLowerCase().includes(query)
         );
     });
+    // NOTE: filterCollections is intentionally a predicate factory; consumers
+    // apply it to their own collection list.
 
     return (
         <>

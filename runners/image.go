@@ -2,7 +2,7 @@ package runners
 
 import (
 	"angadrive/database"
-	"angadrive/globals"
+	"angadrive/storage"
 	"fmt"
 	"image/png"
 	"os"
@@ -54,7 +54,7 @@ func (r *ImageRunner) Run(job Job) error {
 // (PNG source -> JPEG, otherwise -> lossless PNG), registering the result as a
 // new file and notifying the user.
 func (r *ImageRunner) convert(inputFile database.FileData, targetFormat string) error {
-	inputFilePath := globals.UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + inputFile.Sha256sum
+	inputFilePath := storage.FilePath(inputFile.Sha256sum)
 	if _, err := os.Stat(inputFilePath); os.IsNotExist(err) {
 		r.notifier.NotifyUser(inputFile.AccountToken, map[string]interface{}{
 			"type": "error",
@@ -126,7 +126,7 @@ func (r *ImageRunner) convert(inputFile database.FileData, targetFormat string) 
 	}
 
 	// Write to a temporary file so a partially-written output is never exposed.
-	tempFile, err := os.CreateTemp(globals.UPLOAD_DIR+string(os.PathSeparator)+"i", tempSuffix)
+	tempFile, err := os.CreateTemp(storage.FilesDir(), tempSuffix)
 	if err != nil {
 		r.notifier.NotifyUser(inputFile.AccountToken, map[string]interface{}{
 			"type": "error",
@@ -184,7 +184,7 @@ func (r *ImageRunner) convert(inputFile database.FileData, targetFormat string) 
 		return err
 	}
 
-	outputFilePath := globals.UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + outputSha256sum + outExt
+	outputFilePath := storage.FilePath(outputSha256sum + outExt)
 	if err := os.Rename(tempPath, outputFilePath); err != nil {
 		r.notifier.NotifyUser(inputFile.AccountToken, map[string]interface{}{
 			"type": "error",

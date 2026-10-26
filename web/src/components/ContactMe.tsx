@@ -43,10 +43,10 @@ const ContactMe: Component = () => {
             };
     
             const emailPromise = emailjs.send(
-                "service_3ys6akq",
-                "template_gervg6v",
+                import.meta.env.VITE_EMAILJS_SERVICE_ID ?? "",
+                import.meta.env.VITE_EMAILJS_TEMPLATE_ID ?? "",
                 formDataWithTimeStamp,
-                "1JMl4awfqw7WioBaX"
+                import.meta.env.VITE_EMAILJS_PUBLIC_KEY ?? ""
             );
     
             toast.promise(emailPromise, {

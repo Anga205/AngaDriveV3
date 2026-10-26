@@ -2,7 +2,7 @@ package runners
 
 import (
 	"angadrive/database"
-	"angadrive/globals"
+	"angadrive/storage"
 	"bytes"
 	"fmt"
 	"os"
@@ -77,8 +77,8 @@ func (r *VideoPreviewRunner) Run(job Job) error {
 // marked as "cannot be previewed" and the runner will not attempt to generate
 // it again (the preview endpoint sees the file exists and serves it).
 func (r *VideoPreviewRunner) generatePreview(inputFile database.FileData) error {
-	inputFilePath := filepath.Join(globals.UPLOAD_DIR, "i", inputFile.Sha256sum)
-	previewsDir := filepath.Join(globals.UPLOAD_DIR, "video_previews")
+	inputFilePath := storage.FilePath(inputFile.Sha256sum)
+	previewsDir := storage.VideoPreviewsDir()
 	outputFilePath := filepath.Join(previewsDir, inputFile.Sha256sum+".webp")
 
 	if _, err := os.Stat(inputFilePath); os.IsNotExist(err) {

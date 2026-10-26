@@ -1,9 +1,10 @@
 package endpoints
 
 import (
+	"angadrive/config"
+	"angadrive/service"
+	"angadrive/storage"
 	"compress/gzip"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -12,20 +13,14 @@ import (
 	"sync"
 	"time"
 
-	"angadrive/accounts"
-	"angadrive/database"
-	"angadrive/globals"
-	"angadrive/requestHandler"
-
 	"github.com/gin-gonic/gin"
 )
 
-const timeout = 5 * time.Minute
+const uploadTimeout = 5 * time.Minute
 
 var (
 	uploadTimers = make(map[string]*time.Timer)
 	timerLock    sync.Mutex
-	chunkDir     string
 )
 
 func handleChunkUpload(c *gin.Context) {
@@ -39,7 +34,6 @@ func handleChunkUpload(c *gin.Context) {
 	}
 	defer file.Close()
 
-	// Decompress gzipped chunk
 	gzReader, err := gzip.NewReader(file)
 	if err != nil {
 		c.String(400, "Could not decompress chunk. Make sure it's gzipped.")
@@ -47,7 +41,7 @@ func handleChunkUpload(c *gin.Context) {
 	}
 	defer gzReader.Close()
 
-	uploadPath := filepath.Join(chunkDir, uploadID)
+	uploadPath := filepath.Join(storage.ChunksDir(), uploadID)
 	os.MkdirAll(uploadPath, os.ModePerm)
 
 	chunkPath := filepath.Join(uploadPath, fmt.Sprintf("%s.part", chunkIndexStr))
@@ -59,9 +53,7 @@ func handleChunkUpload(c *gin.Context) {
 	defer out.Close()
 	io.Copy(out, gzReader)
 
-	// Reset inactivity timer
 	resetUploadTimer(uploadID)
-
 	c.String(200, "Chunk received")
 }
 
@@ -69,7 +61,6 @@ func finalizeUpload(c *gin.Context) {
 	uploadID := c.Param("uuid")
 	totalChunksStr := c.PostForm("totalChunks")
 	originalFileName := c.PostForm("originalFileName")
-	// sha256sum := c.PostForm("sha256sum") // No longer sent from frontend
 	collectionID := c.PostForm("collectionId")
 
 	userToken := c.PostForm("token")
@@ -82,15 +73,10 @@ func finalizeUpload(c *gin.Context) {
 	}
 
 	var accountToken string
+	var err error
 	if email != "" && password != "" {
-		if accounts.Authenticate(email, password) {
-			user, err := database.FindUserByEmail(email)
-			if err != nil {
-				c.String(401, "Authentication successful but failed to retrieve user details")
-				return
-			}
-			accountToken = user.Token
-		} else {
+		accountToken, err = service.AuthenticateEmailPassword(email, password)
+		if err != nil {
 			c.String(401, "Invalid email or password")
 			return
 		}
@@ -107,135 +93,24 @@ func finalizeUpload(c *gin.Context) {
 		return
 	}
 
-	uploadPath := filepath.Join(chunkDir, uploadID)
-	missingChunks := checkMissingChunks(uploadPath, totalChunks)
-
-	if len(missingChunks) > 0 {
-		c.JSON(400, gin.H{"missingChunks": missingChunks, "message": "Some chunks are missing"})
-		// Do not delete timer here, allow re-upload of missing chunks or timeout
-		return
-	}
-
-	finalDestDir := filepath.Join(globals.UPLOAD_DIR, "i")
-	if err := os.MkdirAll(finalDestDir, os.ModePerm); err != nil {
-		c.String(500, "Failed to create destination directory")
-		return
-	}
-	// Create a temporary file first, we'll rename it after calculating the hash
-	tempFile, err := os.CreateTemp(finalDestDir, "upload-*.tmp")
+	fileData, err := service.FinalizeUpload(accountToken, uploadID, originalFileName, collectionID, totalChunks)
 	if err != nil {
-		c.String(500, "Failed to create temporary file")
-		return
-	}
-	defer tempFile.Close()
-	defer os.Remove(tempFile.Name()) // Ensure temp file is cleaned up on error
-
-	for i := 0; i < totalChunks; i++ {
-		chunkPath := filepath.Join(uploadPath, fmt.Sprintf("%d.part", i))
-		chunkFile, err := os.Open(chunkPath)
-		if err != nil {
-			c.String(500, fmt.Sprintf("Failed to open chunk %d: %v", i, err))
+		if missing, ok := err.(*service.MissingChunksError); ok {
+			c.JSON(400, gin.H{"missingChunks": missing.Missing, "message": "Some chunks are missing"})
 			return
 		}
-		_, err = io.Copy(tempFile, chunkFile)
-		chunkFile.Close() // Close chunk file immediately after copy
-		if err != nil {
-			c.String(500, fmt.Sprintf("Failed to copy chunk %d: %v", i, err))
-			return
-		}
-	}
-
-	// Calculate SHA-256 hash of the assembled file
-	tempFile.Seek(0, 0) // Go back to the start of the file
-	hash := sha256.New()
-	if _, err := io.Copy(hash, tempFile); err != nil {
-		c.String(500, "Failed to calculate SHA-256 hash")
-		return
-	}
-	sha256sum := hex.EncodeToString(hash.Sum(nil))
-
-	fileInfo, err := tempFile.Stat()
-	if err != nil {
-		c.String(500, "Failed to get final file stats")
-		return
-	}
-	fileSize := fileInfo.Size()
-
-	// Rename the temp file to its final name
-	finalFilePath := filepath.Join(finalDestDir, sha256sum+filepath.Ext(originalFileName))
-	tempFile.Close() // Close the file before renaming
-	if err := os.Rename(tempFile.Name(), finalFilePath); err != nil {
-		c.String(500, "Failed to rename temporary file")
+		c.String(500, err.Error())
 		return
 	}
 
-	uniqueFileName := database.GenerateUniqueFileName(originalFileName)
-	// Insert file metadata into database
-	fileData := database.FileData{
-		OriginalFileName: originalFileName,
-		FileDirectory:    uniqueFileName,
-		AccountToken:     accountToken,
-		FileSize:         fileSize,
-		Timestamp:        time.Now().Unix(),
-		Sha256sum:        sha256sum + filepath.Ext(originalFileName),
-	}
-
-	if err := fileData.Insert(); err != nil {
-		os.Remove(finalFilePath) // Clean up if DB insert fails
-		c.String(500, fmt.Sprintf("Failed to insert file metadata: %v", err))
-		return
-	}
-
-	// If a collection ID is provided, add the file to the collection
-	if collectionID != "" {
-		addReq := requestHandler.AddFileToCollectionRequest{
-			CollectionID:  collectionID,
-			FileDirectory: fileData.FileDirectory,
-			Auth:          requestHandler.AuthInfo{Token: accountToken},
-		}
-		if _, err := requestHandler.AddFileToCollection(addReq); err != nil {
-			// Log this error, but don't fail the entire upload.
-			// The file is uploaded, just not added to the collection.
-			fmt.Printf("Warning: Failed to add file %s to collection %s: %v\n", fileData.FileDirectory, collectionID, err)
-		}
-	}
-
-	// Clean up: Stop timer and remove chunk directory
-	timerLock.Lock()
-	if timer, ok := uploadTimers[uploadID]; ok {
-		timer.Stop()
-		delete(uploadTimers, uploadID)
-	}
-	timerLock.Unlock()
-
-	if err := os.RemoveAll(uploadPath); err != nil {
-		// Log this error, but the upload is mostly successful
-		fmt.Printf("Warning: Failed to remove chunk directory %s: %v\n", uploadPath, err)
-	}
-
-	var fileUpdate requestHandler.FileUpdate
-	fileUpdate.File = fileData
-	fileUpdate.Toggle = true
-	go requestHandler.UserFilesPulse(fileUpdate)
-	go requestHandler.UpdateUserCount()
+	stopUploadTimer(uploadID)
 
 	c.JSON(200, gin.H{
 		"message":       "Upload successful and file assembled",
-		"fileName":      uniqueFileName,
-		"fileDirectory": uniqueFileName, // Consistent with FileData
-		"accessPath":    fmt.Sprintf("/i/%s", uniqueFileName),
+		"fileName":      fileData.FileDirectory,
+		"fileDirectory": fileData.FileDirectory,
+		"accessPath":    fmt.Sprintf("/i/%s", fileData.FileDirectory),
 	})
-}
-
-func checkMissingChunks(uploadPath string, totalChunks int) []int {
-	var missingChunks []int
-	for i := 0; i < totalChunks; i++ {
-		chunkPath := filepath.Join(uploadPath, fmt.Sprintf("%d.part", i))
-		if _, err := os.Stat(chunkPath); os.IsNotExist(err) {
-			missingChunks = append(missingChunks, i)
-		}
-	}
-	return missingChunks
 }
 
 func resetUploadTimer(uploadID string) {
@@ -243,22 +118,38 @@ func resetUploadTimer(uploadID string) {
 	defer timerLock.Unlock()
 
 	if timer, ok := uploadTimers[uploadID]; ok {
-		timer.Reset(timeout)
-	} else {
-		uploadTimers[uploadID] = time.AfterFunc(timeout, func() {
-			os.RemoveAll(filepath.Join(chunkDir, uploadID))
-			timerLock.Lock()
-			delete(uploadTimers, uploadID)
-			timerLock.Unlock()
-			fmt.Printf("Upload %s expired and deleted\n", uploadID)
-		})
+		timer.Reset(uploadTimeout)
+		return
+	}
+	uploadTimers[uploadID] = time.AfterFunc(uploadTimeout, func() {
+		os.RemoveAll(filepath.Join(storage.ChunksDir(), uploadID))
+		timerLock.Lock()
+		delete(uploadTimers, uploadID)
+		timerLock.Unlock()
+		fmt.Printf("Upload %s expired and deleted\n", uploadID)
+	})
+}
+
+func stopUploadTimer(uploadID string) {
+	timerLock.Lock()
+	defer timerLock.Unlock()
+	if timer, ok := uploadTimers[uploadID]; ok {
+		timer.Stop()
+		delete(uploadTimers, uploadID)
 	}
 }
 
 func setupUploaderRoutes(r *gin.Engine) {
-	chunkDir = globals.UPLOAD_DIR + "/tmp_chunks"
-	os.RemoveAll(chunkDir)
-	os.MkdirAll(chunkDir, os.ModePerm)
-	r.POST("/upload/:uuid", handleChunkUpload)
-	r.POST("/upload/success/:uuid", finalizeUpload)
+	os.MkdirAll(storage.ChunksDir(), os.ModePerm)
+	guard := func(h gin.HandlerFunc) gin.HandlerFunc {
+		return func(c *gin.Context) {
+			if c.Request.Host != config.AssetsURL && c.Request.Host != config.WebURL {
+				c.AbortWithStatus(404)
+				return
+			}
+			h(c)
+		}
+	}
+	r.POST("/upload/:uuid", guard(handleChunkUpload))
+	r.POST("/upload/success/:uuid", guard(finalizeUpload))
 }

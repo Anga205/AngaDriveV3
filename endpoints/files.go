@@ -2,10 +2,8 @@ package endpoints
 
 import (
 	"angadrive/database"
-	"angadrive/globals"
-	"angadrive/requestHandler"
-	"os"
-	"path/filepath"
+	"angadrive/hub"
+	"angadrive/storage"
 
 	"github.com/gin-gonic/gin"
 )
@@ -15,7 +13,7 @@ func getFilePath(file_directory string) string {
 	if err != nil {
 		return ""
 	}
-	return globals.UPLOAD_DIR + string(os.PathSeparator) + "i" + string(os.PathSeparator) + File.Sha256sum
+	return storage.FilePath(File.Sha256sum)
 }
 
 func getFileName(file_directory string) string {
@@ -27,7 +25,7 @@ func getFileName(file_directory string) string {
 }
 
 func returnFile(c *gin.Context) {
-	go requestHandler.SiteActivityPulse()
+	go hub.PublishSiteActivity()
 	file_directory := c.Param("file_directory")
 
 	filePath := getFilePath(file_directory)
@@ -42,21 +40,20 @@ func returnFile(c *gin.Context) {
 }
 
 func returnNamedFile(c *gin.Context) {
-	go requestHandler.SiteActivityPulse()
+	go hub.PublishSiteActivity()
 	file_directory := c.Param("file_directory")
-	original_name := c.Param("original_name")
-	filepath := getFilePath(file_directory + filepath.Ext(original_name))
-	if filepath == "" {
+	filePath := getFilePath(file_directory)
+	if filePath == "" {
 		c.JSON(404, gin.H{
 			"error": "File not found",
 		})
 		return
 	}
-	c.File(filepath)
+	c.File(filePath)
 }
 
 func downloadFile(c *gin.Context) {
-	go requestHandler.SiteActivityPulse()
+	go hub.PublishSiteActivity()
 	file_directory := c.Param("file_directory")
 
 	filePath := getFilePath(file_directory)
