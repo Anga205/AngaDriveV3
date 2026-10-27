@@ -247,6 +247,23 @@ async def fetch_file(file_directory):
             return resp.status, body
 
 
+async def fetch_named_file(file_directory, original_name):
+    """Request a stored file via the copy-link URL form.
+
+    The frontend builds copy links as
+    ``/i/{file_directory-without-extension}/{original_name}``. This helper
+    reproduces that URL so tests can verify the named-file route resolves the
+    extension correctly. Returns ``(status, body_bytes)``.
+    """
+    import aiohttp
+    base = file_directory.rsplit(".", 1)[0] if "." in file_directory else file_directory
+    url = f"{config.HTTP_URL}/i/{base}/{original_name}"
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as resp:
+            body = await resp.read()
+            return resp.status, body
+
+
 async def send_chunk(upload_id, chunk_index, content):
     """Send a single gzipped chunk to ``/upload/{upload_id}``.
 

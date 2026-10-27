@@ -21,7 +21,7 @@ import uuid
 
 from . import config
 from .harness import check, check_in
-from .helpers import (fetch_file, fetch_preview, fetch_preview_status,
+from .helpers import (fetch_file, fetch_named_file, fetch_preview, fetch_preview_status,
                       finalize_upload, generate_test_image, generate_test_video,
                       make_msg, open_ws, recv_until, send_and_wait, send_chunk,
                       upload_file, upload_file_full)
@@ -1072,3 +1072,49 @@ async def test_upload_updates_all_user_websockets():
         await ws.close()
 
     await ws_c.close()
+
+
+async def test_uploaded_file_is_accessible_via_link():
+    """Verify an uploaded file is retrievable through every public URL form.
+
+    Regression test for a bug where the copy-link URL
+    (``/i/<file_directory-without-extension>/<original_name>``) returned 404
+    because the named-file route did not reconstruct the extension.
+
+    Sequence:
+      1. Upload a file with an extension.
+      2. GET ``/i/{file_directory}`` (direct form) -> 200 + matching bytes.
+      3. GET ``/i/{base}/{original_name}`` (copy-link form) -> 200 + matching bytes.
+      4. GET ``/download/{file_directory}`` -> 200 + matching bytes.
+    """
+    print("\n[test] uploaded file is accessible via link")
+    email, password = await register_and_login()
+
+    content = b"%PDF-1.4 fake pdf content for link test"
+    up = await upload_file(email=email, password=password,
+                           filename="capstone.pdf", content=content)
+    check("upload succeeds", up is not None)
+    if not up:
+        return
+
+    file_dir = up["fileDirectory"]
+    check("file directory has an extension", "." in file_dir)
+
+    # 1. Direct form: /i/{file_directory}
+    status, body = await fetch_file(file_dir)
+    check("direct /i/ link returns 200", status == 200, f"status={status}")
+    check("direct /i/ link returns original bytes", body == content)
+
+    # 2. Copy-link form: /i/{base}/{original_name}
+    status, body = await fetch_named_file(file_dir, "capstone.pdf")
+    check("named /i/ link returns 200", status == 200, f"status={status}")
+    check("named /i/ link returns original bytes", body == content)
+
+    # 3. Download form: /download/{file_directory}
+    import aiohttp
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f"{config.HTTP_URL}/download/{file_dir}") as resp:
+            download_status = resp.status
+            download_body = await resp.read()
+    check("download link returns 200", download_status == 200, f"status={download_status}")
+    check("download link returns original bytes", download_body == content)
