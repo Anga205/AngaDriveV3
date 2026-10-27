@@ -23,8 +23,9 @@ from . import config
 from .harness import check, check_in
 from .helpers import (fetch_file, fetch_named_file, fetch_preview, fetch_preview_status,
                       finalize_upload, generate_test_image, generate_test_video,
-                      make_msg, open_ws, recv_until, send_and_wait, send_chunk,
-                      upload_file, upload_file_full)
+                      http_get, http_post_form, open_ws, recv_until,
+                      send_and_recv_until, send_and_wait, send_chunk, upload_file,
+                      upload_file_full)
 from .test_accounts import register_and_login
 
 
@@ -157,11 +158,8 @@ async def test_rename_file():
     await recv_until(ws_b, lambda m: m.get("type") == "file_update" and
                      m.get("data", {}).get("File", {}).get("file_directory") == file_dir)
 
-    import aiohttp
-    async with aiohttp.ClientSession() as session:
-        async with session.get(f"{config.HTTP_URL}/download/{file_dir}") as response:
-            original_content = await response.read()
-            original_size = len(original_content)
+    _, original_content = await http_get(f"{config.HTTP_URL}/download/{file_dir}")
+    original_size = len(original_content)
     check("downloaded content matches before rename", original_content == content)
 
     renamed = "renamed file with extension.txt"
@@ -242,9 +240,7 @@ async def test_rename_file():
     check("other user cannot rename file", unauthorized is not None and "error" in unauthorized["data"])
     await ws_other.close()
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(f"{config.HTTP_URL}/download/{file_dir}") as response:
-            renamed_content = await response.read()
+    _, renamed_content = await http_get(f"{config.HTTP_URL}/download/{file_dir}")
     check("file content is unchanged", renamed_content == original_content)
     check("file size is unchanged after repeated renames", len(renamed_content) == original_size)
 
@@ -287,12 +283,8 @@ async def test_duplicate_file():
     check("duplicate has a new file ID", duplicate is not None and duplicate["file_directory"] != original_dir)
     check("original and duplicate are separately persisted", original is not None and duplicate is not None)
 
-    import aiohttp
-    async with aiohttp.ClientSession() as session:
-        async with session.get(f"{config.HTTP_URL}/download/{original_dir}") as response:
-            original_content = await response.read()
-        async with session.get(f"{config.HTTP_URL}/download/{duplicate['file_directory']}") as response:
-            duplicate_content = await response.read()
+    _, original_content = await http_get(f"{config.HTTP_URL}/download/{original_dir}")
+    _, duplicate_content = await http_get(f"{config.HTTP_URL}/download/{duplicate['file_directory']}")
     check("duplicate retains the same SHA256 content", duplicate_content == original_content == content)
 
     delete_response = await send_and_wait(
@@ -303,9 +295,7 @@ async def test_duplicate_file():
     )
     check("original can be deleted independently", delete_response is not None and "success" in delete_response["data"])
     if duplicate:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(f"{config.HTTP_URL}/download/{duplicate['file_directory']}") as response:
-                remaining_content = await response.read()
+        _, remaining_content = await http_get(f"{config.HTTP_URL}/download/{duplicate['file_directory']}")
         check("duplicate remains after original deletion", remaining_content == content)
 
     await ws.close()
@@ -431,15 +421,11 @@ async def test_upload_invalid_total_chunks():
     await send_chunk(upload_id, 0, b"data")
 
     # Send totalChunks as a non-integer string.
-    import aiohttp
-    async with aiohttp.ClientSession() as session:
-        form = aiohttp.FormData()
-        form.add_field("totalChunks", "not-a-number")
-        form.add_field("originalFileName", "bad.txt")
-        form.add_field("email", email)
-        form.add_field("password", password)
-        async with session.post(f"{config.HTTP_URL}/upload/success/{upload_id}", data=form) as resp:
-            status = resp.status
+    status, _ = await http_post_form(
+        f"{config.HTTP_URL}/upload/success/{upload_id}",
+        {"totalChunks": "not-a-number", "originalFileName": "bad.txt",
+         "email": email, "password": password},
+    )
     check("upload with invalid totalChunks returns 400", status == 400, f"(got {status})")
 
 
@@ -556,7 +542,8 @@ async def test_convert_image_to_png():
         seed = uuid.uuid4().hex[:8]
         generated = generate_test_image(image_path, fmt="jpeg", size=(64, 64), seed=seed)
         check("pillow generated test image", generated,
-              "Pillow is not installed; install it with 'pip install pillow'")
+              "Pillow is not installed; install it with 'pip install pillow'",
+              server=None)
         if not generated:
             await ws.close()
             return
@@ -576,12 +563,11 @@ async def test_convert_image_to_png():
     # The handler replies immediately with the file directory string, then the
     # async runner sends a second convert_image_response carrying the new file.
     # Wait for the async one that contains the converted file object.
-    await ws.send(make_msg("convert_image",
-                           {"file_directory": file_dir,
-                            "target_format": "png",
-                            "auth": {"email": email, "password": password}}))
-    resp = await recv_until(
-        ws,
+    resp = await send_and_recv_until(
+        ws, "convert_image",
+        {"file_directory": file_dir,
+         "target_format": "png",
+         "auth": {"email": email, "password": password}},
         lambda m: (m.get("type") == "convert_image_response"
                    and isinstance(m.get("data"), dict)
                    and m["data"].get("file") is not None),
@@ -655,7 +641,8 @@ async def test_convert_png_to_jpg():
         seed = uuid.uuid4().hex[:8]
         generated = generate_test_image(image_path, fmt="png", size=(64, 64), seed=seed)
         check("pillow generated test png", generated,
-              "Pillow is not installed; install it with 'pip install pillow'")
+              "Pillow is not installed; install it with 'pip install pillow'",
+              server=None)
         if not generated:
             await ws.close()
             return
@@ -674,12 +661,11 @@ async def test_convert_png_to_jpg():
 
     # The handler replies immediately with the file directory string, then the
     # async runner sends a second convert_image_response carrying the new file.
-    await ws.send(make_msg("convert_image",
-                           {"file_directory": file_dir,
-                            "target_format": "jpg",
-                            "auth": {"email": email, "password": password}}))
-    resp = await recv_until(
-        ws,
+    resp = await send_and_recv_until(
+        ws, "convert_image",
+        {"file_directory": file_dir,
+         "target_format": "jpg",
+         "auth": {"email": email, "password": password}},
         lambda m: (m.get("type") == "convert_image_response"
                    and isinstance(m.get("data"), dict)
                    and m["data"].get("file") is not None),
@@ -734,7 +720,8 @@ async def test_convert_image_to_jpg():
         seed = uuid.uuid4().hex[:8]
         generated = generate_test_image(image_path, fmt="jpeg", size=(64, 64), seed=seed)
         check("pillow generated test image", generated,
-              "Pillow is not installed; install it with 'pip install pillow'")
+              "Pillow is not installed; install it with 'pip install pillow'",
+              server=None)
         if not generated:
             await ws.close()
             return
@@ -753,12 +740,11 @@ async def test_convert_image_to_jpg():
 
     # The handler replies immediately with the file directory string, then the
     # async runner sends a second convert_image_response carrying the new file.
-    await ws.send(make_msg("convert_image",
-                           {"file_directory": file_dir,
-                            "target_format": "jpg",
-                            "auth": {"email": email, "password": password}}))
-    resp = await recv_until(
-        ws,
+    resp = await send_and_recv_until(
+        ws, "convert_image",
+        {"file_directory": file_dir,
+         "target_format": "jpg",
+         "auth": {"email": email, "password": password}},
         lambda m: (m.get("type") == "convert_image_response"
                    and isinstance(m.get("data"), dict)
                    and m["data"].get("file") is not None),
@@ -810,7 +796,8 @@ async def test_video_preview_generation():
         generated = generate_test_video(video_path, duration=3, size="320x240", fps=24, seed=seed)
         check("ffmpeg generated test video", generated,
               "ffmpeg is not installed or failed; install it with "
-              "'sudo apt-get install -y ffmpeg' (CI installs it automatically)")
+              "'sudo apt-get install -y ffmpeg' (CI installs it automatically)",
+              server=None)
         if not generated:
             return
         with open(video_path, "rb") as f:
@@ -1110,10 +1097,6 @@ async def test_uploaded_file_is_accessible_via_link():
     check("named /i/ link returns original bytes", body == content)
 
     # 3. Download form: /download/{file_directory}
-    import aiohttp
-    async with aiohttp.ClientSession() as session:
-        async with session.get(f"{config.HTTP_URL}/download/{file_dir}") as resp:
-            download_status = resp.status
-            download_body = await resp.read()
+    download_status, download_body = await http_get(f"{config.HTTP_URL}/download/{file_dir}")
     check("download link returns 200", download_status == 200, f"status={download_status}")
     check("download link returns original bytes", download_body == content)
