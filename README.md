@@ -165,5 +165,49 @@ go run main.go
 </details>
 
 
+## Integration Tests
+
+The integration suite in `tester/` talks to a running server over websocket and
+HTTP. Start the server first, then run the suite from the repository root:
+
+```bash
+pip install -r tester/requirements.txt
+python -m tester.main
+```
+
+Run a single test, or list the available test names:
+
+```bash
+python -m tester.main --test test_upload_and_file_pulse
+python -m tester.main --list
+```
+
+### Environment variables
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `API_URL` | `localhost:8080` | Host:port of the running server. |
+| `TEST_TIMEOUT` | `180` | Per-test timeout in seconds. |
+| `GITHUB_IMPORT_TEST` | unset | Set to `1` to enable the full GitHub import test. |
+| `GITHUB_IMPORT_REPO` | `https://github.com/Anga205/AngaDriveV3` | Repository imported by that test. |
+| `GITHUB_IMPORT_TIMEOUT` | `600` | Seconds to wait for the import to finish. |
+
+### Full GitHub import test
+
+The `test_github_import_full_tree` test is opt-in because it needs network
+access and `git`, and it clones a real repository. It clones the repository
+locally, imports it through AngaDrive, then recursively verifies that every
+folder became a collection, every file was added, and every file is
+downloadable and byte-identical to the clone. It cleans up the imported files
+and collections afterwards.
+
+```bash
+GITHUB_IMPORT_TEST=1 python -m tester.main --test test_github_import_full_tree
+```
+
+This test also runs in its own GitHub Actions workflow
+(`.github/workflows/github-import.yml`).
+
+
 ## Links
 - **Deployed URL: https://drive.anga.codes**

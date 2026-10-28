@@ -24,3 +24,8 @@ NO_RESPONSE_TIMEOUT = 1.5
 # Upper bound for one selected test. Individual preview tests have their own
 # 60-second polling window inside this budget.
 TEST_TIMEOUT = float(os.getenv("TEST_TIMEOUT", "180"))
+
+# How long to wait for a GitHub repository import to finish. The server clones
+# the repository and walks it synchronously, so this must exceed the clone time
+# (the server itself gives up after 15 minutes).
+GITHUB_IMPORT_TIMEOUT = float(os.getenv("GITHUB_IMPORT_TIMEOUT", "600"))
