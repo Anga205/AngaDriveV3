@@ -348,7 +348,7 @@ const AddFilePopup: Component<{collectionId: string, isMobile?: boolean}> = (pro
             </Dialog.Trigger>
             <Dialog.Portal>
             <Dialog.Overlay class="fixed inset-0 z-50 bg-black/50 data-open:animate-in data-open:fade-in-0% data-closed:animate-out data-closed:fade-out-0%"/>
-            <Dialog.Content class="fixed z-50 top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] w-[90vw] max-w-lg bg-neutral-800 rounded-lg p-6 space-y-4">
+            <Dialog.Content class="fixed z-50 top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] w-[90vw] max-w-lg bg-neutral-950 rounded-lg p-6 space-y-4">
                 {(modifying() === "new" || modifying() === null) && (
                     <>
                         <p class="text-white text-lg font-bold mb-2 text-center">Upload New File</p>

@@ -22,10 +22,13 @@ import { duplicateFile, renameFile } from "../api/endpoints";
 const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: string) => void; isSelected?: boolean }> = (props) => {
     const DownloadLink = createMemo(() => assetsUrl(`/download/${props.File.file_directory}`));
     const link = createMemo(() => {
-        let fileLink = assetsUrl(`/i/${props.File.file_directory}`);
-        fileLink = fileLink.split('.').slice(0, -1).join('.');
-        fileLink += "/" + encodeURIComponent(props.File.original_file_name);
-        return fileLink;
+        // Build /i/<file_directory-without-extension>/<original_name>. Strip the
+        // extension from the directory name only (not the whole URL) so the host
+        // is preserved and extensionless files still produce a valid link.
+        const dir = props.File.file_directory;
+        const dot = dir.lastIndexOf('.');
+        const base = dot > 0 ? dir.slice(0, dot) : dir;
+        return assetsUrl(`/i/${base}/${encodeURIComponent(props.File.original_file_name)}`);
     });
     const location = useLocation();
     const ctx = useContext(AppContext)!;
