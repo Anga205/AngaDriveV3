@@ -167,19 +167,19 @@ go run main.go
 
 ## Integration Tests
 
-The integration suite in `tester/` talks to a running server over websocket and
+The integration suite in `tests/` talks to a running server over websocket and
 HTTP. Start the server first, then run the suite from the repository root:
 
 ```bash
-pip install -r tester/requirements.txt
-python -m tester.main
+pip install -r tests/requirements.txt
+python -m tests.main
 ```
 
 Run a single test, or list the available test names:
 
 ```bash
-python -m tester.main --test test_upload_and_file_pulse
-python -m tester.main --list
+python -m tests.main --test test_upload_and_file_pulse
+python -m tests.main --list
 ```
 
 ### Environment variables
@@ -202,7 +202,7 @@ downloadable and byte-identical to the clone. It cleans up the imported files
 and collections afterwards.
 
 ```bash
-GITHUB_IMPORT_TEST=1 python -m tester.main --test test_github_import_full_tree
+GITHUB_IMPORT_TEST=1 python -m tests.main --test test_github_import_full_tree
 ```
 
 This test also runs in its own GitHub Actions workflow

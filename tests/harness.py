@@ -12,7 +12,7 @@ line describing:
     validates (the network round trip only, excluding test preparation and
     response verification).
 
-Network helpers in :mod:`tester.helpers` publish the timing of the request(s)
+Network helpers in :mod:`tests.helpers` publish the timing of the request(s)
 they just made via :func:`record_steps`. A single request prints as
 ``(server 12.3 ms)``; a multi-request operation (e.g. an upload) prints each
 call as a numbered step plus both the validated-response time and the total.

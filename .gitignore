@@ -30,3 +30,5 @@ docs/
 */__pycache__/*
 *.pyc
 *.yml
+# Workflow definitions must be tracked even though other YAML is ignored.
+!.github/workflows/*.yml
