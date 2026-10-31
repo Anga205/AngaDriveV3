@@ -20,6 +20,38 @@ jobs:
           cache: true
           cache-dependency-path: go.sum
 
+      - name: Set up Bun
+        uses: antongolub/action-setup-bun@v1
+        with:
+          bun-version: '1.2.4'
+
+      - name: Build frontend
+        working-directory: ./web
+        run: bun install && bun run build
+
+      # The server rebuilds the frontend on startup unless ./dist contains a
+      # .frontend-hash matching the current source. Stamp it here so the server
+      # skips the build (bun is not needed at runtime).
+      - name: Stamp frontend source hash
+        run: |
+          hash="$(
+            find web -type f \
+              ! -path 'web/node_modules/*' \
+              ! -path 'web/dist/*' \
+              ! -name '.frontend-hash' \
+              -print0 |
+            LC_ALL=C sort -z |
+            while IFS= read -r -d '' file; do
+              printf '%s\0' "${file#web/}"
+              cat "$file"
+              printf '\0'
+            done |
+            sha256sum | cut -d ' ' -f1
+          )"
+          printf '%s' "$hash" > web/dist/.frontend-hash
+          rm -rf ./dist
+          mv web/dist ./dist
+
       - name: Build server
         run: go build -o ./angadrive-server .
 
@@ -53,6 +85,8 @@ jobs:
           done
           if ! curl -s -o /dev/null http://localhost:8080/; then
             echo "Server failed to start."
+            echo '--- Go server log ---'
+            cat server.log || true
             exit 1
           fi
 
