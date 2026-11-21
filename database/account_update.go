@@ -11,18 +11,18 @@ func (oldInfo Account) Update(newInfo Account) error { // this assumes token can
 	if err != nil {
 		return err
 	}
-	go func() {
-		UserAccountsByEmailMutex.Lock()
-		defer UserAccountsByEmailMutex.Unlock()
-		if oldInfo.Email != newInfo.Email {
-			delete(UserAccountsByEmail, oldInfo.Email)
-		}
-		UserAccountsByEmail[newInfo.Email] = newInfo
-	}()
-	go func() {
-		UserAccountsByTokenMutex.Lock()
-		defer UserAccountsByTokenMutex.Unlock()
-		UserAccountsByToken[newInfo.Token] = newInfo
-	}()
+	// Cache updates are synchronous so callers can rely on the new values being
+	// visible immediately after Update returns (e.g. a password upgrade followed
+	// by an authentication check).
+	UserAccountsByEmailMutex.Lock()
+	if oldInfo.Email != newInfo.Email {
+		delete(UserAccountsByEmail, oldInfo.Email)
+	}
+	UserAccountsByEmail[newInfo.Email] = newInfo
+	UserAccountsByEmailMutex.Unlock()
+
+	UserAccountsByTokenMutex.Lock()
+	UserAccountsByToken[newInfo.Token] = newInfo
+	UserAccountsByTokenMutex.Unlock()
 	return nil
 }

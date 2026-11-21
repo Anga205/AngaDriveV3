@@ -1,4 +1,5 @@
 import { generateClientToken } from "@/library/functions";
+import { clearStoredCredentials } from "@/library/password";
 import type { SelectableFile, FileUploadProgressData, AuthDetails } from "./types";
 import { apiUrl } from "@/assets/ApiUrl";
 
@@ -128,9 +129,7 @@ export async function uploadFileInChunks(
             errorData = { message: `Finalization failed with status ${successResponse.status}: ${responseText}` };
         }
         if ((successResponse.status === 401) && (responseText === "Invalid email or password")) {
-            localStorage.removeItem("email");
-            localStorage.removeItem("password");
-            localStorage.removeItem("display_name");
+            clearStoredCredentials();
             if (!localStorage.getItem("token")) {
                 localStorage.setItem("token", generateClientToken());
             }

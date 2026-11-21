@@ -1,9 +1,9 @@
 import { Component, createSignal } from "solid-js";
 import { toast } from "solid-toast";
 import { useWebSocket } from "@/Websockets";
-import bcrypt from "bcryptjs";
 import { DesktopTemplate } from "@/components/Template";
 import { isEmailValid, isPasswordValid } from "../validators";
+import { hashPasswordForStorage, sha256Hex, storePasswordDigest } from "@/library/password";
 
 const LoginCard: Component<{ onSignUpClick: () => void; onLoginSuccess: () => void }> = (props) => {
     const [email, setEmail] = createSignal("");
@@ -12,7 +12,7 @@ const LoginCard: Component<{ onSignUpClick: () => void; onLoginSuccess: () => vo
 
     const isFormValid = () => isEmailValid(email()) && isPasswordValid(password());
 
-    const handleLogin = (e: Event) => {
+    const handleLogin = async (e: Event) => {
         e.preventDefault();
         if (!email() || !password()) {
             toast.error(
@@ -53,19 +53,47 @@ const LoginCard: Component<{ onSignUpClick: () => void; onLoginSuccess: () => vo
             closeHandler = null;
         };
 
+        // The plaintext password never leaves the browser: the backend receives
+        // its SHA-256 digest. Legacy accounts are upgraded transparently by the
+        // backend when it replies with "legacy_password".
+        const digest = await sha256Hex(password());
+        let sentLegacyRetry = false;
+
         messageHandler = (event: MessageEvent) => {
             try {
                 const response = JSON.parse(event.data);
                 if (response.type === "login_response") {
-                    if (response.data.token) {
+                    if (response.data === "legacy_password" && !sentLegacyRetry) {
+                        // Pre-migration account: retry once with the plaintext so
+                        // the backend can upgrade the stored hash.
+                        sentLegacyRetry = true;
+                        currentSocket.send(
+                            JSON.stringify({
+                                type: "login",
+                                data: {
+                                    email: email(),
+                                    password: password(),
+                                    legacy: true,
+                                },
+                            })
+                        );
+                        return;
+                    }
+                    if (response.data === "stale_client") {
+                        // The backend saw a plaintext password, which only an
+                        // outdated cached frontend sends. The backend also sent
+                        // a notification toast with refresh instructions.
+                        toast.error(
+                            "Your browser is running an outdated version of AngaDrive. " +
+                            "Please hard-refresh (Ctrl+Shift+R) and try again."
+                        );
+                    } else if (response.data.token) {
                         toast.success("Login successful!");
                         localStorage.setItem("email", email());
-                        localStorage.setItem("password", password());
+                        storePasswordDigest(digest);
                         localStorage.setItem("display_name", response.data.display_name);
                         localStorage.removeItem("token");
                         props.onLoginSuccess(); // Call the callback on successful login
-                        // TODO: Setup user migration
-                        // For now, just remove the previous token
                     } else {
                         toast.error(
                             response.data.error === "record not found"
@@ -105,7 +133,7 @@ const LoginCard: Component<{ onSignUpClick: () => void; onLoginSuccess: () => vo
                 type: "login",
                 data: {
                     email: email(),
-                    password: password(),
+                    password: digest,
                 },
             })
         );
@@ -176,7 +204,7 @@ const RegisterCard: Component<{ onLoginClick: () => void; onRegisterSuccess: () 
             password() === confirmPassword()
         );
     }
-    const handleRegister = (e: Event) => {
+    const handleRegister = async (e: Event) => {
         e.preventDefault();
         if (!displayName() || !email() || !password() || !confirmPassword()) {
             toast.error(
@@ -236,7 +264,7 @@ const RegisterCard: Component<{ onLoginClick: () => void; onRegisterSuccess: () 
                     if (response.data.token) {
                         toast.success("Registration successful!");
                         localStorage.setItem("email", email());
-                        localStorage.setItem("password", password());
+                        storePasswordDigest(digest);
                         localStorage.setItem("display_name", displayName());
                         localStorage.removeItem("token");
                         props.onRegisterSuccess(); // Call the callback on successful registration
@@ -272,8 +300,10 @@ const RegisterCard: Component<{ onLoginClick: () => void; onRegisterSuccess: () 
         currentSocket.addEventListener('error', errorHandler);
         currentSocket.addEventListener('close', closeHandler);
 
-        const salt = bcrypt.genSaltSync(10);
-        const hashedPassword = bcrypt.hashSync(password(), salt);
+        // The backend stores bcrypt(sha256(password)); the plaintext never
+        // leaves the browser.
+        const digest = await sha256Hex(password());
+        const hashedPassword = await hashPasswordForStorage(password());
 
         currentSocket.send(
             JSON.stringify({

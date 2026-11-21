@@ -1,6 +1,7 @@
 import { createContext, onCleanup, useContext, createSignal, ParentComponent, Accessor } from 'solid-js';
 import { SocketStatus } from './library/types';
 import { fetchFilesAndCollections, generateClientToken } from './library/functions';
+import { clearStoredCredentials, isPasswordMigrated, migrateCachedPassword, wsRequest } from './library/password';
 import { webSocketUrl } from './assets/ApiUrl';
 
 const RECONNECT_DELAY = 300;
@@ -41,7 +42,7 @@ const WebSocketProvider: ParentComponent = (props) => {
     setStatus("connecting");
 
     const ws = new WebSocket(wsUrl);
-    ws.onopen = () => {
+    ws.onopen = async () => {
       setStatus("connected");
       if (reconnectTimeoutId) { // Clear any pending reconnect if we successfully connected
         clearTimeout(reconnectTimeoutId);
@@ -51,34 +52,42 @@ const WebSocketProvider: ParentComponent = (props) => {
       const userPassword = localStorage.getItem("password") || "";
       if (userEmail || userPassword) {
         if (!(userEmail && userPassword)) {
-          localStorage.removeItem("email");
-          localStorage.removeItem("password");
-          localStorage.removeItem("display_name")
+          clearStoredCredentials();
           fetchFilesAndCollections(ws);
         } else {
-          ws.onmessage = (event) => {
-            const message = JSON.parse(event.data);
-            if (message.type === "login_response"){
-              if (message.data === "invalid credentials") {
-                console.error("Login failed:", message.data.error);
-                localStorage.removeItem("email");
-                localStorage.removeItem("password");
-                localStorage.removeItem("display_name");
-                localStorage.setItem("token", generateClientToken());
-              } else {
-                localStorage.removeItem("token");
-              }
+          // A cached password without the scheme marker is plaintext from the
+          // pre-migration frontend. Upgrade it in place before logging in.
+          if (!isPasswordMigrated()) {
+            const migrated = await migrateCachedPassword(ws, userEmail, userPassword);
+            if (!migrated) {
+              // The cached plaintext is stale; drop it and continue as a guest.
+              clearStoredCredentials();
               fetchFilesAndCollections(ws);
-              ws.onmessage = () => {} // Clear the message handler after login to prevent further processing
+              return;
             }
-          };
-          ws.send(JSON.stringify({
-            type: "login",
-            data: {
-              email: userEmail,
-              password: userPassword
+          }
+          // localStorage now holds the SHA-256 digest.
+          const result = await wsRequest(
+            ws,
+            "login",
+            { email: userEmail, password: localStorage.getItem("password") || "" },
+            "login_response",
+          );
+          if (!result.ok) {
+            if (result.data === "stale_client") {
+              // The backend rejected a plaintext password, which means this
+              // bundle is an outdated cached frontend. Keep the credentials so
+              // the user can retry after a hard refresh.
+              console.error("Stale frontend detected; a hard refresh is required.");
+            } else {
+              console.error("Login failed:", result.data);
+              clearStoredCredentials();
+              localStorage.setItem("token", generateClientToken());
             }
-          }))
+          } else {
+            localStorage.removeItem("token");
+          }
+          fetchFilesAndCollections(ws);
         }
       } else {
         fetchFilesAndCollections(ws);

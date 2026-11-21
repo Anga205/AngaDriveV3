@@ -17,18 +17,21 @@ account).
 
 from . import config
 from .harness import check, check_eq, check_in
-from .helpers import (bcrypt_hash, open_ws, random_email, recv_until,
-                      send_and_wait)
+from .helpers import (bcrypt_hash, make_msg, open_ws, random_email, recv_until,
+                      send_and_wait, sha256_hex)
 
 
 async def register_and_login():
-    """Register a fresh account and return ``(email, password)``.
+    """Register a fresh account and return ``(email, digest)``.
 
-    This is a setup helper used by many tests. It also verifies the basic
-    register + login round-trip as a side effect.
+    The returned ``digest`` is the SHA-256 hex digest of the password, which is
+    what the frontend sends for login and every authenticated request. This is
+    a setup helper used by many tests; it also verifies the basic register +
+    login round-trip as a side effect.
     """
     email = random_email()
     password = "secret123"
+    digest = sha256_hex(password)
     hashed = bcrypt_hash(password)
 
     ws = await open_ws()
@@ -50,25 +53,25 @@ async def register_and_login():
     if resp2:
         check_in("duplicate register error msg", "already exists", resp2["data"])
 
-    # Login with the plaintext password.
+    # Login with the SHA-256 digest (never the plaintext).
     resp3 = await send_and_wait(ws, "login",
-                                {"email": email, "password": password},
+                                {"email": email, "password": digest},
                                 "login_response")
     check("login returns account", resp3 is not None)
     if resp3:
         check_eq("login email", resp3["data"].get("email"), email)
         check("login returns token", bool(resp3["data"].get("token")))
 
-    # Login with a wrong password must fail (type stays login_response).
+    # Login with a wrong digest must fail (type stays login_response).
     resp4 = await send_and_wait(ws, "login",
-                                {"email": email, "password": "wrongpass"},
+                                {"email": email, "password": sha256_hex("wrongpass")},
                                 "login_response")
     check("bad login errors", resp4 is not None)
     if resp4:
         check_in("bad login error msg", "invalid credentials", resp4["data"])
 
     await ws.close()
-    return email, password
+    return email, digest
 
 
 async def test_register_and_login():
@@ -117,6 +120,7 @@ async def test_change_password():
     print("\n[test] change password")
     email, password = await register_and_login()
     new_password = "newsecret456"
+    new_digest = sha256_hex(new_password)
     ws = await open_ws()
     resp = await send_and_wait(ws, "change_password",
                                {"email": email, "old_password": password,
@@ -133,7 +137,7 @@ async def test_change_password():
                                     "login_response")
     check("old password rejected", old_login is not None and "invalid" in old_login["data"])
     new_login = await send_and_wait(ws2, "login",
-                                    {"email": email, "password": new_password},
+                                    {"email": email, "password": new_digest},
                                     "login_response")
     check("new password accepted", new_login is not None and "token" in new_login["data"])
     await ws.close()
@@ -183,3 +187,134 @@ async def test_delete_account():
     await ws_a.close()
     await ws_b.close()
     await ws_c.close()
+
+
+def _insert_legacy_account(email, plaintext, display_name="Legacy"):
+    """Insert a pre-migration account row directly into SQLite.
+
+    Legacy accounts store bcrypt(plaintext) with ``password_version = 0``. The
+    server reads through to SQLite when an email is not in its RAM cache, so a
+    direct insert is visible to the next login.
+    """
+    import os
+    import sqlite3
+    import uuid
+
+    import bcrypt
+
+    db_path = os.getenv("ANGADRIVE_DB", "uploaded_files/angadrive.db")
+    token = f"legacy.{uuid.uuid4().hex}.0"
+    hashed = bcrypt.hashpw(plaintext.encode(), bcrypt.gensalt()).decode()
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute(
+            "INSERT INTO accounts (token, display_name, email, hashed_password, password_version) "
+            "VALUES (?, ?, ?, ?, 0)",
+            (token, display_name, email, hashed),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return token
+
+
+async def test_legacy_login_migrates():
+    """A pre-migration account logs in with plaintext and is upgraded in place.
+
+    The first login sends the SHA-256 digest and must be rejected with
+    ``legacy_password``. The retry with ``legacy: true`` and the plaintext must
+    succeed, after which a digest-only login works.
+    """
+    print("\n[test] legacy login migrates")
+    email = random_email()
+    plaintext = "legacypass123"
+    digest = sha256_hex(plaintext)
+    _insert_legacy_account(email, plaintext)
+
+    ws = await open_ws()
+    first = await send_and_wait(ws, "login",
+                                {"email": email, "password": digest},
+                                "login_response")
+    check("digest login on legacy account asks for plaintext",
+          first is not None and first["data"] == "legacy_password")
+
+    second = await send_and_wait(ws, "login",
+                                 {"email": email, "password": plaintext, "legacy": True},
+                                 "login_response")
+    check("legacy login succeeds", second is not None and "token" in second["data"])
+
+    # The account is now migrated: a digest-only login must work.
+    third = await send_and_wait(ws, "login",
+                                {"email": email, "password": digest},
+                                "login_response")
+    check("digest login works after migration",
+          third is not None and "token" in third["data"])
+    await ws.close()
+
+
+async def test_migrate_password_message():
+    """The migrate_password message upgrades a legacy account without a login."""
+    print("\n[test] migrate password message")
+    email = random_email()
+    plaintext = "legacypass456"
+    digest = sha256_hex(plaintext)
+    _insert_legacy_account(email, plaintext)
+
+    ws = await open_ws()
+    resp = await send_and_wait(ws, "migrate_password",
+                               {"email": email, "old_password": plaintext,
+                                "new_password_hashed": bcrypt_hash(plaintext)},
+                               "migrate_password_response")
+    check("migrate_password succeeds", resp is not None and "token" in resp["data"])
+
+    login = await send_and_wait(ws, "login",
+                                {"email": email, "password": digest},
+                                "login_response")
+    check("digest login works after migrate_password",
+          login is not None and "token" in login["data"])
+
+    # A stale plaintext must not be able to overwrite the migrated hash.
+    bad = await send_and_wait(ws, "migrate_password",
+                              {"email": email, "old_password": "not-the-password",
+                               "new_password_hashed": bcrypt_hash("attacker")},
+                              "migrate_password_response")
+    check("migrate_password rejects wrong plaintext",
+          bad is not None and "invalid" in str(bad["data"]))
+    await ws.close()
+
+
+async def test_stale_client_gets_refresh_prompt():
+    """A plaintext login without ``legacy`` is treated as a stale cached frontend.
+
+    The backend must reply with ``stale_client`` and also push a ``notification``
+    toast telling the user to hard-refresh. This is what an old cached frontend
+    (which cannot perform the migration itself) triggers.
+    """
+    print("\n[test] stale client gets refresh prompt")
+    email = random_email()
+    plaintext = "stalepass789"
+    _insert_legacy_account(email, plaintext)
+
+    ws = await open_ws()
+    await ws.send(make_msg("login", {"email": email, "password": plaintext}))
+
+    # The notification arrives first, then the login_response.
+    notification = await recv_until(
+        ws, lambda m: m.get("type") == "notification", timeout=config.DEFAULT_TIMEOUT)
+    check("stale client receives notification", notification is not None)
+    if notification:
+        check_in("notification asks for hard refresh", "hard-refresh", notification["data"])
+
+    response = await recv_until(
+        ws, lambda m: m.get("type") == "login_response", timeout=config.DEFAULT_TIMEOUT)
+    check("stale client receives stale_client", response is not None)
+    if response:
+        check_eq("stale_client payload", response["data"], "stale_client")
+
+    # The account must not have been migrated by the rejected attempt.
+    login = await send_and_wait(ws, "login",
+                                {"email": email, "password": sha256_hex(plaintext)},
+                                "login_response")
+    check("account still legacy after stale attempt",
+          login is not None and login["data"] == "legacy_password")
+    await ws.close()

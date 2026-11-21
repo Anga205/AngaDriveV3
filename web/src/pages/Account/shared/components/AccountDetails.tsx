@@ -2,8 +2,8 @@ import { Accessor, Component, createEffect, createSignal } from "solid-js";
 import Dialog from '@corvu/dialog';
 import { toast } from "solid-toast";
 import { useWebSocket } from "@/Websockets";
-import bcrypt from "bcryptjs";
 import { isEmailValid, isPasswordValid } from "../validators";
+import { hashPasswordForStorage, sha256Hex, storePasswordDigest } from "@/library/password";
 
 const AccountDetails: Component<{email: Accessor<string>; setEmail: (email: string) => void; displayName: Accessor<string>; setDisplayName: (name: string) => void; class?: string}> = (props) => {
     const [open, setOpen] = createSignal(false);
@@ -55,7 +55,8 @@ const AccountDetails: Component<{email: Accessor<string>; setEmail: (email: stri
         }
 
         const initialEmailForAuth = props.email(); // Email at the time of opening dialog
-        const authPasswordForRequests = currentAuthPassword();
+        // The backend authenticates with the SHA-256 digest, never the plaintext.
+        const authPasswordForRequests = await sha256Hex(currentAuthPassword());
 
         let anyChangeSucceeded = false;
         let allOperationsAttemptedAndSuccessful = true; // Assume success until a failure or skipped operation
@@ -189,8 +190,8 @@ const AccountDetails: Component<{email: Accessor<string>; setEmail: (email: stri
                 toast.error("New password must be between 3 and 64 characters.");
                 allOperationsAttemptedAndSuccessful = false;
             } else {
-                const salt = bcrypt.genSaltSync(10);
-                const hashedPassword = bcrypt.hashSync(tempNewPassword(), salt);
+                const newPasswordDigest = await sha256Hex(tempNewPassword());
+                const hashedPassword = await hashPasswordForStorage(tempNewPassword());
                 const success = await sendUpdateRequest(
                     "change_password",
                     {
@@ -199,7 +200,7 @@ const AccountDetails: Component<{email: Accessor<string>; setEmail: (email: stri
                         new_password_hashed: hashedPassword,
                     },
                     "Password updated!",
-                    () => localStorage.setItem("password", tempNewPassword())
+                    () => storePasswordDigest(newPasswordDigest)
                 );
                 if (!success) allOperationsAttemptedAndSuccessful = false;
             }

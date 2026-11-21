@@ -49,6 +49,8 @@ func RegisterUser(RequestInfo RegisterRequest) (database.Account, error) {
 		DisplayName:    RequestInfo.DisplayName,
 		Email:          RequestInfo.Email,
 		HashedPassword: RequestInfo.HashedPassword,
+		// New accounts always use bcrypt(sha256(password)).
+		PasswordVersion: 1,
 	}
 	err = NewUser.Insert()
 	if err != nil {

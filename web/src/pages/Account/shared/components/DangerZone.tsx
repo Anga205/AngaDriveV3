@@ -2,12 +2,13 @@ import { Component, createSignal } from "solid-js";
 import Dialog from '@corvu/dialog';
 import { toast } from "solid-toast";
 import { useWebSocket } from "@/Websockets";
+import { sha256Hex } from "@/library/password";
 
 const DeleteAccountDialog: Component = () => {
     const [open, setOpen] = createSignal(false);
     const [deletePassword, setDeletePassword] = createSignal("");
     const { socket: getSocket, status: socketStatus } = useWebSocket();
-    const handleAccountDeletion = () => {
+    const handleAccountDeletion = async () => {
         if (socketStatus() !== "connected") {
             setTimeout(() => {
                 handleAccountDeletion();
@@ -19,12 +20,14 @@ const DeleteAccountDialog: Component = () => {
             return;
         }
         const currentSocket = getSocket();
+        // Send the SHA-256 digest; the plaintext never leaves the browser.
+        const digest = await sha256Hex(deletePassword());
         currentSocket?.send(
             JSON.stringify({
                 type: "delete_account",
                 data: {
                     email: localStorage.getItem("email"),
-                    password: deletePassword(),
+                    password: digest,
                 },
             })
         )
