@@ -30,7 +30,6 @@ const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: stri
     const ctx = useContext(AppContext)!;
     const { socket: getSocket } = useWebSocket();
     const [isRenaming, setIsRenaming] = createSignal(false);
-    const [isMenuOpen, setIsMenuOpen] = createSignal(false);
     const [draftName, setDraftName] = createSignal(props.File.original_file_name);
     let renameInput: HTMLInputElement | undefined;
     const selectable = !!props.onSelectionToggle;
@@ -106,7 +105,7 @@ const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: stri
     };
     return (
         <div
-            class={`relative flex flex-col w-80 h-96 bg-neutral-950 border rounded-lg md:hover:scale-105 transition-transform duration-300 shadow-lg ${isMenuOpen() ? "z-50" : ""} ${selectable ? "cursor-pointer" : ""} ${props.isSelected ? "border-blue-700 ring-2 ring-blue-700/40" : "border-neutral-800"}`}
+            class={`relative flex flex-col w-80 h-96 bg-neutral-950 border rounded-lg md:hover:scale-105 transition-transform duration-300 shadow-lg ${selectable ? "cursor-pointer" : ""} ${props.isSelected ? "border-blue-700 ring-2 ring-blue-700/40" : "border-neutral-800"}`}
             onClick={handleCardClick}
         >
             <div class="w-full h-[calc(14%+50%+21.4%)]">
@@ -133,8 +132,7 @@ const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: stri
                             <p class="text-white text-2xl font-semibold text-nowrap font-sans flex-1 text-center truncate" title={props.File.original_file_name}>{props.File.original_file_name}</p>
                             <Show when={location.pathname === "/my_drive"}>
                                 <ContextMenu
-                                    onOpenChange={setIsMenuOpen}
-                                    trigger={({ toggle }) => (
+                                    trigger={({ open, toggle }) => (
                                         <button
                                             type="button"
                                             class="flex items-center justify-center p-2 text-neutral-300 hover:text-white hover:bg-neutral-700 rounded-lg"
@@ -143,6 +141,8 @@ const FileCard: Component<{ File: FileData; onSelectionToggle?: (directory: stri
                                                 toggle();
                                             }}
                                             aria-label="File options"
+                                            aria-haspopup="menu"
+                                            aria-expanded={open()}
                                             title="File options"
                                         >
                                             <EllipsisVertical class="w-5 h-5" />

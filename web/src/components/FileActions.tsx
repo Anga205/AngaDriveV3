@@ -10,7 +10,7 @@ import Dialog from '@corvu/dialog';
 import Tooltip from "@corvu/tooltip";
 import RotateCcw from "lucide-solid/icons/rotate-ccw";
 import Image from "lucide-solid/icons/image";
-import { useMenuContext } from "./ContextMenu";
+import { ContextMenuItem } from "./ContextMenu";
 
 const VIDEO_EXTENSIONS = ["mkv", "avi", "mov", "wmv", "flv", "webm"];
 const IMAGE_CONVERT_EXTENSIONS = ["gif", "bmp", "webp", "tiff", "heic", "heif"];
@@ -25,7 +25,6 @@ const getAuth = () => ({
 
 const ConvertButton: Component<{ file: FileData; onConvert?: () => void }> = (props) => {
     const { socket: getSocket } = useWebSocket();
-    const menu = useMenuContext();
     const handleConvert = async () => {
         const convertRequest = {
             type: "convert_video",
@@ -40,16 +39,14 @@ const ConvertButton: Component<{ file: FileData; onConvert?: () => void }> = (pr
         }
         getSocket()?.send(JSON.stringify(convertRequest));
         props.onConvert?.();
-        menu?.close();
         toast.success("Conversion started for " + props.file.original_file_name)
     };
 
     return (
         VIDEO_EXTENSIONS.includes(getExtension(props.file.original_file_name)) ?
-            <button class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-neutral-100 hover:bg-neutral-700" onClick={handleConvert}>
-                <RotateCcw class="h-4 w-4 text-neutral-100" />
-                <span>Convert to MP4</span>
-            </button>
+            <ContextMenuItem icon={<RotateCcw class="h-4 w-4 text-neutral-100" />} onClick={handleConvert}>
+                Convert to MP4
+            </ContextMenuItem>
             : <div />
     );
 }
@@ -75,10 +72,9 @@ const ConvertImageButton: Component<{ file: FileData; target: "png" | "jpg"; lab
     };
 
     return (
-        <button class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-neutral-100 hover:bg-neutral-700" onClick={handleConvert}>
-            <Image class="h-4 w-4 text-neutral-100" />
-            <span>{props.label || `Convert to ${props.target.toUpperCase()}`}</span>
-        </button>
+        <ContextMenuItem icon={<Image class="h-4 w-4 text-neutral-100" />} onClick={handleConvert}>
+            {props.label || `Convert to ${props.target.toUpperCase()}`}
+        </ContextMenuItem>
     );
 }
 
