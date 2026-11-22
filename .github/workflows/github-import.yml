@@ -1,0 +1,110 @@
+name: GitHub Import Test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  github-import:
+    name: Full GitHub import tree verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.24'
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Set up Bun
+        uses: antongolub/action-setup-bun@v1
+        with:
+          bun-version: '1.2.4'
+
+      - name: Build frontend
+        working-directory: ./web
+        run: bun install && bun run build
+
+      # The server rebuilds the frontend on startup unless ./dist contains a
+      # .frontend-hash matching the current source. Stamp it here so the server
+      # skips the build (bun is not needed at runtime).
+      - name: Stamp frontend source hash
+        run: |
+          hash="$(
+            find web -type f \
+              ! -path 'web/node_modules/*' \
+              ! -path 'web/dist/*' \
+              ! -name '.frontend-hash' \
+              -print0 |
+            LC_ALL=C sort -z |
+            while IFS= read -r -d '' file; do
+              printf '%s\0' "${file#web/}"
+              cat "$file"
+              printf '\0'
+            done |
+            sha256sum | cut -d ' ' -f1
+          )"
+          printf '%s' "$hash" > web/dist/.frontend-hash
+          rm -rf ./dist
+          mv web/dist ./dist
+
+      - name: Build server
+        run: go build -o ./angadrive-server .
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install test dependencies
+        run: pip install -r tests/requirements.txt
+
+      - name: Start Go server
+        env:
+          WEB_URL: localhost:8080
+          ASSETS_URL: localhost:8080
+          SAVE_DRIVE_RAM: 'true'
+        run: |
+          # Start from a clean runtime directory so the import is isolated.
+          rm -rf uploaded_files
+          chmod +x ./angadrive-server
+          ./angadrive-server > server.log 2>&1 &
+          SERVER_PID=$!
+          echo "SERVER_PID=$SERVER_PID" >> "$GITHUB_ENV"
+          # Wait up to 30s for the server to come up.
+          for i in $(seq 1 30); do
+            if curl -s -o /dev/null http://localhost:8080/; then
+              echo "Server is up."
+              break
+            fi
+            sleep 1
+          done
+          if ! curl -s -o /dev/null http://localhost:8080/; then
+            echo "Server failed to start."
+            echo '--- Go server log ---'
+            cat server.log || true
+            exit 1
+          fi
+
+      - name: Run full GitHub import test
+        env:
+          API_URL: localhost:8080
+          GITHUB_IMPORT_TEST: '1'
+          TEST_TIMEOUT: '900'
+          GITHUB_IMPORT_TIMEOUT: '600'
+        run: python -m tests.main --test test_github_import_full_tree
+
+      - name: Stop Go server
+        if: always()
+        run: |
+          if [ -n "$SERVER_PID" ]; then
+            kill "$SERVER_PID" || true
+          fi
+          if [ -f server.log ]; then
+            echo '--- Go server log ---'
+            cat server.log
+          fi

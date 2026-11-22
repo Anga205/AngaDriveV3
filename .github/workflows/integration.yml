@@ -18,11 +18,11 @@ jobs:
           python-version: '3.12'
 
       - name: Install test dependencies
-        run: pip install -r tester/requirements.txt
+        run: pip install -r tests/requirements.txt
 
       - name: Discover integration tests
         id: tests
-        run: echo "tests=$(python -m tester.main --list --json)" >> "$GITHUB_OUTPUT"
+        run: echo "tests=$(python -m tests.main --list --json)" >> "$GITHUB_OUTPUT"
 
   frontend:
     runs-on: ubuntu-latest
@@ -152,13 +152,13 @@ jobs:
           python-version: '3.12'
 
       - name: Install test dependencies
-        run: pip install -r tester/requirements.txt
+        run: pip install -r tests/requirements.txt
 
       - name: Run ${{ matrix.test }}
         env:
           API_URL: localhost:8080
           TEST_TIMEOUT: '180'
-        run: python -m tester.main --test "${{ matrix.test }}"
+        run: python -m tests.main --test "${{ matrix.test }}"
 
       - name: Stop Go server
         if: always()

@@ -16,13 +16,9 @@ when a file is uploaded). These tests verify both the immediate burst and the
 subsequent pulse behaviour.
 """
 
-import asyncio
-import json
-
-import websockets
-
 from .harness import check
-from .helpers import make_msg, open_ws, recv_until, send_and_wait, upload_file
+from .helpers import (make_msg, open_ws, recv_messages, recv_until, send_and_wait,
+                      upload_file)
 from .test_accounts import register_and_login
 
 
@@ -33,15 +29,8 @@ async def test_enable_homepage_updates():
     await ws.send(make_msg("enable_homepage_updates", True))
 
     # Expect 5 immediate messages: 2x graph_data, user_count, files_hosted_count, system_information.
-    types = []
-    try:
-        async with asyncio.timeout(5.0):
-            while len(types) < 5:
-                raw = await ws.recv()
-                msg = json.loads(raw)
-                types.append(msg.get("type"))
-    except (asyncio.TimeoutError, websockets.ConnectionClosed):
-        pass
+    messages = await recv_messages(ws, 5, timeout=5.0)
+    types = [msg.get("type") for msg in messages]
 
     check("received 5 homepage messages", len(types) == 5, f"(got {types})")
     check("has graph_data", types.count("graph_data") >= 2)
@@ -66,12 +55,7 @@ async def test_homepage_pulse_on_upload():
     ws_a = await open_ws()
     await ws_a.send(make_msg("enable_homepage_updates", True))
     # Drain the 5 immediate messages.
-    try:
-        async with asyncio.timeout(5.0):
-            for _ in range(5):
-                await ws_a.recv()
-    except (asyncio.TimeoutError, websockets.ConnectionClosed):
-        pass
+    await recv_messages(ws_a, 5, timeout=5.0)
 
     # Connection B uploads a file.
     ws_b = await open_ws()
@@ -109,12 +93,7 @@ async def test_homepage_pulse_reaches_all_subscribers():
         ws = await open_ws()
         await ws.send(make_msg("enable_homepage_updates", True))
         # Drain the 5 immediate messages.
-        try:
-            async with asyncio.timeout(5.0):
-                for _ in range(5):
-                    await ws.recv()
-        except (asyncio.TimeoutError, websockets.ConnectionClosed):
-            pass
+        await recv_messages(ws, 5, timeout=5.0)
         subscribers.append(ws)
 
     # Connection C uploads a file.

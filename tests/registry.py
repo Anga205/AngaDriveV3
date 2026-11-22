@@ -5,7 +5,7 @@ import importlib
 import pkgutil
 from dataclasses import dataclass
 
-import tester
+import tests
 
 
 @dataclass(frozen=True)
@@ -17,18 +17,18 @@ class TestCase:
 
 
 def discover_tests():
-    """Discover public async test functions across ``tester/test_*.py``."""
-    tests = []
+    """Discover public async test functions across ``tests/test_*.py``."""
+    discovered = []
     module_names = sorted(
-        info.name for info in pkgutil.iter_modules(tester.__path__)
+        info.name for info in pkgutil.iter_modules(tests.__path__)
         if info.name.startswith("test_")
     )
     for module_name in module_names:
-        module = importlib.import_module(f"{tester.__name__}.{module_name}")
+        module = importlib.import_module(f"{tests.__name__}.{module_name}")
         for name, function in inspect.getmembers(module, inspect.iscoroutinefunction):
             if name.startswith("test_"):
-                tests.append(TestCase(name, function))
-    return tests
+                discovered.append(TestCase(name, function))
+    return discovered
 
 
 def find_test(name):

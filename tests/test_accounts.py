@@ -16,19 +16,30 @@ account).
 """
 
 from . import config
-from .harness import check, check_eq, check_in
-from .helpers import (bcrypt_hash, make_msg, open_ws, random_email, recv_until,
-                      send_and_wait, sha256_hex)
+from .harness import check, check_eq, check_in, setup_scope
+from .helpers import (bcrypt_hash, open_ws, random_email, recv_until,
+                      send_and_recv_until, send_and_wait, sha256_hex)
 
 
-async def register_and_login():
+async def register_and_login(as_setup=True):
     """Register a fresh account and return ``(email, digest)``.
 
     The returned ``digest`` is the SHA-256 hex digest of the password, which is
     what the frontend sends for login and every authenticated request. This is
     a setup helper used by many tests; it also verifies the basic register +
     login round-trip as a side effect.
+
+    When ``as_setup`` is True (the default), the assertions are reported as
+    setup and excluded from the calling test's timing aggregates, because the
+    dedicated :func:`test_register_and_login` already reports their performance.
     """
+    if as_setup:
+        with setup_scope():
+            return await _register_and_login()
+    return await _register_and_login()
+
+
+async def _register_and_login():
     email = random_email()
     password = "secret123"
     digest = sha256_hex(password)
@@ -77,7 +88,7 @@ async def register_and_login():
 async def test_register_and_login():
     """Verify the account registration and login round-trip independently."""
     print("\n[test] register and login")
-    await register_and_login()
+    await register_and_login(as_setup=False)
 
 
 async def test_change_display_name():
@@ -296,11 +307,11 @@ async def test_stale_client_gets_refresh_prompt():
     _insert_legacy_account(email, plaintext)
 
     ws = await open_ws()
-    await ws.send(make_msg("login", {"email": email, "password": plaintext}))
 
     # The notification arrives first, then the login_response.
-    notification = await recv_until(
-        ws, lambda m: m.get("type") == "notification", timeout=config.DEFAULT_TIMEOUT)
+    notification = await send_and_recv_until(
+        ws, "login", {"email": email, "password": plaintext},
+        lambda m: m.get("type") == "notification", timeout=config.DEFAULT_TIMEOUT)
     check("stale client receives notification", notification is not None)
     if notification:
         check_in("notification asks for hard refresh", "hard-refresh", notification["data"])

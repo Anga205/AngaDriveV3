@@ -1,12 +1,12 @@
 """AngaDrive integration test runner.
 
 Entry point for the modular test suite. Discovers and runs every test function
-in the ``tester`` package, reports detailed pass/fail output, and exits with a
+in the ``tests`` package, reports detailed pass/fail output, and exits with a
 non-zero code if any assertion failed.
 
 Usage:
-    python -m tester.main                 # run against localhost:8080
-    API_URL=myhost:8080 python -m tester.main
+    python -m tests.main                  # run against localhost:8080
+    API_URL=myhost:8080 python -m tests.main
 
 Requirements:
     pip install websockets aiohttp bcrypt
